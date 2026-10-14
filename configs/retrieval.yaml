@@ -1,0 +1,7 @@
+base_top_k: 8
+max_candidates: 12
+recall_at_k: [5, 10]
+embedding_model: null  # 成员 C 评测后确定
+main_comparison_candidates_shared: true
+optional_pure_vector_top_k: 8
+real_retrieval_implemented: false

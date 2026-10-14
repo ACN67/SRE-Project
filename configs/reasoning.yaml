@@ -1,0 +1,5 @@
+query_intents: [current_state, historical_state, state_history, event_fact, general_fact, unknown]
+time_modes: [latest_known, as_of, unknown, conflict]
+decision_actions: [RETAIN, EXCLUDE, UNRESOLVED]
+relation_types: [UPDATE, SUPERSEDE, CONFLICT]
+real_reasoning_implemented: false

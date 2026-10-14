@@ -1,0 +1,6 @@
+snapshot_sha256: null  # 待获取并冻结原始文件后填写
+sample_ids: null      # 必须取原始 sample_id，不能用数组序号代替
+groups:
+  main_dev: {source_order_1_based: [1, 2, 3, 4], sample_ids: null}
+  extra_dev: {source_order_1_based: [5, 6, 7, 8], sample_ids: null}
+  test: {source_order_1_based: [9, 10], sample_ids: null}

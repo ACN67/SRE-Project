@@ -1,0 +1,7 @@
+source_field: conversation
+exclude_fields: [qa.answer, qa.evidence, observation, session_summary, event_summary]
+prefer_session_windows: true
+window_max_input_tokens: 4096
+window_overlap_turns: 2
+image_caption_origin: blip_caption
+real_extraction_implemented: false

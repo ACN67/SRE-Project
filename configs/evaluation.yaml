@@ -1,0 +1,6 @@
+main_methods: [full_text, vector_rag, dynamic]
+optional_ablation: pure_vector_topk
+qa_scoring: pending_official_or_course_frozen_version
+gold_access: evaluation_only_after_prediction_saved
+formal_results_status: not_run
+recall_at_k: [5, 10]

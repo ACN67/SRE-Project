@@ -1,0 +1,15 @@
+default_backend: mock
+api_enabled_by_default: false
+provider_under_consideration: DeepSeek
+model_id: null  # 全组确认后填写
+thinking: disabled
+temperature: 0  # 仅在所选型号支持时使用
+extraction_max_input_tokens: 4096
+extraction_max_output_tokens: 4096
+reasoning_max_input_tokens: 8192
+reasoning_max_output_tokens: 2048
+qa_max_input_tokens: 32768
+qa_max_output_tokens: 256
+request_timeout_seconds: 120
+max_retries: 2
+max_concurrent_api_requests: 2
