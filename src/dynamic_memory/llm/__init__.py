@@ -9,6 +9,7 @@ from .protocol import (
     TokenUsage,
     validate_response_for_request,
 )
+from .mock import MockLLMAdapter, MockPresetNotFound, request_fingerprint
 
 __all__ = [
     "GenerationSettings",
@@ -18,4 +19,7 @@ __all__ = [
     "LLMResponse",
     "TokenUsage",
     "validate_response_for_request",
+    "MockLLMAdapter",
+    "MockPresetNotFound",
+    "request_fingerprint",
 ]

@@ -15,3 +15,10 @@
 - 功能及文件：`src/dynamic_memory/llm/protocol.py`、`llm/__init__.py` 定义并导出供应商无关的请求、响应、生成参数、用量和 `LLMAdapter.generate` 协议；`tests/unit/test_llm_protocol.py` 验证合法/非法输入输出及局部 Fake 注入；`docs/architecture.md` 说明已实现边界。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q` 为 44 passed（退出码 0）；既有 Mock smoke 为 PASS（退出码 0）；独立导入及局部 Fake 演示输出 `True synthetic`（退出码 0）。
 - 限制：未实现生产 Mock、DeepSeek Provider 或实际模型调用；真实 Provider 的结束原因映射及业务 JSON Schema/来源核验留待后续任务。本条随 A-02 代码和测试一同提交，实际 Commit SHA 以 Git 历史为准。
+
+## A-03（2026-10-15）
+
+- Commit Message：`确定性 Mock LLM Adapter`。
+- 功能及文件：`src/dynamic_memory/llm/mock.py`、`llm/__init__.py` 实现并导出稳定指纹、离线 Mock、严格预设匹配；`tests/unit/test_mock_llm.py` 覆盖三任务、注入、异常及跨进程稳定性；`docs/architecture.md` 说明使用边界。
+- 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_mock_llm.py`：8 passed（退出码 0）；完整 `pytest -q`：52 passed（退出码 0）；既有 `mock_smoke`：PASS（退出码 0）。跨进程结果由定向测试启动三个独立 Python 进程核对一致。
+- 限制：输出均为 synthetic，不代表真实模型、Token 用量、事实抽取或问答；DeepSeek Provider 与业务 JSON Schema 校验属后续任务。
