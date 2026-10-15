@@ -59,6 +59,16 @@ python -m venv .venv
 
 测试 fixture 全部为 synthetic。Mock 只证明公共对象能传递和校验，不生成正式答案。
 
+## 配置读取
+
+`dynamic_memory.pipeline.settings.load_settings(config_dir=None)` 会从仓库的 `configs/` 读取并校验六份 YAML，也可传入自定义目录。它返回类型化的 `AppSettings`，不会读取 API Key 或发起模型请求。例如，在已安装项目的环境中运行：
+
+```powershell
+.\.venv\Scripts\python.exe -c "from dynamic_memory.pipeline.settings import load_settings; s = load_settings(); print(s.models.default_backend, s.retrieval.base_top_k)"
+```
+
+当前输出为 `mock 8`。缺失文件、格式或字段错误会抛出带文件名和字段名的 `SettingsError`。
+
 ## 后续工作和安全边界
 
 各成员按技术规范实现各自模块，并在开发集验证后冻结模型、Embedding、数据快照和评分程序。原始数据、Gold、API Key、权重、缓存及结果文件不应提交到公开仓库。`.env.example` 仅列环境变量名；真实 API 必须经过显式配置。本仓库未附许可证，不应由公开可见推断使用授权。
