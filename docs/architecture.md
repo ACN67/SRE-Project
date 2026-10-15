@@ -12,4 +12,10 @@
 
 `dynamic_memory.llm.MockLLMAdapter` 实现上述 `generate` 协议。默认 JSON 输出仅含 `mock`、`synthetic`、任务类型与请求 SHA-256 指纹；QA 返回明确标为 Synthetic Mock 的非事实文本。它不回显输入、不推断事实，`usage`、`finish_reason`、实际模型 ID 保持未知。
 
-测试可用 `request_fingerprint(request)` 作为键，向 `MockLLMAdapter({key: LLMResponse(...)}, strict=True)` 注入内存中的合成响应。严格模式遇到未配置的请求会抛出 `MockPresetNotFound`；默认模式则返回通用合成结果。预设仍经响应与请求合同校验。此 Mock 只用于离线联调，真实 DeepSeek Provider 和业务 JSON Schema/来源验证仍待后续任务。
+测试可用 `request_fingerprint(request)` 作为键，向 `MockLLMAdapter({key: LLMResponse(...)}, strict=True)` 注入内存中的合成响应。严格模式遇到未配置的请求会抛出 `MockPresetNotFound`；默认模式则返回通用合成结果。预设仍经响应与请求合同校验。此 Mock 只用于离线联调；真实 Provider 接口见下节，业务 JSON Schema/来源验证仍待后续任务。
+
+## DeepSeek Chat Completions Provider（A-04）
+
+`DeepSeekLLMAdapter` 实现同一 `LLMAdapter` 协议，但默认 `api_enabled=False`，不会发起请求。只有调用方显式启用并提供非空模型 ID 后才能调用；真实 SDK 路径还要求显式传入凭据，SDK `openai` 为可选依赖，导入 `dynamic_memory.llm` 无需安装。测试可以注入纯内存 Fake Client。Provider 不读取环境密钥，也不从 `model_id: null` 推断正式型号。
+
+单次调用使用 `client.chat.completions.create`、官方 `https://api.deepseek.com` 基础 URL、`stream=False`，将输出预算映射为 `max_tokens`，用 `extra_body={"thinking":{"type":"disabled"}}` 明确关闭思考模式；JSON 任务额外传 `response_format={"type":"json_object"}`。调用方须在提示词中明确要求 JSON。返回的原始 `message.content`、可用用量、结束原因及型号映射到 A-02 响应；异常只暴露分类诊断，不携带密钥或请求正文。SDK 自动重试设为零，项目统一重试、并发和输入预算控制留待 A-07；具体业务 JSON Schema、SourceRef 和 ID 验证留待 A-05 与业务模块。

@@ -10,6 +10,7 @@ from .protocol import (
     validate_response_for_request,
 )
 from .mock import MockLLMAdapter, MockPresetNotFound, request_fingerprint
+from .deepseek import DeepSeekAdapterError, DeepSeekLLMAdapter
 
 __all__ = [
     "GenerationSettings",
@@ -22,4 +23,6 @@ __all__ = [
     "MockLLMAdapter",
     "MockPresetNotFound",
     "request_fingerprint",
+    "DeepSeekAdapterError",
+    "DeepSeekLLMAdapter",
 ]
