@@ -29,3 +29,10 @@
 - 功能及文件：`src/dynamic_memory/llm/deepseek.py`、`llm/__init__.py` 实现并导出显式启用的 Chat Completions Provider、请求参数映射、严格响应检查及脱敏错误分类；`tests/unit/test_deepseek_llm.py` 用内存 Fake 覆盖三任务和失败路径；`docs/architecture.md` 说明接口与后续边界。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_deepseek_llm.py`：27 passed（退出码 0）；完整 `pytest -q`：79 passed（退出码 0）；既有 `mock_smoke`：PASS（退出码 0）。全部测试离线，无真实 Provider 请求。
 - 限制：正式模型 ID 尚待全组确认；本轮不验证真实账号/API、业务 JSON Schema 或计费指标。统一重试、并发及输入预算控制留待后续任务。
+
+## A-05（2026-10-16）
+
+- Commit Message：`实现LLM JSON结构化校验`。
+- 功能及文件：`src/dynamic_memory/llm/structured_output.py` 新增供应商无关的显式 Pydantic Schema 校验入口与脱敏错误分类；`llm/__init__.py` 导出；`tests/unit/test_structured_output.py` 覆盖公共 DTO、局部抽取草稿、JSON 完整性、协议一致性及失败脱敏；`docs/architecture.md` 说明使用边界。
+- 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_structured_output.py`：32 passed（退出码 0）；完整 `pytest -q`：111 passed（退出码 0）；`mock_smoke`：PASS（退出码 0）；`git diff --check`：退出码 0。全部离线，无真实 Provider 请求。
+- 限制：本层只验证已返回 JSON 的结构和现有 DTO 约束，额外要求版本化公共 DTO 显式携带 `schema_version="2.1"`；不验证事实、来源存在、候选集合或 Memory ID 与内容的哈希对应，不修复或重试模型输出。A-06 Prompt 模板管理留待下一轮。

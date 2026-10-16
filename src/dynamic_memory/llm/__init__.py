@@ -11,6 +11,7 @@ from .protocol import (
 )
 from .mock import MockLLMAdapter, MockPresetNotFound, request_fingerprint
 from .deepseek import DeepSeekAdapterError, DeepSeekLLMAdapter
+from .structured_output import StructuredOutputError, validate_structured_output
 
 __all__ = [
     "GenerationSettings",
@@ -25,4 +26,6 @@ __all__ = [
     "request_fingerprint",
     "DeepSeekAdapterError",
     "DeepSeekLLMAdapter",
+    "StructuredOutputError",
+    "validate_structured_output",
 ]
