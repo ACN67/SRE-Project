@@ -43,3 +43,10 @@
 - 功能及文件：`src/dynamic_memory/llm/prompts.py` 新增不可变模板、受限占位符渲染、精确版本查找、稳定模板指纹与按配置构建 LLMRequest；`llm/__init__.py` 导出；`tests/unit/test_prompts.py` 覆盖模板合同、变量原样保留、跨进程指纹、参数映射、QA 公平输入和脱敏失败；`docs/architecture.md` 提供三个初始模板的可运行示例及 B/D 扩展约定。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_prompts.py`：33 passed（退出码 0）；`.\.venv\Scripts\python.exe -m pytest -q`：144 passed（退出码 0，原有 111 项无回归）；`.\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke`：PASS（退出码 0）；架构文档 Python 示例实际运行 PASS（退出码 0）；`git diff --check`：退出码 0。测试均使用 synthetic 数据，无真实 API 请求。
 - 限制：三个内置模板均为 `demo-v1` 演示/联调版本，不代表已冻结的正式实验 Prompt；上下文选择、Gold 排除、来源事实核验由业务模块负责，安全提示不能证明完全抵御 Prompt Injection。本层不计数或截断 Token、不实施抽取/状态算法、不写日志缓存；A-07 模型重试、并发与预算执行留待后续任务。
+
+## A-07（2026-10-17）
+
+- Commit Message：`实现LLM调用重试并发与预算控制`。
+- 功能及文件：`src/dynamic_memory/llm/execution.py` 增加可注入的 `GuardedLLMAdapter`、有限重试白名单、执行器共享的在途并发许可、调用前预算/输入估算核验、实际用量与未知尝试摘要及脱敏错误；`llm/__init__.py` 导出；`tests/unit/test_llm_execution.py` 使用 Fake、Mock 与线程事件覆盖重试、并发、预算及错误路径；`docs/architecture.md` 说明边界与可运行离线示例。
+- 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_llm_execution.py`：46 passed（退出码 0）；完整 `pytest -q`：190 passed（退出码 0，原 144 项无回归）；`mock_smoke`：PASS（退出码 0）；架构文档 A-07 离线示例运行 PASS（退出码 0）。无真实 Provider 请求。
+- 限制：无可信输入 Token 估算时严格模式调用前拒绝，宽松模式标明未核验；估算不等于真实分词数，未知用量不填零。`API_STATUS` 无结构化状态码、`INVALID_RESPONSE` 无空 JSON 精细分类，默认不重试；并发限制只在同一执行器实例及进程内共享，Provider 单次超时仍由其自身负责。本层不裁剪业务上下文、不写日志缓存或计算真实费用。A-08 调用日志与缓存留待下一轮。

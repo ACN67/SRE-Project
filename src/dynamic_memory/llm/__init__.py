@@ -17,6 +17,7 @@ from .prompts import (
     STATE_REASONING_PROMPT, PromptTemplate, PromptTemplateError, RenderedPrompt,
     build_prompt_request, get_prompt_template, render_prompt,
 )
+from .execution import GuardedLLMAdapter, LLMCallResult, LLMCallSummary, LLMExecutionError, TokenEstimator
 
 __all__ = [
     "GenerationSettings",
@@ -43,4 +44,9 @@ __all__ = [
     "MEMORY_EXTRACTION_PROMPT",
     "STATE_REASONING_PROMPT",
     "QA_PROMPT",
+    "GuardedLLMAdapter",
+    "LLMCallResult",
+    "LLMCallSummary",
+    "LLMExecutionError",
+    "TokenEstimator",
 ]

@@ -61,3 +61,22 @@ B/D 可直接构造自己的 `PromptTemplate(template_id="b.extraction", version
 `template_fingerprint` 是对 ID、版本、任务、原始 system/user 模板和排序后的变量定义进行规范 JSON 序列化后的 UTF-8 SHA-256，不含本次输入。A-03 的 `request_fingerprint(request)` 包含实际消息及设置，两者用途不同；本层不写日志或缓存。构建器逐任务映射 `ModelsSettings` 的 input/output 预算并保留 temperature/thinking；`model_id=None` 表示使用配置中的值（可为 null），显式非空字符串覆盖配置且不修改原对象。三路 QA 应复用 `qa_shared@demo-v1` 和同一配置，仅改变已选 context，保持相同 question；模板无 method 分支。
 
 失败抛出带固定 code 的 `PromptTemplateError`，不回显变量、模板正文或 Pydantic 输入。构建请求不意味着已计数或截断输入 Token，也不证明抽取/状态判断/问答准确；模型调用、有限重试、并发和预算执行留待 A-07。
+
+## 模型调用执行策略（A-07）
+
+`GuardedLLMAdapter(adapter, models_settings, *, token_estimator=None, strict_budget=False, sleep=..., acquire_timeout_seconds=None)` 包装已有 `LLMAdapter`。同一个执行器实例通过 `BoundedSemaphore(max_concurrent_api_requests)` 限制实际进入 `adapter.generate` 的请求；A-09 应将该实例注入各业务模块。不同实例、进程之间不会自动共享配额。默认排队许可等待时间取配置中的 `request_timeout_seconds`，可显式覆盖；Provider 单次请求超时仍由其自身实现，执行器不能中断任意阻塞的同步 Adapter。
+
+`execute(request)` 返回 `LLMCallResult(response, summary)`；`generate(request)` 与 A-02 协议兼容，失败时均抛 `LLMExecutionError(code, summary)`。摘要记录实际尝试次数、重试次数、失败码、估算输入 Token、已知 prompt/completion Token 与用量未知的尝试数。预检在占用许可之前完成。配置的 `max_retries=2` 表示最多三次 Provider 调用；只有 `TIMEOUT`、`NETWORK`、`RATE_LIMIT` 进入有限指数退避，退避不占许可。`API_STATUS` 没有结构化 HTTP 状态码、`INVALID_RESPONSE` 也无法可靠区分空 JSON，故两者默认直接失败。A-05 业务 Schema 验证仍是执行后的显式步骤，不自动修补或重试。
+
+```python
+from dynamic_memory.llm import GuardedLLMAdapter, MockLLMAdapter, QA_PROMPT, render_prompt, build_prompt_request
+from dynamic_memory.pipeline.settings import load_settings
+
+models = load_settings().models
+rendered = render_prompt(QA_PROMPT, {"context": "Synthetic context.", "question": "What happened?"})
+request = build_prompt_request(rendered, models)
+executor = GuardedLLMAdapter(MockLLMAdapter(), models, strict_budget=True, token_estimator=lambda messages: 12)
+result = executor.execute(request)  # 离线 Mock；12 仅为演示估算，不是模型的真实 Token 数。
+```
+
+估算器接收完整 `messages` tuple，返回非负整数或 `None`；无估算器时宽松模式将 `input_budget_verified=False`，严格模式在调用前拒绝。整数只用于与请求的 `max_input_tokens` 比较，不代表真实模型精确计数。请求的 input/output 上限不得超过对应任务配置；Provider 回报的真实用量若超过请求上限，也报告预算错误。`usage=None` 保持未知，不填零；失败调用若没有可信用量，其计费情况也未知。本层不裁剪上下文、不写日志或缓存、不计算货币费用；B/C/D 负责选择和记录进入模型的真实内容。
