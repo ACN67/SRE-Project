@@ -36,3 +36,10 @@
 - 功能及文件：`src/dynamic_memory/llm/structured_output.py` 新增供应商无关的显式 Pydantic Schema 校验入口与脱敏错误分类；`llm/__init__.py` 导出；`tests/unit/test_structured_output.py` 覆盖公共 DTO、局部抽取草稿、JSON 完整性、协议一致性及失败脱敏；`docs/architecture.md` 说明使用边界。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_structured_output.py`：32 passed（退出码 0）；完整 `pytest -q`：111 passed（退出码 0）；`mock_smoke`：PASS（退出码 0）；`git diff --check`：退出码 0。全部离线，无真实 Provider 请求。
 - 限制：本层只验证已返回 JSON 的结构和现有 DTO 约束，额外要求版本化公共 DTO 显式携带 `schema_version="2.1"`；不验证事实、来源存在、候选集合或 Memory ID 与内容的哈希对应，不修复或重试模型输出。A-06 Prompt 模板管理留待下一轮。
+
+## A-06（2026-10-17）
+
+- Commit Message：`实现统一Prompt模板管理`。
+- 功能及文件：`src/dynamic_memory/llm/prompts.py` 新增不可变模板、受限占位符渲染、精确版本查找、稳定模板指纹与按配置构建 LLMRequest；`llm/__init__.py` 导出；`tests/unit/test_prompts.py` 覆盖模板合同、变量原样保留、跨进程指纹、参数映射、QA 公平输入和脱敏失败；`docs/architecture.md` 提供三个初始模板的可运行示例及 B/D 扩展约定。
+- 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_prompts.py`：33 passed（退出码 0）；`.\.venv\Scripts\python.exe -m pytest -q`：144 passed（退出码 0，原有 111 项无回归）；`.\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke`：PASS（退出码 0）；架构文档 Python 示例实际运行 PASS（退出码 0）；`git diff --check`：退出码 0。测试均使用 synthetic 数据，无真实 API 请求。
+- 限制：三个内置模板均为 `demo-v1` 演示/联调版本，不代表已冻结的正式实验 Prompt；上下文选择、Gold 排除、来源事实核验由业务模块负责，安全提示不能证明完全抵御 Prompt Injection。本层不计数或截断 Token、不实施抽取/状态算法、不写日志缓存；A-07 模型重试、并发与预算执行留待后续任务。
