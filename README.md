@@ -7,8 +7,9 @@
 - Python 3.11 / Pydantic v2 公共 DTO、部分结构校验、确定性 Memory ID 工具。
 - 无网络 synthetic Mock 入口及合同测试；不读取数据、不调用收费 API。
 - 冻结规范副本、配置初值和模块目录。配置中的 `null` 表示尚未冻结。
+- E Web 第一期：样本切换、记忆筛选与分页、详情、原文及 caption 追溯；已接入公共 DTO，默认使用明确标注的 synthetic 数据。
 
-真实 DeepSeek 抽取、Embedding 检索、动态状态推理、完整 Streamlit Web、正式 LoCoMo 评分均未实现；Mock 输出不能作为实验结果。
+真实 DeepSeek 抽取、Embedding 检索、动态状态推理、Web 问答与关系展示、正式 LoCoMo 评分均未实现；Mock 输出不能作为实验结果。
 
 ## 分工
 
@@ -22,7 +23,7 @@
 
 ## Git 分支与团队协作
 
-`main` 是稳定的集成分支。五位成员各自从最新 `main` 建立个人分支，独立开发负责模块；个人真实提交历史和贡献应可追溯。本轮只确定以下分支命名，尚未创建 A、B、C、D、E 分支。
+`main` 是稳定的集成分支。五位成员各自从最新 `main` 建立个人分支，独立开发负责模块；个人真实提交历史和贡献应可追溯。E 分支已创建；其他成员分支以仓库实际状态为准，命名约定如下。
 
 | 成员 | 代号 | 个人开发分支（精确名称） | 负责模块 |
 | --- | --- | --- | --- |
@@ -52,12 +53,22 @@
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e '.[dev]'
+.\.venv\Scripts\python.exe -m pip install -e '.[dev,web]'
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke
 ```
 
 测试 fixture 全部为 synthetic。Mock 只证明公共对象能传递和校验，不生成正式答案。
+
+## E Web 第一期
+
+```powershell
+.\.venv\Scripts\python.exe scripts/run_web.py
+```
+
+打开 http://127.0.0.1:8501。本期迁入独立原型的记忆浏览闭环，暂不迁入问答及关系展示。生产接入通过 `DYNAMIC_MEMORY_WEB_FACTORY` 注入 A 已初始化的服务，直接使用仓库公共契约；详情见 [Web 接入说明](docs/WEB_INTEGRATION.md)。
+
+AI 辅助开发约束位于 [项目 skill](ai-skills/dynamic-memory-web/SKILL.md)，由 `AGENTS.md` 引导读取。Web 行为测试命令为 `.\.venv\Scripts\python.exe -m pytest tests/web -q`。每半周以实际完成并通过测试的功能形成提交，不为凑提交次数拆分不可运行的代码。本批的变更和验收记录见 [第一期迁入记录](docs/reports/E_PHASE1.md)。
 
 ## 后续工作和安全边界
 
