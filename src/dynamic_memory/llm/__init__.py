@@ -11,6 +11,17 @@ from .protocol import (
 )
 from .mock import MockLLMAdapter, MockPresetNotFound, request_fingerprint
 from .deepseek import DeepSeekAdapterError, DeepSeekLLMAdapter
+from .structured_output import StructuredOutputError, validate_structured_output
+from .prompts import (
+    DEFAULT_PROMPT_TEMPLATES, MEMORY_EXTRACTION_PROMPT, QA_PROMPT,
+    STATE_REASONING_PROMPT, PromptTemplate, PromptTemplateError, RenderedPrompt,
+    build_prompt_request, get_prompt_template, render_prompt,
+)
+from .execution import GuardedLLMAdapter, LLMCallResult, LLMCallSummary, LLMExecutionError, TokenEstimator
+from .recording import (
+    CallIdentity, MemoryRecordingStore, RecordedCallResult, RecordedLLMExecutor,
+    RecordingError, SQLiteRecordingStore, call_cache_key,
+)
 
 __all__ = [
     "GenerationSettings",
@@ -25,4 +36,28 @@ __all__ = [
     "request_fingerprint",
     "DeepSeekAdapterError",
     "DeepSeekLLMAdapter",
+    "StructuredOutputError",
+    "validate_structured_output",
+    "PromptTemplate",
+    "PromptTemplateError",
+    "RenderedPrompt",
+    "render_prompt",
+    "build_prompt_request",
+    "get_prompt_template",
+    "DEFAULT_PROMPT_TEMPLATES",
+    "MEMORY_EXTRACTION_PROMPT",
+    "STATE_REASONING_PROMPT",
+    "QA_PROMPT",
+    "GuardedLLMAdapter",
+    "LLMCallResult",
+    "LLMCallSummary",
+    "LLMExecutionError",
+    "TokenEstimator",
+    "CallIdentity",
+    "MemoryRecordingStore",
+    "SQLiteRecordingStore",
+    "RecordedCallResult",
+    "RecordedLLMExecutor",
+    "RecordingError",
+    "call_cache_key",
 ]
