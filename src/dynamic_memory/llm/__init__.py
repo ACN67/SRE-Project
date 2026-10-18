@@ -18,6 +18,10 @@ from .prompts import (
     build_prompt_request, get_prompt_template, render_prompt,
 )
 from .execution import GuardedLLMAdapter, LLMCallResult, LLMCallSummary, LLMExecutionError, TokenEstimator
+from .recording import (
+    CallIdentity, MemoryRecordingStore, RecordedCallResult, RecordedLLMExecutor,
+    RecordingError, SQLiteRecordingStore, call_cache_key,
+)
 
 __all__ = [
     "GenerationSettings",
@@ -49,4 +53,11 @@ __all__ = [
     "LLMCallSummary",
     "LLMExecutionError",
     "TokenEstimator",
+    "CallIdentity",
+    "MemoryRecordingStore",
+    "SQLiteRecordingStore",
+    "RecordedCallResult",
+    "RecordedLLMExecutor",
+    "RecordingError",
+    "call_cache_key",
 ]

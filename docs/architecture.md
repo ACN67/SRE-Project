@@ -80,3 +80,40 @@ result = executor.execute(request)  # 离线 Mock；12 仅为演示估算，不�
 ```
 
 估算器接收完整 `messages` tuple，返回非负整数或 `None`；无估算器时宽松模式将 `input_budget_verified=False`，严格模式在调用前拒绝。整数只用于与请求的 `max_input_tokens` 比较，不代表真实模型精确计数。请求的 input/output 上限不得超过对应任务配置；Provider 回报的真实用量若超过请求上限，也报告预算错误。`usage=None` 保持未知，不填零；失败调用若没有可信用量，其计费情况也未知。本层不裁剪上下文、不写日志或缓存、不计算货币费用；B/C/D 负责选择和记录进入模型的真实内容。
+
+## 调用日志和成功响应缓存（A-08）
+
+`RecordedLLMExecutor(guarded_executor, store=None, cache_enabled=True)` 包装 A-07。默认使用仅在内存存在的 `MemoryRecordingStore`；
+显式构造 `SQLiteRecordingStore(path)` 才写入本机 SQLite，路径必须处于被 Git 忽略的仓库 `results/` 或操作系统临时目录。数据库会保存原始响应，可能包含私人信息：调用方负责目录权限、保留期限和清理，不得提交数据库。SQLite 事务将成功缓存与对应事件一起提交；写失败会回滚。损坏、旧格式或身份不一致的命中报 `CACHE_CORRUPT`，不会送回模型或覆盖另一份有效缓存。连接每次事务后关闭。
+
+`CallIdentity` 明确提供 `sample_id`、`scope_id`、任务、QA 方法、`development`/`interactive`/`evaluation` 运行类型、`mock`/`deepseek` 后端及真实型号、数据/模板/配置/执行策略/检索器指纹、Schema 身份与版本、查询分析版本和 Git SHA。不适用字段使用 `None`；QA 必须选 `full_text`、`vector_rag` 或 `dynamic`。真实后端须给已解析的非空型号，且响应型号应与身份一致。调用者应由 A-09 和业务数据路径提供真实版本，不得从 Gold 推导。
+
+```python
+from hashlib import sha256
+from dynamic_memory.llm import (
+    CallIdentity, GuardedLLMAdapter, MockLLMAdapter, QA_PROMPT,
+    RecordedLLMExecutor, build_prompt_request, render_prompt,
+)
+from dynamic_memory.pipeline.settings import load_settings
+
+fp = lambda text: "sha256:" + sha256(text.encode("utf-8")).hexdigest()  # 仅演示合成版本
+models = load_settings().models
+rendered = render_prompt(QA_PROMPT, {"context": "Synthetic context.", "question": "What happened?"})
+request = build_prompt_request(rendered, models)
+identity = CallIdentity(
+    sample_id="synthetic_sample", task="qa", scope_id="synthetic_query",
+    method="full_text", run_kind="development", backend="mock", resolved_model_id=None,
+    data_fingerprint=fp("synthetic data"), template_id=rendered.template_id,
+    template_version=rendered.version, template_fingerprint=rendered.template_fingerprint,
+    schema_id=None, schema_version=None, config_fingerprint=fp("synthetic config"),
+    execution_policy_fingerprint=fp("synthetic policy"), retriever_fingerprint=None,
+    query_analysis_version="synthetic-analysis-v1", git_sha="a" * 40,
+)
+recorded = RecordedLLMExecutor(GuardedLLMAdapter(MockLLMAdapter(), models))
+first = recorded.execute(request, identity)   # miss: 一次离线 Mock 调用
+second = recorded.execute(request, identity)  # hit: 本轮 Provider attempts=0
+```
+
+组合键对规范 JSON 中的完整身份与 A-03 `request_fingerprint(request)` 作 UTF-8 SHA-256，因此更改 scope、方法、环境、模型、原始消息、设置或任一适用版本会 Miss。JSON 任务必须在 `execute(..., validator=...)` 中传入可抛错的 A-05 业务校验器才能缓存；未提供时本次记 `skip`，不保存 JSON。命中仍核对包版本、完整身份、请求/响应协议与同一 validator，返回独立响应对象。QA 文本可按协议缓存，答案的证据真伪仍须业务层核验。
+
+同一 `RecordedLLMExecutor` 内，同键请求使用进程内锁实现 single-flight；第一个成功后，等待者重读并命中，不再调用 Provider。不同键继续交由 A-07 的并发许可约束。不同执行器或进程没有共享 single-flight 保证。每个逻辑调用只写一个不含正文的事件，记录 UTC 时间、call_id、身份版本、缓存状态、脱敏错误、总耗时以及 A-07 的真实尝试/重试和已知/未知用量；命中本次尝试数为 0，来源历史用量只在结果的 `source_summary` 中保留。费用未知为 `null`。日志/存储写失败显式报错且不会在当前调用中再次请求 Provider；当前层不做自动重试、业务截断或计费。

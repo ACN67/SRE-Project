@@ -50,3 +50,10 @@
 - 功能及文件：`src/dynamic_memory/llm/execution.py` 增加可注入的 `GuardedLLMAdapter`、有限重试白名单、执行器共享的在途并发许可、调用前预算/输入估算核验、实际用量与未知尝试摘要及脱敏错误；`llm/__init__.py` 导出；`tests/unit/test_llm_execution.py` 使用 Fake、Mock 与线程事件覆盖重试、并发、预算及错误路径；`docs/architecture.md` 说明边界与可运行离线示例。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_llm_execution.py`：46 passed（退出码 0）；完整 `pytest -q`：190 passed（退出码 0，原 144 项无回归）；`mock_smoke`：PASS（退出码 0）；架构文档 A-07 离线示例运行 PASS（退出码 0）。无真实 Provider 请求。
 - 限制：无可信输入 Token 估算时严格模式调用前拒绝，宽松模式标明未核验；估算不等于真实分词数，未知用量不填零。`API_STATUS` 无结构化状态码、`INVALID_RESPONSE` 无空 JSON 精细分类，默认不重试；并发限制只在同一执行器实例及进程内共享，Provider 单次超时仍由其自身负责。本层不裁剪业务上下文、不写日志缓存或计算真实费用。A-08 调用日志与缓存留待下一轮。
+
+## A-08（2026-10-18）
+
+- Commit Message：`实现LLM调用日志与缓存`。
+- 功能及文件：`src/dynamic_memory/llm/recording.py` 新增严格版本化的 `CallIdentity`、组合缓存键、内存/显式 SQLite 存储、成功响应校验与重放、脱敏逻辑调用事件及同键 single-flight；`llm/__init__.py` 导出；`tests/unit/test_llm_recording.py` 用 synthetic Fake、线程事件与 `tmp_path` 验证身份隔离、成功与失败、事务回滚、损坏检测和离线重放；`docs/architecture.md` 说明 API、敏感缓存路径及运行边界。
+- 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_llm_recording.py`：44 passed（退出码 0）；完整 `pytest -q`：234 passed（退出码 0，原 190 项无回归）；`mock_smoke`：PASS（退出码 0）；架构文档 A-08 离线示例运行 PASS（退出码 0）；`git diff --check`：退出码 0。无真实 API 请求。
+- 限制：默认只保存内存日志与缓存；SQLite 须显式指定被忽略的 `results/` 或临时路径，原始响应可能含私人信息。single-flight 只在同一执行器实例内有效；不跨进程锁定同键请求。指纹与版本身份由 A-09/业务层提供，未推断 Gold 或业务事实；QA 缓存不证明回答正确，JSON 无业务 validator 不入缓存。本层不计算真实费用、没有在线或跨进程并发验证。A-09 Runtime 与依赖注入留待下一轮。
