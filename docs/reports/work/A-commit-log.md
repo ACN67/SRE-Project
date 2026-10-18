@@ -57,3 +57,10 @@
 - 功能及文件：`src/dynamic_memory/llm/recording.py` 新增严格版本化的 `CallIdentity`、组合缓存键、内存/显式 SQLite 存储、成功响应校验与重放、脱敏逻辑调用事件及同键 single-flight；`llm/__init__.py` 导出；`tests/unit/test_llm_recording.py` 用 synthetic Fake、线程事件与 `tmp_path` 验证身份隔离、成功与失败、事务回滚、损坏检测和离线重放；`docs/architecture.md` 说明 API、敏感缓存路径及运行边界。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\unit\test_llm_recording.py`：44 passed（退出码 0）；完整 `pytest -q`：234 passed（退出码 0，原 190 项无回归）；`mock_smoke`：PASS（退出码 0）；架构文档 A-08 离线示例运行 PASS（退出码 0）；`git diff --check`：退出码 0。无真实 API 请求。
 - 限制：默认只保存内存日志与缓存；SQLite 须显式指定被忽略的 `results/` 或临时路径，原始响应可能含私人信息。single-flight 只在同一执行器实例内有效；不跨进程锁定同键请求。指纹与版本身份由 A-09/业务层提供，未推断 Gold 或业务事实；QA 缓存不证明回答正确，JSON 无业务 validator 不入缓存。本层不计算真实费用、没有在线或跨进程并发验证。A-09 Runtime 与依赖注入留待下一轮。
+
+## A-09（2026-10-18）
+
+- Commit Message：`实现Runtime初始化与依赖注入`。
+- 功能及文件：`src/dynamic_memory/pipeline/runtime.py` 新增显式 `create_runtime`、只读引用的 `LLMRuntime`、`PreparedCall`、请求/身份绑定及执行预检；只装配一个底层 Adapter、一个 A-07 Guarded 和一个 A-08 Recorded，默认 Mock，DeepSeek 需独立显式授权与凭据或受控 Fake Client。`tests/integration/test_llm_runtime.py` 验证共享实例、Prompt/JSON、三路 QA、身份隔离、缓存、并发、离线 Fake 和失败路径；`docs/architecture.md` 增加可运行示例与接入边界。
+- 测试：定向 `pytest -q tests\integration\test_llm_runtime.py`：10 passed（退出码 0）；完整 `pytest -q`：244 passed（退出码 0，原有 234 项无回归）；`mock_smoke`：PASS（退出码 0）；文档 A-09 示例输出 `mock 2`（退出码 0）；`git diff --check`：退出码 0。全部离线，无真实 API 请求。
+- 限制：这只是共享 LLM 基础设施的 Runtime；B/C/D 的真实数据、索引、状态和证据核验及 A 的正式 `run_query` 尚未接入。Mock/Fake 的回答、用量和身份皆为 synthetic，不能作为业务或在线验证。数据/索引指纹、Schema、查询范围和已存在的 Git SHA 必须由上游显式传入；JSON 缺业务 validator 不成功缓存。

@@ -117,3 +117,31 @@ second = recorded.execute(request, identity)  # hit: 本轮 Provider attempts=0
 组合键对规范 JSON 中的完整身份与 A-03 `request_fingerprint(request)` 作 UTF-8 SHA-256，因此更改 scope、方法、环境、模型、原始消息、设置或任一适用版本会 Miss。JSON 任务必须在 `execute(..., validator=...)` 中传入可抛错的 A-05 业务校验器才能缓存；未提供时本次记 `skip`，不保存 JSON。命中仍核对包版本、完整身份、请求/响应协议与同一 validator，返回独立响应对象。QA 文本可按协议缓存，答案的证据真伪仍须业务层核验。
 
 同一 `RecordedLLMExecutor` 内，同键请求使用进程内锁实现 single-flight；第一个成功后，等待者重读并命中，不再调用 Provider。不同键继续交由 A-07 的并发许可约束。不同执行器或进程没有共享 single-flight 保证。每个逻辑调用只写一个不含正文的事件，记录 UTC 时间、call_id、身份版本、缓存状态、脱敏错误、总耗时以及 A-07 的真实尝试/重试和已知/未知用量；命中本次尝试数为 0，来源历史用量只在结果的 `source_summary` 中保留。费用未知为 `null`。日志/存储写失败显式报错且不会在当前调用中再次请求 Provider；当前层不做自动重试、业务截断或计费。
+
+## Runtime 组合入口（A-09）
+
+`dynamic_memory.pipeline.runtime.create_runtime(settings=None, *, config_dir=None, backend=None, api_enabled=False, model_id=None, api_key=None, deepseek_client=None, synthetic_adapter=None, mock_presets=None, mock_strict=False, token_estimator=None, estimator_version=None, strict_budget=False, sleep=time.sleep, store=None, cache_enabled=True)` 在显式调用时装配一次 `adapter → GuardedLLMAdapter → RecordedLLMExecutor`。传入 `AppSettings` 时不读取 YAML；未传时调用 `load_settings(config_dir)`。默认 Mock、内存存储、无 API。`backend="deepseek"` 仍为禁用状态；真正启用需另外传 `api_enabled=True`、明确非空 `model_id` 和显式凭据或受控 Fake Client。不会读取环境 API Key。普通 Fake Adapter 只能以 `synthetic_adapter` 放在 Mock 身份下；真实后端不接受它。凭据不进入配置或执行策略指纹。
+
+`runtime.make_request(template, variables)` 返回含 A-06 `RenderedPrompt` 和 A-02 `LLMRequest` 的 `PreparedCall`；`runtime.make_identity(...)` 将真实后端、模型、模板、配置和执行策略绑定到 A-08 身份；`runtime.execute(prepared, identity, validator=...)` 在调用前再次检查绑定并沿 A-08/A-07 唯一链路执行。业务方必须提供真实 `sample_id`、原始查询/窗口 `scope_id`、数据快照与适用的索引 SHA-256 指纹、版本化 Schema、查询分析版本和已存在的 Git commit SHA。本层不会从 Gold 或 Prompt 推断这些值。下面只使用 synthetic fixture，`"a" * 40` 绝不可作为生产 Git SHA：
+
+```python
+from hashlib import sha256
+from dynamic_memory.llm import QA_PROMPT
+from dynamic_memory.pipeline.runtime import create_runtime
+from dynamic_memory.pipeline.settings import load_settings
+
+fp = lambda text: "sha256:" + sha256(text.encode()).hexdigest()  # synthetic fixture only
+runtime = create_runtime(load_settings())
+call = runtime.make_request(QA_PROMPT, {"context": "Synthetic context.", "question": "Synthetic question?"})
+identity = runtime.make_identity(
+    call, sample_id="synthetic_sample", scope_id="synthetic_query",
+    run_kind="development", method="full_text", data_fingerprint=fp("synthetic data"),
+    schema_id=None, schema_version=None, retriever_fingerprint=None,
+    query_analysis_version="synthetic-analysis-v1", git_sha="a" * 40,
+)
+assert runtime.execute(call, identity).cache_status == "miss"
+assert runtime.execute(call, identity).cache_status == "hit"
+print(runtime.backend, len(runtime.recorder.store.events()))  # mock 2
+```
+
+三路 QA 由调用方传同一 QA 模板及 Runtime，故 system 指令、模型及生成设置一致；只有已筛选的 context、`method`、scope 和适用索引版本因路径而异。JSON 任务须由 B/D 显式传入适用业务 `validator` 才会成功缓存，不能把未校验输出当事实。配置指纹由已校验的全部 `AppSettings` 生成；执行策略指纹包含后端/型号、API 开关、超时、重试、并发、预算模式与显式 `estimator_version`。注入 TokenEstimator 时必须给该版本，估算值不当作服务端实际 Token。上层应在 Web 重渲染时复用同一 Runtime；正式 `run_query` 仍待 B/C/D 的业务接口和真实数据、索引、证据核验到位。
