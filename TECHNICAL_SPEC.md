@@ -1,6 +1,6 @@
 # 智能体动态记忆管理系统：统一技术规范与成员协作说明
 
-> **版本：v2.1**  
+> **版本：v2.2**
 > **课程：Software Requirements Engineering**  
 > **项目：Dynamic Memory Management for AI Agents**  
 > **适用范围：** 五名成员的技术开发、模块交接、测试和最终验收  
@@ -8,7 +8,7 @@
 
 本文件说明课程要求、采用的技术路线、仓库结构、成员职责、共同接口和验收条件。它规定模块之间必须一致的行为与交付，不代替成员对各自算法和实现方式的研究。文中标注“课程要求”的内容来自课程项目说明；“团队方案”是当前采用的实现路线。跨模块契约在正文中统一规定；实验配置使用明确的初始数值，正式测试前以经过开发集验证并记录的配置为准。
 
-本版在 v2.0 基础上集中明确查询意图、查询与原文标识、LoCoMo QA 评分适配、动态 Gold 评价单位及上下文证据追踪，不改变单机原型、五人职责和课程三路主实验。公共对象因 `QueryAnalysis.query_intent` 等字段变更，**Schema 版本统一为 `2.1`**；v2.0 生成的相关 DTO、Mock 和缓存不可在不迁移/重建的情况下直接混用。
+v2.2 在 v2.1 基础上仅补充 IC-001、IC-002、IC-003、IC-012 四项跨模块接口执行约定。**v2.2 是技术文档版本，现有公共 DTO 的 schema_version 继续为 2.1**；既有 SourceRef、SourceTurn、MemoryRecord、QueryRequest 和 QueryResponse 的字段和含义保持不变。此前 v2.0→v2.1 的迁移规则继续有效。新增约定是后续开发与合同测试的确定依据；文档修订不表示新增接口已经在代码中实现。
 
 ---
 
@@ -310,6 +310,17 @@ DynamicMemory/
 - Gold 不能通过业务 DTO 或共享 LLM Prompt 传入 B/C/D；测试样本也不能跨 conversation 混入检索。
 - 示例中的人物、文本和短 ID 均是虚构 fixture；正式数据的ID必须由统一哈希算法生成，不能复制示例占位 ID。
 
+### 数据容器与来源仓库合同（IC-001，A/B）
+
+公共容器由 A 在 `contracts/` 定义，B 在 `data/` 实现解析和仓库能力，跨模块不得私建同名 DTO：
+
+- `ConversationSession`：`session_id: str`、`turns: list[SourceTurn]`，保持原始轮次顺序。
+- `ConversationSample`：`sample_id: str`、`source_order_1_based: int`、`sessions: list[ConversationSession]`；序号只用于核对源文件顺序，**不得替代真实 sample_id**。
+- `DatasetBundle`：`snapshot_sha256: str`、`samples: list[ConversationSample]`、`split_by_sample_id: dict[str,str]`，划分值只能为 `main_dev/extra_dev/test`，且与冻结的 `configs/data_split.yaml` 完全一致。
+- `SourceRepository`：`list_samples()`、`get_sample(sample_id)`、`get_turn(sample_id, ref: SourceRef)`；来源联合键为 `(sample_id,session_id,dia_id)`，不得重复或越样本读取。A 在统一服务中注入 B 的仓库，E 不直接读取 B 私有目录。
+
+`load_conversations(path, split_path) -> DatasetBundle` 保留原签名，正式读取必须核验快照 SHA256、真实样本 ID、划分和来源唯一性；配置中快照/样本 ID 尚未冻结时拒绝正式读取并报 `SPLIT_UNFROZEN`，开发测试应使用单独的 synthetic 冻结 fixture。业务对象只暴露 `conversation` 及必要来源元信息，不允许包含 `qa.answer`、`qa.evidence`、Gold、`observation`、`session_summary`、`event_summary`。失败采用带稳定 `.code` 的脱敏异常：`DATA_FILE_NOT_FOUND`、`DATA_FORMAT_INVALID`、`DATA_SNAPSHOT_MISMATCH`、`SPLIT_MISMATCH`、`DUPLICATE_SOURCE_REF`、`SAMPLE_NOT_FOUND`、`SOURCE_NOT_FOUND`、`SAMPLE_MISMATCH`；不得伪造轮次或打印原始数据。
+
 ## 时间、事实与 ID 约定
 
 | 数据类型 | 核心字段与解释 |
@@ -470,6 +481,16 @@ B 统一提供 `render_visible_turn(turn: SourceTurn) -> str`：保留原 `text`
 
 示例对象可作为初始 Mock 的结构参考；Memory ID 为占位值，不可作为哈希结果的测试期望。合同 fixture 应由真实数据模型与哈希工具生成完整有效引用，并覆盖所有错误分支。
 
+## 构建诊断及 Memory 产物合同（IC-002、IC-003，A/B/C）
+
+**IC-002：部分失败不能伪装成构建成功。** 保留 `build_memories(sample) -> list[MemoryRecord]` 作为**仅完整成功**的严格兼容接口；新增 `build_memories_with_report(sample) -> MemoryBuildResult`，由 B 承担实际执行。`MemoryBuildResult` 至少包含 `sample_id`、`memories`、`build_status: complete/partial/failed`、`partial_build`、`total_windows`、`successful_windows`、`window_diagnostics`、`extractor_version`。每条窗口诊断至少含 `extraction_window_id`、覆盖的原始 `session_id/dia_id`、`status: success/failed`、可空的脱敏 `error_code` 及有据可查的前后记录数量。`total_windows=successful_windows+failed_windows_count`；`partial_build=(failed_windows_count>0)`；无失败为 complete，有成功也有失败为 partial，全部窗口失败为 failed。合法零窗口或抽取零条合法事实属于 complete，可返回空列表。`memories` **仅含通过 v2.1 Schema、Memory ID 和来源校验的记录**。严格接口在存在失败窗口时抛 `MEMORY_BUILD_INCOMPLETE`（全部失败报 `MEMORY_BUILD_FAILED`），不能返回不完整 list。B 复用 A 已有的 Prompt、JSON 校验、重试/预算与日志模块。
+
+**IC-003：清单格式及读取行为固定。** 每次构建附带 `manifest.json`，字段为 `manifest_format_version=1`、`schema_version="2.1"`、`build_id`、`sample_id`、`dataset_snapshot_sha256`、`source_turns_fingerprint`、`extraction_config_fingerprint`、`extractor_version`、`prompt_fingerprint`、`backend`、`resolved_model_id`、`created_at`、`build_status`、`partial_build`、窗口总数/成功数及失败窗口明细、`memory_count`、`memories_jsonl_sha256`、导出 JSON 时的 `memories_json_sha256`、`memory_set_fingerprint`。计数、窗口覆盖、版本和实际文件字节必须一致；指纹和摘要从真实内容计算，不得使用占位值。每次构建先写新 `build_id` 的临时文件，校验通过后提交清单并原子切换当前产物引用；构建失败不得覆盖上一份完整有效结果。
+
+`import_memories(path) -> list[MemoryRecord]` 保持严格：仅接受 manifest、文件校验和、版本、Memory ID、来源引用全部核验通过且 `build_status=complete`、`partial_build=false` 的产物。新增 `load_memory_artifact(path, *, allow_partial=False) -> MemoryArtifact`（含已验证的 manifest 与 memories）；部分产物默认抛 `ARTIFACT_INCOMPLETE`，全失败报 `MEMORY_BUILD_FAILED`，损坏报 `ARTIFACT_CORRUPT`，身份过期报 `ARTIFACT_STALE`。显式 `allow_partial=True` 只用于开发诊断或只读预览，**禁止投入正式索引及三路 QA**。C 建索引时必须校验源 manifest 与数据/Memory/抽取/Prompt 身份，保存 `source_manifest_fingerprint` 和自身 `retriever_fingerprint`；上游产物或 Embedding/检索参数变化时必须重建索引或报 `INDEX_STALE`，模型回答缓存随数据/索引指纹失效。
+
+**G-02 正式索引交接（A/B/C）：** `build_index(artifact: MemoryArtifact, settings: RetrievalSettings)` 是唯一正式入口。B 的 `load_memory_artifact` 须先核验 manifest、JSONL 字节哈希、记录 ID、来源索引、快照和当前发布指针；C 必须对完整产物进行索引版本匹配并保存 `source_manifest_fingerprint` 与包含 Embedding/检索参数的 `retriever_fingerprint`。仅有 `list[MemoryRecord]` 的内部向量编码函数不得作为正式索引入口。公共 `MemoryManifest`（format_version=1）和 `MemoryArtifact` 已在 `contracts.artifacts` 中定义，构造 DTO 的内存校验不等于 B 已完成文件和来源校验；B loader、C 真实建索引仍需开发。仅允许 complete 进入正式索引；partial 仅供开发预览，必须导致正式索引拒绝。
+
 ## 约定的 Python 服务接口
 
 以下仅规定跨模块形态；具体类、参数注入及内部算法由实现者确定，但 Web 与离线 Runner 必须调用同一初始化后的服务实例接口，不依赖隐式全局变量：
@@ -481,10 +502,12 @@ def load_conversations(path: str, split_path: str) -> DatasetBundle: ...
 def get_turn(sample_id: str, ref: SourceRef) -> SourceTurn: ...
 def render_visible_turn(turn: SourceTurn) -> str: ...
 def build_memories(sample: ConversationSample) -> list[MemoryRecord]: ...
+def build_memories_with_report(sample: ConversationSample) -> MemoryBuildResult: ...
 def export_memories(memories: list[MemoryRecord], path: str) -> None: ...
 def import_memories(path: str) -> list[MemoryRecord]: ...
+def load_memory_artifact(path: str, *, allow_partial: bool = False) -> MemoryArtifact: ...
 
-def build_index(memories: list[MemoryRecord], settings: RetrievalSettings) -> RetrievalIndex: ...
+def build_index(artifact: MemoryArtifact, settings: RetrievalSettings) -> RetrievalIndex: ...
 def analyze_query(request: QueryRequest) -> QueryAnalysis: ...
 def retrieve(request: QueryRequest, analysis: QueryAnalysis, index: RetrievalIndex) -> CandidateSet: ...
 def load_candidates(candidates: CandidateSet, index: RetrievalIndex) -> list[MemoryRecord]: ...
@@ -500,6 +523,7 @@ def answer_full_text(request: QueryRequest, analysis: QueryAnalysis,
 
 # 对 UI 和评测器暴露的统一、已初始化业务服务
 class DynamicMemoryService:
+    def get_build_status(self, sample_id: str) -> BuildStatus: ...
     def list_samples(self) -> list[str]: ...
     def list_memories(self, sample_id: str) -> list[MemoryRecord]: ...
     def get_memory(self, sample_id: str, memory_id: str) -> MemoryRecord: ...
@@ -514,6 +538,16 @@ class DynamicMemoryService:
 - `build_index/retrieve/load_candidates` 属于 C，只有所列候选可供 D 解析；`answer_vector_rag` 属于 C，`answer_dynamic` 属于 D，`answer_full_text` 属于 A。
 - 服务在初始化时注入数据仓库、索引、模型 Adapter 和有效配置，可在测试中同时构建两个相互隔离的实例；E 与评测器不自行加载模块私有状态或重新实现业务逻辑。
 
+## 只读服务状态及异常处理（IC-012，A/B/E）
+
+A 的 `DynamicMemoryService` 新增只读 `get_build_status(sample_id) -> BuildStatus`，至少包含 `dataset_state: unloaded/ready/load_error`、`memory_state: not_built/complete/partial/failed/stale/corrupt`、`partial_build`、可空 `build_id` 及 `error_code`，从 B 已验证的来源仓库和构建产物读取，**不触发构建**。
+
+- `list_samples()` 只有成功读取到空数据集才返回 `[]`；未加载/加载失败分别抛 `DATA_NOT_LOADED` / `DATA_LOAD_FAILED`。`list_memories(sample_id)` 只返回完整有效产物，**完整但确无 Memory** 才返回 `[]`；未构建、部分构建、全部失败、损坏/失效分别报 `BUILD_NOT_FOUND`、`ARTIFACT_INCOMPLETE`、`MEMORY_BUILD_FAILED`、`ARTIFACT_CORRUPT/ARTIFACT_STALE`。`get_memory` 采用同样门槛，完整库中确实不存在 ID 才报 `MEMORY_NOT_FOUND`。
+- `get_turn(sample_id,ref)` 仅依赖正常加载的来源仓库，不因 Memory 尚未构建或构建失败而不能回查。未知样本、轮次和越样本访问分别采用 `SAMPLE_NOT_FOUND`、`SOURCE_NOT_FOUND`、`SAMPLE_MISMATCH`。
+- `run_query` 的 Full Text 只依赖可用的原始会话；Vector RAG/Dynamic 需要完整 Memory 和匹配版本的索引。数据/构建/索引异常返回合法 `QueryResponse`，其 `answer_result.status="error"`、`answer=null`、`answer_result.error={code,message}`；失败早停时 `retrieved/resolution` 可为 null，**不能以 `no_evidence` 冒充执行错误**。正常运行但证据不足时才使用 `no_evidence`。
+
+E 只调用 A 的统一只读服务，明确展示“未构建 / 部分构建 / 加载失败 / 完整零 Memory / 已就绪”，不得在 Web 重渲染时自动抽取，也不得绕开接口读取 Gold 或未验证的产物。错误码稳定、脱敏。
+
 ## 交接、合同测试与接口变更
 
 | 交接 | 输出方 | 使用方 | 应共同验证的内容 |
@@ -526,6 +560,8 @@ class DynamicMemoryService:
 | Memory 浏览和原文只读服务 | A（B 提供仓库能力） | E | 不提问可访问、不越样本、不读取 Gold |
 
 成员交付前先用 `tests/fixtures/` 的 Mock 输入验证本模块，再在开发集上与直接上下游进行真实输出联调。公共类型或接口发生变更时，先确认影响范围，再由提供方、消费方及 A 同步修改类型、示例、测试与说明；禁止为了绕过错误自行复制 Schema 或悄悄增加默认字段。
+
+新增合同测试必须覆盖：真实 sample_id、Gold 白名单、来源唯一性与跨样本拒绝；窗口全成功/部分失败/全部失败/零事实；manifest/文件摘要、partial 默认拒绝、索引指纹失效；只读服务各状态和完整空结果的区分；运行错误不能伪装成 no_evidence。新增 DTO、消费者、fixtures 与 `docs/contracts.md` 须同步实现。本技术文档已确定接口行为，但**不代表新增接口已在当前仓库实现**。
 
 合同测试至少覆盖：合法输入、空数据、无时间、原文来源不存在、跨样本引用、重复 ID、时间冲突、错误时间区间、当前/曾经/何时/一般事实等查询意图、同一问题的不同时间输入、caption 原文保留与统一渲染、候选加载排名、候选之外的关系边、RETAIN 与有效集合不一致、模型无效输出、索引过期，以及不同方法可空字段与证据约束。公共 Schema 改动须同步修改生产者与消费者、JSON fixtures、文档和测试；发生不兼容变更时必须拒绝无迁移的旧产物或整体重建，不能混用版本。通用可诊断错误例如 `SCHEMA_INVALID`、`SOURCE_NOT_FOUND`、`SAMPLE_MISMATCH`、`INDEX_STALE`、`MODEL_TIMEOUT`、`MODEL_OUTPUT_INVALID`；缺少 Gold 是评测侧状态，不应使正常业务查询崩溃。
 
@@ -558,19 +594,19 @@ class DynamicMemoryService:
 | `max_candidates` | **12** | C 完成历史候选扩展后的总上限；Vector RAG 和 Dynamic 共享 |
 | `recall_at_k` | **[5, 10]** | 同时报告 Evidence Recall@5 和 Recall@10；主结果重点呈现 Recall@10，并单列完整候选覆盖率 |
 | `extraction_max_input_tokens` | **4096** | B 优先按 session 抽取；过长的 session 继续按不超过此输入预算分窗，窗口重叠 **2 条轮次**，保持 SourceRef |
-| `extraction_max_output_tokens` | **4096** | 每个抽取窗口的模型输出上限，JSON 截断必须报错/重试，不得作为有效 Memory |
+| `extraction_max_output_tokens` | **4096** | 每个抽取窗口的模型输出上限，JSON 截断直接失败（不属于空 JSON 重试），不得作为有效 Memory |
 | `reasoning_max_input_tokens` | **8192** | D 的一次关系解析输入上限；超限时在同主体/属性筛选后压缩或分批，留存候选和实际输入差异 |
 | `reasoning_max_output_tokens` | **2048** | D 的结构化关系/决策结果输出上限；不得静默丢边或丢决策 |
 | `qa_max_input_tokens` | **32768** | **三路回答共享同一输入上限**，包含 system Prompt、问题及上下文；超限记录实际保留的轮次/Memory和截断原因 |
 | `qa_max_output_tokens` | **256** | 三路回答共享，倾向英文精简事实答案，便于统一 F1 |
 | `thinking` / `temperature` | **`disabled` / `0`** | 基础方案对抽取、解析、QA 均关闭思考模式；`temperature=0` 仅在模式及型号支持时有效；不另外调节 `top_p` |
 | `request_timeout_seconds` | **120** | 单次云端请求超时；不能将超时结果当作无证据 |
-| `max_retries` | **2** | 最多两次重试（总计至多三次尝试）；仅对可重试异常/空JSON有限重试，失败保留诊断和已成功缓存 |
+| `max_retries` | **2** | 最多两次重试（总计至多三次 Provider 尝试）；超时、网络、限流及 JSON 模式的空白响应 `EMPTY_JSON` 共用总预算；`{}`、非空无效 JSON、业务 Schema 失败、截断和异常完成状态不重试；B/D 不叠加重试 |
 | `max_concurrent_api_requests` | **2** | 本地批量调用并发上限，防止测试阶段无意大量并行请求 |
 
 **上下文与公平性约定：** Full Text 在 32K 预算内尽量放入全部原始可见文本；超过限制时按时间顺序保留最近轮次，明确标为 `truncated_full_text` 并保存被排除轮次。Vector RAG / Dynamic 依最终候选排名组织上下文，超限时优先舍弃低优先级项；两者可以因动态状态选择而实际输入不同，但必须保存 `used_memory_ids`、`context_source_refs` 和截断日志。共同候选不等于答案生成器实际看到了全部候选。除 `used_memory_ids/context_source_refs` 外，应保存初始 Top-K、扩展来源、最终候选、上下文截断的ID与原因。Evidence Recall@5/@10按**最终候选 rank**计算；若分析纯向量则另报其自身排序。诊断至少区分“Gold证据是否被B抽取覆盖”“是否被C召回”“是否实际进入QA上下文”，不能把候选命中当成模型使用。
 
-**模型调用约定：** 答案生成模型 ID、非思考模式、温度、输出上限以及请求超时/重试策略在三路中保持一致；D 的额外状态解析调用与成本单独统计。B、D 的结构化输出需设置官方支持的 JSON 模式，Prompt 明示 JSON 格式，检查 `finish_reason`、空输出和 Schema；校验失败不保存为有效结果。对模型输入长度采用安全余量及实际用量检查，不能把估算 token 数视为服务端精确计数。API 不可用时运行 Mock 和缓存测试，不虚构在线评测成绩。
+**模型调用约定：** 仅 A 统一执行链处理 JSON 模式空白输出（`EMPTY_JSON`）与超时、网络、限流的合计最多三次尝试；`{}`、非空无效 JSON、截断和业务 Schema 失败不重试，B/D 不另设重试。答案生成模型 ID、非思考模式、温度、输出上限以及请求超时/重试策略在三路中保持一致；D 的额外状态解析调用与成本单独统计。B、D 的结构化输出需设置官方支持的 JSON 模式，Prompt 明示 JSON 格式，检查 `finish_reason`、空输出和 Schema；校验失败不保存为有效结果。对模型输入长度采用安全余量及实际用量检查，不能把估算 token 数视为服务端精确计数。API 不可用时运行 Mock 和缓存测试，不虚构在线评测成绩。
 
 **依据资料：** [LoCoMo ACL 2024 论文](https://aclanthology.org/2024.acl-long.747/)（原始对话规模）；[DeepSeek Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)（参数与模式）；[DeepSeek 思考模式](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/)（`temperature` 的适用范围）；[DeepSeek JSON Output](https://api-docs.deepseek.com/zh-cn/guides/json_mode/)（结构化输出）。
 

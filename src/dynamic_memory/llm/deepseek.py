@@ -136,7 +136,9 @@ class DeepSeekLLMAdapter:
         message = getattr(choice, "message", None)
         content = getattr(message, "content", None)
         if not isinstance(content, str) or not content.strip():
-            raise DeepSeekAdapterError("INVALID_RESPONSE", "DeepSeek returned empty content")
+            if request.output_mode == "json" and (content is None or isinstance(content, str)):
+                raise DeepSeekAdapterError("EMPTY_JSON", "DeepSeek returned empty JSON content")
+            raise DeepSeekAdapterError("INVALID_RESPONSE", "DeepSeek returned empty or invalid content")
         returned_model = getattr(raw, "model", None)
         if returned_model is not None and (not isinstance(returned_model, str) or not returned_model.strip()):
             raise DeepSeekAdapterError("INVALID_RESPONSE", "DeepSeek returned invalid model metadata")

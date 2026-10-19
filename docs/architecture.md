@@ -66,7 +66,7 @@ B/D 可直接构造自己的 `PromptTemplate(template_id="b.extraction", version
 
 `GuardedLLMAdapter(adapter, models_settings, *, token_estimator=None, strict_budget=False, sleep=..., acquire_timeout_seconds=None)` 包装已有 `LLMAdapter`。同一个执行器实例通过 `BoundedSemaphore(max_concurrent_api_requests)` 限制实际进入 `adapter.generate` 的请求；A-09 应将该实例注入各业务模块。不同实例、进程之间不会自动共享配额。默认排队许可等待时间取配置中的 `request_timeout_seconds`，可显式覆盖；Provider 单次请求超时仍由其自身实现，执行器不能中断任意阻塞的同步 Adapter。
 
-`execute(request)` 返回 `LLMCallResult(response, summary)`；`generate(request)` 与 A-02 协议兼容，失败时均抛 `LLMExecutionError(code, summary)`。摘要记录实际尝试次数、重试次数、失败码、估算输入 Token、已知 prompt/completion Token 与用量未知的尝试数。预检在占用许可之前完成。配置的 `max_retries=2` 表示最多三次 Provider 调用；只有 `TIMEOUT`、`NETWORK`、`RATE_LIMIT` 进入有限指数退避，退避不占许可。`API_STATUS` 没有结构化 HTTP 状态码、`INVALID_RESPONSE` 也无法可靠区分空 JSON，故两者默认直接失败。A-05 业务 Schema 验证仍是执行后的显式步骤，不自动修补或重试。
+`execute(request)` 返回 `LLMCallResult(response, summary)`；`generate(request)` 与 A-02 协议兼容，失败时均抛 `LLMExecutionError(code, summary)`。摘要记录实际尝试次数、重试次数、失败码、估算输入 Token、已知 prompt/completion Token 与用量未知的尝试数。预检在占用许可之前完成。配置的 `max_retries=2` 表示最多三次 Provider 调用；`TIMEOUT`、`NETWORK`、`RATE_LIMIT` 以及仅 JSON 模式下的空白响应（`EMPTY_JSON`）共享相同的有限指数退避与总尝试预算，退避不占许可。DeepSeek 在 `LLMResponse` 映射之前分类 `EMPTY_JSON`，`{}` 属于非空 JSON；`API_STATUS`、`INVALID_RESPONSE`、非空无效 JSON、截断、异常完成状态和业务 Schema 校验失败均直接失败。B/D 不叠加重试。
 
 ```python
 from dynamic_memory.llm import GuardedLLMAdapter, MockLLMAdapter, QA_PROMPT, render_prompt, build_prompt_request
@@ -80,6 +80,10 @@ result = executor.execute(request)  # 离线 Mock；12 仅为演示估算，不�
 ```
 
 估算器接收完整 `messages` tuple，返回非负整数或 `None`；无估算器时宽松模式将 `input_budget_verified=False`，严格模式在调用前拒绝。整数只用于与请求的 `max_input_tokens` 比较，不代表真实模型精确计数。请求的 input/output 上限不得超过对应任务配置；Provider 回报的真实用量若超过请求上限，也报告预算错误。`usage=None` 保持未知，不填零；失败调用若没有可信用量，其计费情况也未知。本层不裁剪上下文、不写日志或缓存、不计算货币费用；B/C/D 负责选择和记录进入模型的真实内容。
+
+## MemoryArtifact 与正式索引交接（G-02）
+
+B 的 `load_memory_artifact` 负责核验实际文件 SHA256、来源、快照和发布状态，并返回完整、已验证的 `MemoryArtifact`。A 的 `contracts.artifacts` 提供 `MemoryManifest`、`MemoryArtifact`、`memory_set_fingerprint` 与结构/内存记录一致性校验；构造 DTO 本身不是磁盘可信证明。C 必须在 `build_index(artifact: MemoryArtifact, settings: RetrievalSettings)` 中拒绝 partial 和身份过期，绑定 `source_manifest_fingerprint` 及 Embedding/检索参数后才能生成 `retriever_fingerprint`。纯 Memory 列表仅能用于内部编码，不能成为正式索引入口。B/C 的实际加载与建索引实现仍需交付。
 
 ## 调用日志和成功响应缓存（A-08）
 
