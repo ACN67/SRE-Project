@@ -1,1 +1,5 @@
-"""Reserved for the responsible team member."""
+"""Query retrieval components owned by member C."""
+
+from .embedding import EmbeddingConfig, EmbeddingError, SentenceTransformerEmbedder
+
+__all__ = ["EmbeddingConfig", "EmbeddingError", "SentenceTransformerEmbedder"]
