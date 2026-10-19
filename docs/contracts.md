@@ -6,4 +6,6 @@
 
 需要候选上下文的校验由 `validate_resolution_against_candidates` 执行；需要完整 Memory 和原始轮次索引的引用校验由 `validate_response_context` 执行。结构与 ID 校验不能证明语义事实受原文支持，后续成员须人工抽查。Gold 不在业务 DTO 中。
 
-当前接口实现范围仅为 DTO、确定性工具与 synthetic Mock。真实服务接口仍由 A/B/C/D/E 后续交付。
+当前已实现公共 DTO/验证工具、Mock 与可显式启用的 DeepSeek Adapter，以及 A-05～A-09 的 LLM 基础设施和 Runtime；B/C/D/E 的完整业务服务尚待集成。
+
+当前**技术规范为 `TECHNICAL_SPEC.md` v2.2，业务 DTO 的 Schema 仍为 2.1**。v2.2 新增 IC-001、IC-002、IC-003、IC-012 四项数据容器、构建诊断、manifest 与只读状态的跨模块执行合同；公共新类型与接口目前尚未实现，实施时须同步更新本文件、`contracts/`、fixtures 和合同测试。
