@@ -16,7 +16,7 @@ from .deepseek import DeepSeekAdapterError
 from .protocol import LLMAdapter, LLMMessage, LLMRequest, LLMResponse, validate_response_for_request
 
 TokenEstimator = Callable[[tuple[LLMMessage, ...]], int | None]
-_RETRYABLE = frozenset({"TIMEOUT", "NETWORK", "RATE_LIMIT"})
+_RETRYABLE = frozenset({"TIMEOUT", "NETWORK", "RATE_LIMIT", "EMPTY_JSON"})
 _PROVIDER_CODES = _RETRYABLE | frozenset({
     "API_STATUS", "API_DISABLED", "AUTH", "MODEL_REQUIRED", "MODEL_MISMATCH",
     "CREDENTIAL_REQUIRED", "SDK_MISSING", "INVALID_REQUEST", "UNSUPPORTED_THINKING",
@@ -170,7 +170,9 @@ class GuardedLLMAdapter:
             if provider_code is not None:
                 unknown_usage += 1
                 failures.append(provider_code)
-                if provider_code not in _RETRYABLE or index == self._settings.max_retries:
+                if (provider_code not in _RETRYABLE or
+                    (provider_code == "EMPTY_JSON" and request.output_mode != "json") or
+                    index == self._settings.max_retries):
                     fail(provider_code)
             else:
                 if not isinstance(response, LLMResponse):

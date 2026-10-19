@@ -489,6 +489,8 @@ B 统一提供 `render_visible_turn(turn: SourceTurn) -> str`：保留原 `text`
 
 `import_memories(path) -> list[MemoryRecord]` 保持严格：仅接受 manifest、文件校验和、版本、Memory ID、来源引用全部核验通过且 `build_status=complete`、`partial_build=false` 的产物。新增 `load_memory_artifact(path, *, allow_partial=False) -> MemoryArtifact`（含已验证的 manifest 与 memories）；部分产物默认抛 `ARTIFACT_INCOMPLETE`，全失败报 `MEMORY_BUILD_FAILED`，损坏报 `ARTIFACT_CORRUPT`，身份过期报 `ARTIFACT_STALE`。显式 `allow_partial=True` 只用于开发诊断或只读预览，**禁止投入正式索引及三路 QA**。C 建索引时必须校验源 manifest 与数据/Memory/抽取/Prompt 身份，保存 `source_manifest_fingerprint` 和自身 `retriever_fingerprint`；上游产物或 Embedding/检索参数变化时必须重建索引或报 `INDEX_STALE`，模型回答缓存随数据/索引指纹失效。
 
+**G-02 正式索引交接（A/B/C）：** `build_index(artifact: MemoryArtifact, settings: RetrievalSettings)` 是唯一正式入口。B 的 `load_memory_artifact` 须先核验 manifest、JSONL 字节哈希、记录 ID、来源索引、快照和当前发布指针；C 必须对完整产物进行索引版本匹配并保存 `source_manifest_fingerprint` 与包含 Embedding/检索参数的 `retriever_fingerprint`。仅有 `list[MemoryRecord]` 的内部向量编码函数不得作为正式索引入口。公共 `MemoryManifest`（format_version=1）和 `MemoryArtifact` 已在 `contracts.artifacts` 中定义，构造 DTO 的内存校验不等于 B 已完成文件和来源校验；B loader、C 真实建索引仍需开发。仅允许 complete 进入正式索引；partial 仅供开发预览，必须导致正式索引拒绝。
+
 ## 约定的 Python 服务接口
 
 以下仅规定跨模块形态；具体类、参数注入及内部算法由实现者确定，但 Web 与离线 Runner 必须调用同一初始化后的服务实例接口，不依赖隐式全局变量：
@@ -505,7 +507,7 @@ def export_memories(memories: list[MemoryRecord], path: str) -> None: ...
 def import_memories(path: str) -> list[MemoryRecord]: ...
 def load_memory_artifact(path: str, *, allow_partial: bool = False) -> MemoryArtifact: ...
 
-def build_index(memories: list[MemoryRecord], settings: RetrievalSettings) -> RetrievalIndex: ...
+def build_index(artifact: MemoryArtifact, settings: RetrievalSettings) -> RetrievalIndex: ...
 def analyze_query(request: QueryRequest) -> QueryAnalysis: ...
 def retrieve(request: QueryRequest, analysis: QueryAnalysis, index: RetrievalIndex) -> CandidateSet: ...
 def load_candidates(candidates: CandidateSet, index: RetrievalIndex) -> list[MemoryRecord]: ...
@@ -592,19 +594,19 @@ E 只调用 A 的统一只读服务，明确展示“未构建 / 部分构建 / 
 | `max_candidates` | **12** | C 完成历史候选扩展后的总上限；Vector RAG 和 Dynamic 共享 |
 | `recall_at_k` | **[5, 10]** | 同时报告 Evidence Recall@5 和 Recall@10；主结果重点呈现 Recall@10，并单列完整候选覆盖率 |
 | `extraction_max_input_tokens` | **4096** | B 优先按 session 抽取；过长的 session 继续按不超过此输入预算分窗，窗口重叠 **2 条轮次**，保持 SourceRef |
-| `extraction_max_output_tokens` | **4096** | 每个抽取窗口的模型输出上限，JSON 截断必须报错/重试，不得作为有效 Memory |
+| `extraction_max_output_tokens` | **4096** | 每个抽取窗口的模型输出上限，JSON 截断直接失败（不属于空 JSON 重试），不得作为有效 Memory |
 | `reasoning_max_input_tokens` | **8192** | D 的一次关系解析输入上限；超限时在同主体/属性筛选后压缩或分批，留存候选和实际输入差异 |
 | `reasoning_max_output_tokens` | **2048** | D 的结构化关系/决策结果输出上限；不得静默丢边或丢决策 |
 | `qa_max_input_tokens` | **32768** | **三路回答共享同一输入上限**，包含 system Prompt、问题及上下文；超限记录实际保留的轮次/Memory和截断原因 |
 | `qa_max_output_tokens` | **256** | 三路回答共享，倾向英文精简事实答案，便于统一 F1 |
 | `thinking` / `temperature` | **`disabled` / `0`** | 基础方案对抽取、解析、QA 均关闭思考模式；`temperature=0` 仅在模式及型号支持时有效；不另外调节 `top_p` |
 | `request_timeout_seconds` | **120** | 单次云端请求超时；不能将超时结果当作无证据 |
-| `max_retries` | **2** | 最多两次重试（总计至多三次尝试）；仅对可重试异常/空JSON有限重试，失败保留诊断和已成功缓存 |
+| `max_retries` | **2** | 最多两次重试（总计至多三次 Provider 尝试）；超时、网络、限流及 JSON 模式的空白响应 `EMPTY_JSON` 共用总预算；`{}`、非空无效 JSON、业务 Schema 失败、截断和异常完成状态不重试；B/D 不叠加重试 |
 | `max_concurrent_api_requests` | **2** | 本地批量调用并发上限，防止测试阶段无意大量并行请求 |
 
 **上下文与公平性约定：** Full Text 在 32K 预算内尽量放入全部原始可见文本；超过限制时按时间顺序保留最近轮次，明确标为 `truncated_full_text` 并保存被排除轮次。Vector RAG / Dynamic 依最终候选排名组织上下文，超限时优先舍弃低优先级项；两者可以因动态状态选择而实际输入不同，但必须保存 `used_memory_ids`、`context_source_refs` 和截断日志。共同候选不等于答案生成器实际看到了全部候选。除 `used_memory_ids/context_source_refs` 外，应保存初始 Top-K、扩展来源、最终候选、上下文截断的ID与原因。Evidence Recall@5/@10按**最终候选 rank**计算；若分析纯向量则另报其自身排序。诊断至少区分“Gold证据是否被B抽取覆盖”“是否被C召回”“是否实际进入QA上下文”，不能把候选命中当成模型使用。
 
-**模型调用约定：** 答案生成模型 ID、非思考模式、温度、输出上限以及请求超时/重试策略在三路中保持一致；D 的额外状态解析调用与成本单独统计。B、D 的结构化输出需设置官方支持的 JSON 模式，Prompt 明示 JSON 格式，检查 `finish_reason`、空输出和 Schema；校验失败不保存为有效结果。对模型输入长度采用安全余量及实际用量检查，不能把估算 token 数视为服务端精确计数。API 不可用时运行 Mock 和缓存测试，不虚构在线评测成绩。
+**模型调用约定：** 仅 A 统一执行链处理 JSON 模式空白输出（`EMPTY_JSON`）与超时、网络、限流的合计最多三次尝试；`{}`、非空无效 JSON、截断和业务 Schema 失败不重试，B/D 不另设重试。答案生成模型 ID、非思考模式、温度、输出上限以及请求超时/重试策略在三路中保持一致；D 的额外状态解析调用与成本单独统计。B、D 的结构化输出需设置官方支持的 JSON 模式，Prompt 明示 JSON 格式，检查 `finish_reason`、空输出和 Schema；校验失败不保存为有效结果。对模型输入长度采用安全余量及实际用量检查，不能把估算 token 数视为服务端精确计数。API 不可用时运行 Mock 和缓存测试，不虚构在线评测成绩。
 
 **依据资料：** [LoCoMo ACL 2024 论文](https://aclanthology.org/2024.acl-long.747/)（原始对话规模）；[DeepSeek Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)（参数与模式）；[DeepSeek 思考模式](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/)（`temperature` 的适用范围）；[DeepSeek JSON Output](https://api-docs.deepseek.com/zh-cn/guides/json_mode/)（结构化输出）。
 
