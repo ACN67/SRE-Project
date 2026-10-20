@@ -15,3 +15,11 @@
 - 新增 `data/loader.py` 的 `load_conversations(path, split_path) -> DatasetBundle` 和纯内存 `_parse_sample`。正式入口复用 B-01 `inspect_snapshot` 与 `validate_split`，再次核对原始字节 SHA；读取配置后按固定划分生成实际 ID 映射。原始 session 与 turn 保序，孤立时间键不生成会话，英文及带偏移 ISO 日期严格解析，缺失或 unknown 为 null；只传 SourceTurn 白名单字段，caption 保持来源标记，错误码和消息脱敏。收尾修复补齐 `inspect_snapshot` 与 `_parse_json` 的深层 JSON 递归错误处理，将 `RecursionError` 稳定转换为 `DATA_FORMAT_INVALID`，不回显原始输入。
 - 公开入口从 `data/__init__.py` 导出；新增 `tests/unit/test_data_loader.py`，仅使用 synthetic fixture。专项 24 passed（含 2 项深层 JSON 错误码和脱敏回归），完整 pytest 361 passed，Mock smoke PASS；所有命令退出码 0。真实忽略文件只读核验：SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`，10 样本、272 实际 session、5882 turns、1226 caption、5882 个唯一来源三元键、16 个孤立日期键；划分 4/4/2。
 - 未修改公共 DTO、冻结配置、A/C/D/E 模块；未读取 Gold 字段值、下载图片、调用模型/API 或将原始文件加入 Git。B-03 来源仓库与回查待重新授权；B-02 经 ChatGPT 独立验收、补齐边界测试后统一提交并推送至 B 分支，第一批 B→main 合并仍在 B-03 完成后单独授权。
+
+## B-03｜SourceRepository 与来源回查｜2026-10-20
+
+- Gate：B worktree 及暂存区初始干净，`B` / `origin/B` HEAD `8c39bc9c9651ea9606087ff5351eeefffb4520c4`；公共 DTO 和 B-02 loader 从 B `.venv` 导入，无现成 Repository。
+- 新增 `SourceRepository(bundle: DatasetBundle | None = None)`，提供 `list_samples() -> list[str]`、`get_sample(sample_id: str) -> ConversationSample`、`get_turn(sample_id: str, ref: SourceRef) -> SourceTurn`。构造时独立检查嵌套类型、版本及父子身份、重复 sample/session/turn，并通过普通字段重新验证 `model_copy(update=...)` 绕过的约束；内部持有深拷贝和三元键索引，读取返回防御性副本。收尾修正将 `source_order_1_based` 校验限定为正整数且在当前 Bundle 中不重复，不再要求从 1 连续编号；子集可保留原始序号（例如 9，或 5、6）及样本列表顺序。`None` 为未加载态，合法空 Bundle 返回空列表；构造失败不发布半成品索引。
+- `SourceRepositoryError.code` 稳定区分 `DATA_NOT_LOADED`、`DATA_FORMAT_INVALID`、`DUPLICATE_SOURCE_REF`、`SAMPLE_NOT_FOUND`、`SOURCE_NOT_FOUND`、`SAMPLE_MISMATCH`。仅外样本存在的 pair 报 `SAMPLE_MISMATCH`；两个样本均有同名 pair 时以显式 sample_id 限定范围，无法据 SourceRef 推断来源者意图。错误消息不包含原文、Gold 或未审查输入。
+- synthetic 合同测试 17 passed（含非连续源序号与非法/重复序号回归），完整 pytest 378 passed，Mock smoke PASS，`git diff --check` 通过，退出码均为 0。真实忽略数据只读 smoke：SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`、10 样本、272 sessions、5882 turns、1226 captions、5882 个唯一三元键、4/4/2 分组；选取首、中、末三条实际 SourceRef 回查均与来源 DTO 相等，仅输出布尔值。
+- 未修改公共 DTO、B-01/B-02、冻结配置及其他组模块；无网络、模型/API、Gold 或图片访问。经独立审查修复并统一提交 B-03 到 B 分支，提交信息：`B03：实现来源仓库与轮次回查`；第一批 B→main 合并仍待单独授权，本次不合并 main。
