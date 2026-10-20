@@ -1,0 +1,24 @@
+.stApp { background: #f7f8f5; }
+.block-container { max-width: 1400px; padding-bottom: 3rem; }
+/* Leave room for Streamlit's fixed header and native sidebar controls. */
+[data-testid="stMainBlockContainer"] { padding-top: 5rem; }
+[data-testid="stSidebar"] { background: #e9efea; border-right: 1px solid #d7e1da; }
+h1,h2,h3 { letter-spacing: -.035em; }
+.brand { color: #147d70; font-size: .72rem; letter-spacing: .18em; font-weight: 750; margin-bottom: .65rem; }
+.hero { padding: 24px 28px; border: 1px solid #d8e4dc; background: linear-gradient(110deg,#e7f0e9,#f4f7ee); border-radius: 18px; margin-bottom: 22px; }
+.hero h1 { font-size: 2.15rem; line-height: 1.2; margin: 0 0 10px; font-weight: 700; color: #183f35; }
+.hero p { color: #52695e; font-size: .95rem; margin: 0; }
+.eyebrow { font-size: .7rem; color: #648374; letter-spacing: .14em; font-weight: 700; margin-bottom: 12px; }
+.memory-card { background: #fff; border: 1px solid #e0e7df; border-radius: 12px; padding: 16px 18px; margin-bottom: 8px; }
+.memory-card p { margin: 9px 0 0; color: #294237; line-height: 1.65; overflow-wrap: anywhere; }
+.small-label { font-size: .75rem; color: #6d7e73; }
+.chip { display: inline-block; font-size: .72rem; font-weight: 650; border-radius: 5px; padding: 3px 7px; margin-right: 5px; background: #e7f2ed; color: #246a54; }
+.chip-neutral { background: #edf0ed; color: #647268; }
+.chip-warm { background: #fbedd8; color: #885e26; }
+.answer { border-left: 4px solid #147d70; padding: 18px 22px; background: #eaf3ee; border-radius: 0 12px 12px 0; font-size: 1.12rem; line-height: 1.8; overflow-wrap: anywhere; }
+.source { border-left: 3px solid #bb9670; padding: 14px 20px; background: #fbf6ed; border-radius: 0 10px 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.footer { color: #819087; font-size: .75rem; margin-top: 30px; border-top: 1px solid #dde4dc; padding-top: 14px; }
+[data-testid="stMetric"] { padding: 14px 18px; background: white; border: 1px solid #e1e7df; border-radius: 12px; }
+[data-testid="stMetricValue"] { color: #21614e; }
+button[kind="primary"] { border-radius: 8px; }
+@media(max-width: 700px) { .hero { padding: 18px; } .hero h1 { font-size: 1.65rem; } .block-container { padding-left: 1rem; padding-right: 1rem; } }
