@@ -80,3 +80,10 @@
 - 功能及文件：`src/dynamic_memory/contracts/data.py` 唯一定义 IC-001 的 `ConversationSession`、`ConversationSample`、`DatasetBundle`，复用 `SourceTurn` 和公共基类，校验同层唯一性、父子来源身份、划分集合与快照摘要；`contracts/__init__.py` 导出；`tests/contract/test_dataset_containers.py` 使用纯 synthetic fixture 覆盖保序、回读、空结构、Gold 字段拒绝及异常路径，并对三个公共容器启用 `hide_input_in_errors=True`、验证格式化校验错误不会回显被拒绝的 Gold 标记；`docs/contracts.md` 写明结构合同、脱敏边界与 B 加载器职责。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\contract\test_dataset_containers.py`：26 passed（含 4 项异常脱敏测试，退出码 0）；完整 `pytest -q`：310 passed（原有 284 项无回归，退出码 0）；`mock_smoke`：PASS（退出码 0）；`git diff --check`：退出码 0。全部离线，不读取真实数据、Gold 或调用模型 API。
 - 限制：公共容器只检查结构与字段白名单；B-02 负责原始 LoCoMo 解析和 Gold 剥离，B-03 负责 SourceRepository，快照文件 SHA 和冻结配置一致性由 B 的严格加载器核验。v2.2 未设置列表最小数量，故空 session、sample 和 Bundle 在结构层合法；不代表正式数据可为空。
+
+## A-11（2026-10-20）
+
+- Commit Message：`实现共享查询条件处理入口`。
+- 功能及文件：`src/dynamic_memory/pipeline/query_conditions.py` 新增可注入 `QueryAnalyzer`、`prepare_shared_query` 和防御性快照 `PreparedQuery`，每个请求分析一次，复验 Schema 2.1/ID/显式日期，并在序列化前检查 QueryRequest、QueryAnalysis、嵌套 TimeIssue 原始字段白名单以拒绝 model_copy 注入的未知字段，统一三路时间冲突或错误早停；`tests/unit/test_shared_query_conditions.py` 使用 synthetic Fake 覆盖六种意图、时间一致性、脱敏失败与隔离；`docs/architecture.md` 增加接入示例和边界。
+- 测试：专项 `pytest -q tests\unit\test_shared_query_conditions.py`：35 passed（含 8 项未知字段/嵌套字段的回归测试，退出码 0）；完整 `pytest -q`：345 passed（退出码 0）；`mock_smoke`：PASS（退出码 0）；文档 synthetic Fake 示例输出 `historical_state conflict`（退出码 0）；`git diff --check`：退出码 0。所有测试均离线，无 C 正式分析、真实模型或 Gold。
+- 限制：本轮仅有 A 侧查询条件接线，没有 C 正式分析器，也不实现检索、状态推理或三路答案。原计划 A-10 的统一只读业务访问未完成；B-03 的来源仓库未合入 A，A-12 的正式三路调度仍待单独任务。

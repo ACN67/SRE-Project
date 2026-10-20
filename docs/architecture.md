@@ -149,3 +149,35 @@ print(runtime.backend, len(runtime.recorder.store.events()))  # mock 2
 ```
 
 三路 QA 由调用方传同一 QA 模板及 Runtime，故 system 指令、模型及生成设置一致；只有已筛选的 context、`method`、scope 和适用索引版本因路径而异。JSON 任务须由 B/D 显式传入适用业务 `validator` 才会成功缓存，不能把未校验输出当事实。配置指纹由已校验的全部 `AppSettings` 生成；执行策略指纹包含后端/型号、API 开关、超时、重试、并发、预算模式与显式 `estimator_version`。注入 TokenEstimator 时必须给该版本，估算值不当作服务端实际 Token。上层应在 Web 重渲染时复用同一 Runtime；正式 `run_query` 仍待 B/C/D 的业务接口和真实数据、索引、证据核验到位。
+
+## 共享查询条件准备与早停（A-11）
+
+`dynamic_memory.pipeline.query_conditions.prepare_shared_query(request: QueryRequest, analyzer: QueryAnalyzer) -> PreparedQuery` 接收显式注入的 C 方可调用能力，**每个请求只调用一次**，并把已复验的 Schema 2.1 `QueryRequest`、`QueryAnalysis` 存为隔离的快照。`PreparedQuery.request` / `.analysis` 每次给出独立 DTO 副本，供之后 Full Text、Vector RAG、Dynamic 消费同一次分析；`must_early_stop` 和 `make_early_response(method)` 为三路提供统一门槛。正常路径的 `make_early_response` 返回 `None`，不制造检索结果或答案。当前 C 正式 `analyze_query` 尚未接入；以下仅为 synthetic Fake 合同示例：
+
+```python
+from datetime import date
+from dynamic_memory.contracts.models import QueryAnalysis, QueryRequest, TimeIssue
+from dynamic_memory.pipeline.query_conditions import prepare_shared_query
+
+def fake_c_analyzer(request):  # synthetic contract fake, not C's actual algorithm
+    return QueryAnalysis(
+        query_id=request.query_id, sample_id=request.sample_id,
+        query_intent="historical_state", time_mode="conflict",
+        time_issue=TimeIssue(code="QUERY_TIME_CONFLICT", message="Synthetic dates conflict",
+                             explicit_as_of="2023-05-01", question_time="2024-01-02"),
+    )
+
+request = QueryRequest(query_id="synthetic_q1", sample_id="synthetic_sample",
+                       question="Synthetic historical question?", as_of=date(2023, 5, 1))
+prepared = prepare_shared_query(request, fake_c_analyzer)
+assert prepared.must_early_stop
+for method in ("full_text", "vector_rag", "dynamic"):
+    response = prepared.make_early_response(method)
+    assert response.answer_result.status == "time_uncertain"
+    assert response.retrieved is response.resolution is None
+print(prepared.analysis.query_intent, prepared.analysis.time_mode)  # historical_state conflict
+```
+
+入口只核验 C 返回的真实公共 DTO、请求/分析 ID 及显式 `as_of` 一致性，不在 A 猜意图、解析日期或补电脑当前时间。`latest_known` 保持已知对话范围末端含义，与六种 `query_intent` 独立；`TIME_PARSE_UNCERTAIN` 保留为非冲突条件供后续模块处理。合法冲突需保留 `time_issue` 的请求日期和问题时间线索，三路共用 `status=time_uncertain`、空候选/关系/证据的早停响应。分析器异常、错误类型/Schema、越样本身份或不一致时间条件则使用固定脱敏错误码形成 `status=error`、`query_analysis=None` 的响应；无可信 `QueryRequest` 时抛出 `INVALID_QUERY_REQUEST`，因为不能构造合法响应。诊断不拼接问题、实体线索或原始异常。
+
+本轮只完成 A 的接线和公共合同早停；原计划 A-10 的统一只读业务访问尚未实现，B-03 的来源仓库尚未合入 A，A-12 三路正式调度也尚未实现。E/评测器不得把本 synthetic Fake 演示当作 C 正式分析或真实三路问答。
