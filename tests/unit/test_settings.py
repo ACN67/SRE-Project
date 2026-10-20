@@ -32,9 +32,14 @@ def test_repository_defaults_and_pending_values():
     assert settings.models.api_enabled_by_default is False
     assert settings.models.model_id is None
     assert settings.retrieval.embedding_model is None
-    assert settings.data_split.snapshot_sha256 is None
-    assert settings.data_split.sample_ids is None
-    assert settings.data_split.groups.test.sample_ids is None
+    assert settings.data_split.snapshot_sha256 == "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+    assert settings.data_split.sample_ids == [
+        "conv-26", "conv-30", "conv-41", "conv-42", "conv-43",
+        "conv-44", "conv-47", "conv-48", "conv-49", "conv-50",
+    ]
+    assert settings.data_split.groups.main_dev.sample_ids == settings.data_split.sample_ids[:4]
+    assert settings.data_split.groups.extra_dev.sample_ids == settings.data_split.sample_ids[4:8]
+    assert settings.data_split.groups.test.sample_ids == settings.data_split.sample_ids[8:]
     assert settings.evaluation.qa_scoring == "pending_official_or_course_frozen_version"
     assert settings.retrieval.base_top_k == 8
     assert settings.retrieval.max_candidates == 12
