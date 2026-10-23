@@ -209,3 +209,13 @@ print(result.method, result.answer_result.status)  # full_text no_evidence
 ```
 
 端口返回的公共 DTO 会递归检查字段白名单并重新验证 Schema 2.1、请求/样本身份、候选 rank/预算/Memory ID 与真实样本中的来源、解析决定覆盖和关系来源、回答引用与最终 `QueryResponse`。原有 `validate_resolution_against_candidates` / `validate_response_context` 继续承担上下文验证；引用可定位不代表语义事实受原文支持。已知数据/构建/索引错误保留稳定码，缺少端口或未知异常使用固定脱敏错误，正常空候选才可形成 `no_evidence`。Dynamic 空候选仍需 D 返回合法的空解析结果。缺少正式 C/D、B 严格产物/索引适配或正式 A Full Text 生成器时，不能把此调度层的 Fake 测试视为完整三路问答；原计划 A-10 统一只读服务亦尚未实现。
+
+## Full Text 回答基线（A-13）
+
+`dynamic_memory.baselines.FullTextAnswerer(runtime, provenance, on_diagnostic=...)` 是 A-12 的 `answer_full_text(request, analysis, sample)` 端口；直接作为 `QueryOrchestrator(answer_full_text=answerer)` 注入。它只读取已经由来源端口提供的 `ConversationSample`，逐 Session 和轮次沿原顺序调用 `render_visible_turn`。每条非空可见轮次带 Session、dia_id、speaker 和可用的 recorded_at；caption 保持公共 `[image_caption: ...]` 标记。纯空可见轮次另记在诊断的 `empty_refs`，不伪造话语。样本、请求及共享分析的 ID、DTO 结构和重复轮次都要通过校验。合法的全空可见上下文直接返回 `no_evidence`，不调用模型。
+
+回答器使用同一个 `QA_PROMPT` (`qa_shared@demo-v1`) 和 `LLMRuntime.make_request / make_identity / execute`。原问题原样置于 question 变量开头，后附共享 `QueryAnalysis` 已给出的有限意图、时间模式及解析日期，不自行推断日期。A-11 的明确时间冲突由调度器在读来源前早停；若直接误调回答器则报错。正常文本响应可组装为 `answered`，但目前没有可靠的模型语义拒答或事实核验协议；因此 `evidence_refs=[]`，`context_source_refs` 只列实际送入 QA 的轮次，`used_memory_ids=[]`。默认 Mock 被拒绝为正式回答；仅显式 `synthetic_test_mode=True` 且注入自定义 Fake 时允许离线测试答案。
+
+预算使用同一 Runtime Guard 配置的 `TokenEstimator`，每次对完整 QA system 和 user 消息估算输入，而不只数对话。超过 `qa_max_input_tokens` 时逐个删除最早的完整可见轮次，保留后缀及其原有相对顺序；单轮也装不下则报 `INPUT_BUDGET_EXCEEDED`。严格模式无估算器或估算未知时调用前报 `INPUT_BUDGET_UNKNOWN`；宽松模式保留全部轮次但标记未核验。`FullTextDiagnostics` 回调提供纳入、预算丢弃、空可见轮次的来源键、截断标志、估算输入 Token 和预算核验状态，不含原文。估算核验并非 Provider 实测 Token，真实用量仍以 Runtime 记录为准。生产环境应在 `create_runtime` 显式注入可信估算器及版本，使用严格预算；本模块暂借用 Guard 内部的同一估算器/严格开关，未来可由公共 Runtime 提供只读预算端口。
+
+`FullTextProvenance` 必须由上游提供已核实的数据快照指纹、共享分析器版本、真实源码 Git SHA 和运行类别。`make_identity` 使用当前查询/样本、`method=full_text`、QA 模板/配置/执行策略身份，且无检索指纹；Runtime 录制与缓存键还包含完整请求指纹。缺少合法身份、模型失败、空白或截断响应会抛固定脱敏错误，由 A-12 映射为合法 `QueryResponse(status=error)`。仅能确认来源进入上下文，不能从 Fake、Prompt 文本或引用集合推断回答事实正确。正式 B/C/D 接入、服务/Web 和三路 Gold 评测属于后续工作。

@@ -94,3 +94,10 @@
 - 功能及文件：`src/dynamic_memory/pipeline/query_runner.py` 新增显式注入端口的 `QueryOrchestrator`，提供 `run_query`、`prepare_query`、`run_prepared`；复用 A-11 单次分析/早停，Full Text 只读原始样本，Vector RAG 与 Dynamic 共享 C 检索/候选装载路径，D 解析通过校验后才进入 Dynamic 回答。逐层复验公共 DTO、Memory ID、候选来源、解析决定/关系证据与最终响应，失败使用稳定脱敏码；`tests/unit/test_run_query_dispatch.py` 覆盖三路 synthetic Fake 调度、调用顺序、空候选、异常与边界；`docs/architecture.md` 说明端口职责与离线示例。
 - 测试：A-12 专项 `pytest -q tests/unit/test_run_query_dispatch.py`：24 passed；A-11 专项：35 passed；排除 Web 的离线完整回归 `pytest -q --ignore=tests/web`：437 passed；Mock smoke：PASS；文档 synthetic 示例输出 `full_text no_evidence`；`git diff --check`：通过，以上退出码均为 0。完整 `pytest -q` 在收集两项 Web 测试时因当前 `.venv` 缺少可选依赖 `streamlit` 中断，退出码 1，未获得完整套件通过结论；本轮未安装依赖。
 - 限制：C 正式查询分析/检索/Vector QA、D 正式解析/Dynamic QA、B 严格产物与匹配索引读取适配、A 正式 Full Text 生成器及统一只读服务尚待接入；测试均为 synthetic，不是 LoCoMo 事实或正式三路问答结果。A 调度器信任注入的 `load_verified_index` 端口完成 B/C 文件、来源、完整性和索引版本验证，不将内存 DTO 当作磁盘验证证据。
+
+## A-13（2026-10-24，待用户审阅，未提交）
+
+- 建议提交信息：`实现Full Text问答基线`。
+- 功能及文件：`src/dynamic_memory/baselines/full_text.py` 与包导出实现原始可见轮次组织、完整 QA 输入预算估算、最近完整轮次截断、不可变来源诊断、共享 QA Prompt/Runtime/身份记录及脱敏失败；`tests/unit/test_full_text_baseline.py` 用离线 synthetic Fake 覆盖原文、来源、预算、异常与 A-12 注入；`docs/architecture.md` 说明正式接入和限制。
+- 测试：A-13 专项 `pytest -q tests/unit/test_full_text_baseline.py`：10 passed；A-11/A-12 回归：59 passed；完整 `pytest -q`：480 passed（原 470 项无回归）；Mock smoke：PASS；`git diff --check`：通过，退出码均为 0。未运行正式 LoCoMo/Gold 或付费模型；Fake 回答不代表事实正确。
+- 限制：预算以注入的 TokenEstimator 为估计而非 Provider 精确用量；`qa_shared@demo-v1` 尚非正式冻结 Prompt，未验证真实模型回答的事实性。正式 B/C/D、统一服务/Web、三路评分及 Gold 隔离评测仍待后续接入。
