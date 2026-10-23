@@ -180,4 +180,32 @@ print(prepared.analysis.query_intent, prepared.analysis.time_mode)  # historical
 
 入口只核验 C 返回的真实公共 DTO、请求/分析 ID 及显式 `as_of` 一致性，不在 A 猜意图、解析日期或补电脑当前时间。`latest_known` 保持已知对话范围末端含义，与六种 `query_intent` 独立；`TIME_PARSE_UNCERTAIN` 保留为非冲突条件供后续模块处理。合法冲突需保留 `time_issue` 的请求日期和问题时间线索，三路共用 `status=time_uncertain`、空候选/关系/证据的早停响应。分析器异常、错误类型/Schema、越样本身份或不一致时间条件则使用固定脱敏错误码形成 `status=error`、`query_analysis=None` 的响应；无可信 `QueryRequest` 时抛出 `INVALID_QUERY_REQUEST`，因为不能构造合法响应。诊断不拼接问题、实体线索或原始异常。
 
-本轮只完成 A 的接线和公共合同早停；原计划 A-10 的统一只读业务访问尚未实现，B-03 的来源仓库尚未合入 A，A-12 三路正式调度也尚未实现。E/评测器不得把本 synthetic Fake 演示当作 C 正式分析或真实三路问答。
+当时 A-11 只完成 A 的接线和公共合同早停；原计划 A-10 的统一只读业务访问尚未实现，B-03 的来源仓库虽已在 A 可用，正式 B 产物/索引适配及 C/D 业务算法仍待接入。E/评测器不得把本 synthetic Fake 演示当作 C 正式分析或真实三路问答。
+
+## 统一三路查询调度（A-12）
+
+`dynamic_memory.pipeline.query_runner.QueryOrchestrator` 是服务持有的同步调度入口，显式注入 `analyze_query`、`get_sample`、`load_verified_index`、`retrieve`、`load_candidates`、`resolve` 和三种 `answer_*` callable。`run_query(request, method="dynamic")` 每次调用 A-11 一次，非法 method 在任何上游调用前拒绝；批量对照可先 `prepare_query(request)`，再用同一个 `PreparedQuery` 分别调用 `run_prepared(prepared, method)`，避免三路重复分析。A-11 的时间冲突/程序错误在读样本或索引前直接返回已有早停 `QueryResponse`。
+
+Full Text 只读取 B 的原始 `ConversationSample` 并调用注入的 `answer_full_text`，不要求 Memory 或索引。Vector RAG 和 Dynamic 均通过同一 C 检索/候选装载端口；前者调用 `answer_vector_rag`，后者先调用 D 的 `resolve`，验证候选决定/关系及来源，再调用 `answer_dynamic`。`load_verified_index(sample)` 是**可信 B/C 适配器的责任边界**：必须拒绝未通过 B 严格文件/来源校验的产物、partial 构建或与样本不匹配/过期的索引；本 A 调度器不把仅构造的 `MemoryArtifact` 视为已完成磁盘核验，也不实现索引算法。返回值对 A 是不透明的，只原样传给 C 的 `retrieve` / `load_candidates`。
+
+以下仅验证注入方式与合法 Full Text 形状，内容全部 synthetic，未调用正式 C/D 或 LLM：
+
+```python
+from dynamic_memory.contracts import AnswerResult, ConversationSample, ConversationSession, QueryAnalysis, QueryRequest
+from dynamic_memory.pipeline.query_runner import QueryOrchestrator
+
+sample = ConversationSample(sample_id="synthetic_sample", source_order_1_based=1,
+                            sessions=[ConversationSession(session_id="synthetic_session", turns=[])])
+runner = QueryOrchestrator(
+    analyze_query=lambda request: QueryAnalysis(query_id=request.query_id, sample_id=request.sample_id,
+                                                query_intent="unknown", time_mode="latest_known"),
+    get_sample=lambda _sample_id: sample,
+    answer_full_text=lambda _request, _analysis, _sample: AnswerResult(
+        status="no_evidence", uncertainty="Synthetic fixture has no turns."),
+)
+result = runner.run_query(QueryRequest(query_id="synthetic_q1", sample_id="synthetic_sample",
+                                       question="Synthetic question?"), "full_text")
+print(result.method, result.answer_result.status)  # full_text no_evidence
+```
+
+端口返回的公共 DTO 会递归检查字段白名单并重新验证 Schema 2.1、请求/样本身份、候选 rank/预算/Memory ID 与真实样本中的来源、解析决定覆盖和关系来源、回答引用与最终 `QueryResponse`。原有 `validate_resolution_against_candidates` / `validate_response_context` 继续承担上下文验证；引用可定位不代表语义事实受原文支持。已知数据/构建/索引错误保留稳定码，缺少端口或未知异常使用固定脱敏错误，正常空候选才可形成 `no_evidence`。Dynamic 空候选仍需 D 返回合法的空解析结果。缺少正式 C/D、B 严格产物/索引适配或正式 A Full Text 生成器时，不能把此调度层的 Fake 测试视为完整三路问答；原计划 A-10 统一只读服务亦尚未实现。

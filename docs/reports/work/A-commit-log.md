@@ -87,3 +87,10 @@
 - 功能及文件：`src/dynamic_memory/pipeline/query_conditions.py` 新增可注入 `QueryAnalyzer`、`prepare_shared_query` 和防御性快照 `PreparedQuery`，每个请求分析一次，复验 Schema 2.1/ID/显式日期，并在序列化前检查 QueryRequest、QueryAnalysis、嵌套 TimeIssue 原始字段白名单以拒绝 model_copy 注入的未知字段，统一三路时间冲突或错误早停；`tests/unit/test_shared_query_conditions.py` 使用 synthetic Fake 覆盖六种意图、时间一致性、脱敏失败与隔离；`docs/architecture.md` 增加接入示例和边界。
 - 测试：专项 `pytest -q tests\unit\test_shared_query_conditions.py`：35 passed（含 8 项未知字段/嵌套字段的回归测试，退出码 0）；完整 `pytest -q`：345 passed（退出码 0）；`mock_smoke`：PASS（退出码 0）；文档 synthetic Fake 示例输出 `historical_state conflict`（退出码 0）；`git diff --check`：退出码 0。所有测试均离线，无 C 正式分析、真实模型或 Gold。
 - 限制：本轮仅有 A 侧查询条件接线，没有 C 正式分析器，也不实现检索、状态推理或三路答案。原计划 A-10 的统一只读业务访问未完成；B-03 的来源仓库未合入 A，A-12 的正式三路调度仍待单独任务。
+
+## A-12（2026-10-23）
+
+- 拟提交信息：`实现run_query三路查询调度`。
+- 功能及文件：`src/dynamic_memory/pipeline/query_runner.py` 新增显式注入端口的 `QueryOrchestrator`，提供 `run_query`、`prepare_query`、`run_prepared`；复用 A-11 单次分析/早停，Full Text 只读原始样本，Vector RAG 与 Dynamic 共享 C 检索/候选装载路径，D 解析通过校验后才进入 Dynamic 回答。逐层复验公共 DTO、Memory ID、候选来源、解析决定/关系证据与最终响应，失败使用稳定脱敏码；`tests/unit/test_run_query_dispatch.py` 覆盖三路 synthetic Fake 调度、调用顺序、空候选、异常与边界；`docs/architecture.md` 说明端口职责与离线示例。
+- 测试：A-12 专项 `pytest -q tests/unit/test_run_query_dispatch.py`：24 passed；A-11 专项：35 passed；排除 Web 的离线完整回归 `pytest -q --ignore=tests/web`：437 passed；Mock smoke：PASS；文档 synthetic 示例输出 `full_text no_evidence`；`git diff --check`：通过，以上退出码均为 0。完整 `pytest -q` 在收集两项 Web 测试时因当前 `.venv` 缺少可选依赖 `streamlit` 中断，退出码 1，未获得完整套件通过结论；本轮未安装依赖。
+- 限制：C 正式查询分析/检索/Vector QA、D 正式解析/Dynamic QA、B 严格产物与匹配索引读取适配、A 正式 Full Text 生成器及统一只读服务尚待接入；测试均为 synthetic，不是 LoCoMo 事实或正式三路问答结果。A 调度器信任注入的 `load_verified_index` 端口完成 B/C 文件、来源、完整性和索引版本验证，不将内存 DTO 当作磁盘验证证据。
