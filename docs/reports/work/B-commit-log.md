@@ -23,3 +23,18 @@
 - `SourceRepositoryError.code` 稳定区分 `DATA_NOT_LOADED`、`DATA_FORMAT_INVALID`、`DUPLICATE_SOURCE_REF`、`SAMPLE_NOT_FOUND`、`SOURCE_NOT_FOUND`、`SAMPLE_MISMATCH`。仅外样本存在的 pair 报 `SAMPLE_MISMATCH`；两个样本均有同名 pair 时以显式 sample_id 限定范围，无法据 SourceRef 推断来源者意图。错误消息不包含原文、Gold 或未审查输入。
 - synthetic 合同测试 17 passed（含非连续源序号与非法/重复序号回归），完整 pytest 378 passed，Mock smoke PASS，`git diff --check` 通过，退出码均为 0。真实忽略数据只读 smoke：SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`、10 样本、272 sessions、5882 turns、1226 captions、5882 个唯一三元键、4/4/2 分组；选取首、中、末三条实际 SourceRef 回查均与来源 DTO 相等，仅输出布尔值。
 - 未修改公共 DTO、B-01/B-02、冻结配置及其他组模块；无网络、模型/API、Gold 或图片访问。经独立审查修复并统一提交 B-03 到 B 分支，提交信息：`B03：实现来源仓库与轮次回查`；第一批 B→main 合并仍待单独授权，本次不合并 main。
+
+## B-04｜Memory 抽取分窗规划｜2026-10-23
+
+- Git Gate：本 worktree 位于 `B`，同步前 HEAD `863910c97bd3450b53749ad0ed8e2de12cda220a`，仅有三份此前未跟踪的 B 审计报告；`git fetch origin --prune` 后 `origin/B=1b8aa37d7c8820471cb637c74afd0a6082b49335`，确认祖先关系及无路径碰撞，`git pull --ff-only origin B` 成功，现 HEAD 与 `origin/B` 同为 `1b8aa37`。同步后 `origin/main=c62bd03` 仅多过程资料提交；`origin/A=7d240ed` 尚多查询条件入口及合并提交，未发现 B-04 输入/预算依赖变化。本轮未合并 main/A。
+- 新增 `src/dynamic_memory/memory/windows.py`：内部 `WindowTurn`、`ExtractionWindow`、`WindowPlanningError` 和 `plan_extraction_windows(sample, settings, ...)`；逐 session 贪心分窗、默认按配置 4096 输入预算和 2 条重叠，统一渲染 caption、保留来源/顺序，按序列化输入与预算/估算配置生成稳定窗口 ID。默认以 UTF-8 字节数作保守输入估算，预留 512 tokens 给尚未最终确定的 Prompt；可注入有版本号的估算器。超长单轮、重叠无法推进、预算/估算异常显式报脱敏错误。没有模型调用、Memory 抽取或产物构建。
+- 新增 `tests/unit/test_memory_windows.py`，仅使用 synthetic 公共 DTO 和本地配置。TDD：先观察模块缺失及长 session 分窗测试失败，再逐步实现；最终专项 `13 passed`。完整 `python -B -m pytest -q -p no:cacheprovider` 在系统 Python 3.13 因缺少可选 `streamlit` 于 2 个 Web 文件收集失败；非 Web 测试为 `403 passed, 2 failed`，失败是 B-02 深层 JSON 的 2 项旧测试在此解释器下未触发预期递归错误/先报快照不符，与本次文件无关。排除这两项后非 Web 回归 `404 passed, 2 deselected`；`python -B -m dynamic_memory.pipeline.mock_smoke` 输出 `synthetic mock smoke: PASS`；`.venv` 不存在，未安装依赖。`git diff --check` 及对新增文件的单独空白检查通过。
+- 尚未验证真实 API Token 数；B-05 必须对完整 system/user Prompt 和实际请求再次做预算校验。B-04 本轮无 commit、push、PR 或 main/A 合并；等待人工验收及提交授权。
+
+### B-04-R1｜测试环境与最终验收｜2026-10-23
+
+- 工作区仍为独立 `B` worktree，HEAD 与 `origin/B` 均为 `1b8aa37`；B-04 两个新增文件仍未提交，三份既有未跟踪审计报告未改动，无其他成员新增的未提交改动。
+- 先前测试误用系统 Python 3.13.7，且当时无 `.venv` 和 `streamlit`，导致 Web 测试收集失败。两项 B-02 深层 JSON 测试在 3.13 下分别未触发 `RecursionError`、提前报 `DATA_SNAPSHOT_MISMATCH`；它们位于既有 `tests/unit/test_data_loader.py`，先于 B-04 存在。`uv` 已有 Python 3.11.15，按 `pyproject.toml` 已声明的 `dev`、`web` extras 在本 worktree 新建忽略的 `.venv` 并安装依赖；未改依赖声明或全局环境。
+- `.venv\Scripts\python.exe -m pytest -q tests/unit/test_data_loader.py -k deeply_nested_json`：2 passed、22 deselected（仅用于定位）；`.venv\Scripts\python.exe -m pytest -q tests/unit/test_memory_windows.py`：13 passed；`.venv\Scripts\python.exe -m pytest -q tests/unit/test_data_snapshot.py tests/unit/test_data_loader.py tests/contract/test_source_repository.py tests/contract/test_dataset_containers.py`：94 passed；`.venv\Scripts\python.exe -m pytest -q`：424 passed，包含 Web 测试，无排除或跳过；`.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke`：PASS；`git diff --check`：PASS，命令退出码均为 0。
+- 复核 B-04：来源轮次逐 session 保序覆盖，默认重叠 2 条且无法推进时报错；超长单轮、预算或估算异常均显式脱敏报错；窗口 ID 从内容和分窗参数确定；序列化包含统一 caption 可见文本，预留 Prompt 预算。无需修改 B-04 代码。此轮未读取 Gold、调用模型或真实 API，也未修改公共契约或其他成员业务代码。
+- 最终验收：在 README 指定的 Python 3.11 环境中 PASS，具备人工提交 B-04 的条件；系统 Python 3.13 下既有深层 JSON 测试的兼容性差异仍存在，未将其算作 3.11 回归失败。B-05 可在另行授权后启动，且须对最终完整 LLM 请求复核实际 Token 预算。本轮未 commit、push、PR 或合并。
