@@ -109,3 +109,11 @@
 - 测试：题目身份专项 4 passed、Gold 隔离专项 9 passed、答案适配专项 6 passed；完整 `pytest -q`：499 passed（A-13 基线 480 项，新增 19 项）；Mock smoke：PASS；`git diff --check`：通过。所有退出码为 0，未读取真实 LoCoMo 测试 Gold、未调用模型或生成正式分数。
 - 审查修复：修正 `evaluation/predictions.py` 对仓库 `results/` 的根目录计算（`parents[1]`），并将预写入后 `os.replace` 改为不可覆盖已有目标的原子硬链接发布；增加真实仓库结果目录/仓库父目录拒绝测试和并发目标先创建时的保留性测试。修复后 Gold 隔离专项 **11 passed**、A-14 三组专项 **21 passed**、完整回归 **501 passed**，Mock smoke：PASS，均无真实 Gold 或付费调用。硬链接文件系统不受支持时返回固定保存失败错误，不改写已存在文件。
 - 限制：官方 ID 字段须在外部核实后显式指定；本轮不含官方 QA F1、Recall、状态指标和三路 Runner。`docs/references/Milestone4/` 为用户已授权的预存未跟踪资料，本轮未触碰；下次经用户授权提交时随 A-14 统一纳入。
+
+## A-15（2026-10-25，待用户审阅，未提交）
+
+- 建议提交信息：`实现LoCoMo官方五类QA评分器`。
+- 功能及文件：`evaluation/metrics/official_qa.py` 复现固定上游五类 QA 规则；`evaluation/metrics/qa_summary.py` 在 A-14 预测/Gold 门槛后逐题评分并汇总主/条件分母、失败、缺 Gold、类别/样本/方法；`pyproject.toml` 增加有界 `eval` 可选依赖；两组 synthetic 离线专项测试；`docs/architecture.md` 说明固定版本及边界。
+- 上游依据：`snap-research/locomo` 的 `task_eval/evaluation.py`，commit `cbfbc1dba6bc53d00625212a0f22d55ffee7c1fc`；一次性动态对照 4 个归一化/词项样例和 5 个类别样例全部一致。未安装或运行完整 BERTScore/ROUGE 模块。
+- 测试：`test_official_qa_scoring.py` 13 passed、`test_qa_score_summary.py` 5 passed；完整 `pytest -q` 519 passed（A-14 基线 501，新增 18）；Mock smoke PASS；`git diff --check` 通过，以上退出码均为 0。所有 Gold 和预测均为 synthetic，无真实课程分数。
+- 审查修复：发现 GitHub Actions 原安装 `.[dev,web]`，未包含 A-15 的 `eval` 可选依赖；本轮将 `.github/workflows/contracts.yml` 改为 `.[dev,web,eval]`，保障全新 CI 环境能安装 NLTK/regex。修复后本地 A-15 专项 18 passed、全量 519 passed、Mock smoke PASS；正式 CI 结果以后续远端执行为准。
