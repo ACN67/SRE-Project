@@ -101,3 +101,11 @@
 - 功能及文件：`src/dynamic_memory/baselines/full_text.py` 与包导出实现原始可见轮次组织、完整 QA 输入预算估算、最近完整轮次截断、不可变来源诊断、共享 QA Prompt/Runtime/身份记录及脱敏失败；`tests/unit/test_full_text_baseline.py` 用离线 synthetic Fake 覆盖原文、来源、预算、异常与 A-12 注入；`docs/architecture.md` 说明正式接入和限制。
 - 测试：A-13 专项 `pytest -q tests/unit/test_full_text_baseline.py`：10 passed；A-11/A-12 回归：59 passed；完整 `pytest -q`：480 passed（原 470 项无回归）；Mock smoke：PASS；`git diff --check`：通过，退出码均为 0。未运行正式 LoCoMo/Gold 或付费模型；Fake 回答不代表事实正确。
 - 限制：预算以注入的 TokenEstimator 为估计而非 Provider 精确用量；`qa_shared@demo-v1` 尚非正式冻结 Prompt，未验证真实模型回答的事实性。正式 B/C/D、统一服务/Web、三路评分及 Gold 隔离评测仍待后续接入。
+
+## A-14（2026-10-25，待用户审阅，未提交）
+
+- 建议提交信息：`建立QA身份与Gold隔离评测基础`。
+- 功能及文件：`evaluation/question_manifest.py` 提供冻结快照校验、问题白名单、原始 QA 下标及稳定身份；`evaluation/predictions.py` 提供完整预测的临时/忽略目录保存、字节回执与回读验证；`evaluation/gold_loader.py` 仅在预测核验后读取 Gold，区分缺失与格式错误；`evaluation/metrics/answer_adapter.py` 提供五状态固定评分输入。新增三组 synthetic 单元测试，更新 `docs/architecture.md`。
+- 测试：题目身份专项 4 passed、Gold 隔离专项 9 passed、答案适配专项 6 passed；完整 `pytest -q`：499 passed（A-13 基线 480 项，新增 19 项）；Mock smoke：PASS；`git diff --check`：通过。所有退出码为 0，未读取真实 LoCoMo 测试 Gold、未调用模型或生成正式分数。
+- 审查修复：修正 `evaluation/predictions.py` 对仓库 `results/` 的根目录计算（`parents[1]`），并将预写入后 `os.replace` 改为不可覆盖已有目标的原子硬链接发布；增加真实仓库结果目录/仓库父目录拒绝测试和并发目标先创建时的保留性测试。修复后 Gold 隔离专项 **11 passed**、A-14 三组专项 **21 passed**、完整回归 **501 passed**，Mock smoke：PASS，均无真实 Gold 或付费调用。硬链接文件系统不受支持时返回固定保存失败错误，不改写已存在文件。
+- 限制：官方 ID 字段须在外部核实后显式指定；本轮不含官方 QA F1、Recall、状态指标和三路 Runner。`docs/references/Milestone4/` 为用户已授权的预存未跟踪资料，本轮未触碰；下次经用户授权提交时随 A-14 统一纳入。
