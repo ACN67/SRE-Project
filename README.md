@@ -63,6 +63,8 @@ python -m venv .venv
 
 C 模块已提供独立的本地 Embedding 接口（将 Memory 和问题转换成向量），安装、示例和验证步骤见 [Embedding 使用说明](docs/embedding.md)。检索索引与 Vector RAG 仍待实现，正式 Embedding 模型尚未冻结。
 
+C 模块另提供无需模型或 API 的规则版查询分析，识别常见查询意图、实体/属性提示及时间条件；示例与限制见 [查询分析使用说明](docs/query-analysis.md)。
+
 `dynamic_memory.pipeline.settings.load_settings(config_dir=None)` 会从仓库的 `configs/` 读取并校验六份 YAML，也可传入自定义目录。它返回类型化的 `AppSettings`，不会读取 API Key 或发起模型请求。例如，在已安装项目的环境中运行：
 
 ```powershell
