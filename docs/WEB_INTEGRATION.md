@@ -50,3 +50,13 @@ $env:DYNAMIC_MEMORY_WEB_FACTORY = 'your_integration_module:create_bindings'
 本期不提供问答提交、三路结果比较或关系图，也不迁入旧响应校验器。下一期需按实际 QueryResponse 合同迁移，尤其核对 `time_uncertain` 前置退出条件：当前公共模型只对时间冲突分支豁免常规中间对象要求，旧演示的未知时间分支不能直接沿用。
 
 真实 A/B 数据服务尚未接入，synthetic 测试通过不代表端到端验收。接入后需使用真实开发样本核对来源、caption、空数据和失败分支。AI 开发约束见 `ai-skills/dynamic-memory-web/SKILL.md`。
+
+## v2.2 状态展示准备（2026-10-21）
+
+已完成 E 侧稳定异常码的显示映射，代码位于 `web/status.py`。读取异常的 `.code`，只显示白名单中的固定中文说明及错误码；不解析异常文本，不回显服务原始消息或未知错误码。覆盖数据未加载/加载失败、记忆未构建/部分构建/构建失败、产物损坏/过期、索引过期和来源身份异常。没有稳定错误码的异常继续显示通用诊断提示。
+
+样本读取失败时保留“刷新服务”，便于服务恢复后重试；失败清除旧记忆与来源。真实绑定明确提示构建状态接口尚未接入，成功读取列表不被升级为完整 BuildStatus。空样本提示只表示 `list_samples()` 成功返回空列表。
+
+当前仍使用四个既有只读接口，不添加替代 BuildStatus。A 提供公共类型、`get_build_status(sample_id)` 和统一服务后，再接入完整状态面板，核验 dataset_state、memory_state、partial_build、build_id、error_code 的含义及一致性。完整零 Memory、就绪状态必须结合公共状态结果确认；当前页面不自行推导。Memory 不可用时独立来源访问的页面流程也留待该接入批次完成，现有来源入口仍依赖记忆详情。
+
+本批没有实现构建、产物加载、索引、问答或模型调用。状态测试使用 synthetic 服务异常，不代表实际 A/B 服务联调完成。

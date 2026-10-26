@@ -10,6 +10,7 @@ import streamlit as st
 from dynamic_memory.contracts.models import render_visible_turn
 from .bindings import load_bindings
 from .demo import demo_bindings
+from .status import ERROR_MESSAGES, known_error_code
 
 PAGE_SIZE = 4
 LOG = logging.getLogger(__name__)
@@ -34,7 +35,9 @@ def reset_sample():
 def report_error(context, error):
     incident = uuid4().hex[:10]
     LOG.error("Web %s incident=%s type=%s", context, incident, type(error).__name__)
-    st.error(f"{context}失败，请检查服务或数据契约。诊断号：{incident}")
+    code = known_error_code(error)
+    message = ERROR_MESSAGES[code] + f" 错误码：{code}。" if code else "请检查服务或数据契约。"
+    st.error(f"{context}失败，{message}诊断号：{incident}")
 
 
 def memory_card(memory):
@@ -138,8 +141,8 @@ def main():
         if "bindings" not in st.session_state:
             st.session_state["bindings"] = load_bindings(factory) if factory else demo_bindings()
         bindings = st.session_state["bindings"]
-        samples = bindings.list_samples()
     except Exception as error:
+        clear_selection()
         report_error("初始化服务", error)
         st.stop()
     with st.sidebar:
@@ -153,9 +156,17 @@ def main():
             st.rerun()
     if bindings.synthetic:
         st.warning("Synthetic 合成演示数据：仅用于界面与接口验证，不代表真实样本、模型输出或实验结果。")
+    else:
+        st.caption("当前仅展示只读接口返回结果；构建状态接口尚未接入，不据此判断构建是否就绪。")
+    try:
+        samples = bindings.list_samples()
+    except Exception as error:
+        clear_selection()
+        report_error("读取样本列表", error)
+        st.stop()
     if not samples:
         clear_selection()
-        st.info("服务尚未提供样本。")
+        st.info("服务尚未提供样本：样本列表读取成功，返回为空。")
         st.stop()
     if st.session_state.get("sample") not in samples:
         reset_sample()
