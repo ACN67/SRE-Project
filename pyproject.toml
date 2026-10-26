@@ -12,12 +12,15 @@ dependencies = ["pydantic>=2,<3", "PyYAML>=6,<7"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
-web = ["streamlit>=1,<2"]
+web = ["streamlit>=1.65,<2"]
 api = ["openai>=1,<3"]
 embedding = ["sentence-transformers>=3,<6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"dynamic_memory.web" = ["assets/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

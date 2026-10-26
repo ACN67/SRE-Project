@@ -64,3 +64,19 @@
 - 功能及文件：`src/dynamic_memory/pipeline/runtime.py` 新增显式 `create_runtime`、只读引用的 `LLMRuntime`、`PreparedCall`、请求/身份绑定及执行预检；只装配一个底层 Adapter、一个 A-07 Guarded 和一个 A-08 Recorded，默认 Mock，DeepSeek 需独立显式授权与凭据或受控 Fake Client。`tests/integration/test_llm_runtime.py` 验证共享实例、Prompt/JSON、三路 QA、身份隔离、缓存、并发、离线 Fake 和失败路径；`docs/architecture.md` 增加可运行示例与接入边界。
 - 测试：定向 `pytest -q tests\integration\test_llm_runtime.py`：10 passed（退出码 0）；完整 `pytest -q`：244 passed（退出码 0，原有 234 项无回归）；`mock_smoke`：PASS（退出码 0）；文档 A-09 示例输出 `mock 2`（退出码 0）；`git diff --check`：退出码 0。全部离线，无真实 API 请求。
 - 限制：这只是共享 LLM 基础设施的 Runtime；B/C/D 的真实数据、索引、状态和证据核验及 A 的正式 `run_query` 尚未接入。Mock/Fake 的回答、用量和身份皆为 synthetic，不能作为业务或在线验证。数据/索引指纹、Schema、查询范围和已存在的 Git SHA 必须由上游显式传入；JSON 缺业务 validator 不成功缓存。
+
+
+## G-01 / G-02 公共接口兼容修复（2026-10-19，非 A-10 编号任务）
+
+- Commit Message：`修复空JSON统一重试与MemoryArtifact索引交接`。
+- G-01：DeepSeek Provider 将 JSON 任务下的空内容明确分类为 `EMPTY_JSON`；A-07 统一 Guarded 执行器与 `TIMEOUT/NETWORK/RATE_LIMIT` 共享 `max_retries=2` 的最多三次调用预算，文本空白/`{}`/非空无效 JSON/截断与 Schema 校验失败均不重试。A-08 原有日志/缓存记录真实尝试次数与失败码，失败结果不会缓存。
+- G-02：公共 `contracts.artifacts` 新增 `MemoryManifest`、`MemoryArtifact`、`FailedWindow` 及稳定内存记录集合/manifest 指纹，验证版本、样本、记录数、Memory ID、窗口状态与摘要一致性；正式 `build_index` 规范改为接收 `MemoryArtifact` 而非裸列表。B 的严格磁盘/来源/发布校验 loader 与 C 的实际索引仍由相应模块实现。
+- 测试：新增离线 G-01 Provider→执行器→A-08 缓存/审计链专项测试18项与 G-02 结构及拒绝 partial 的合同测试22项；完整 pytest 284 passed（原有244项无回归）、Mock Smoke PASS、git diff --check 通过。没有真实 DeepSeek 调用，不把 Mock/Fake 当作业务事实。
+- 兼容：维持技术规范 v2.2 与业务 Schema 2.1，不更改已存在的 MemoryRecord/SourceRef/QueryResponse 字段；B/D 不再自行叠加 JSON 空内容重试，C 不能以裸列表作为正式索引入口。
+
+## A-10（2026-10-19）
+
+- Commit Message：`实现公共对话数据容器`。
+- 功能及文件：`src/dynamic_memory/contracts/data.py` 唯一定义 IC-001 的 `ConversationSession`、`ConversationSample`、`DatasetBundle`，复用 `SourceTurn` 和公共基类，校验同层唯一性、父子来源身份、划分集合与快照摘要；`contracts/__init__.py` 导出；`tests/contract/test_dataset_containers.py` 使用纯 synthetic fixture 覆盖保序、回读、空结构、Gold 字段拒绝及异常路径，并对三个公共容器启用 `hide_input_in_errors=True`、验证格式化校验错误不会回显被拒绝的 Gold 标记；`docs/contracts.md` 写明结构合同、脱敏边界与 B 加载器职责。
+- 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\contract\test_dataset_containers.py`：26 passed（含 4 项异常脱敏测试，退出码 0）；完整 `pytest -q`：310 passed（原有 284 项无回归，退出码 0）；`mock_smoke`：PASS（退出码 0）；`git diff --check`：退出码 0。全部离线，不读取真实数据、Gold 或调用模型 API。
+- 限制：公共容器只检查结构与字段白名单；B-02 负责原始 LoCoMo 解析和 Gold 剥离，B-03 负责 SourceRepository，快照文件 SHA 和冻结配置一致性由 B 的严格加载器核验。v2.2 未设置列表最小数量，故空 session、sample 和 Bundle 在结构层合法；不代表正式数据可为空。

@@ -1,11 +1,12 @@
 # SRE-Project：智能体动态记忆管理系统
 
-课程项目的工程初始化，依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.1。目标是从 LoCoMo 长期对话构建有来源的结构化 Memory，比较 Full Text、Vector RAG、Dynamic 三路问答，并在后续完成 Web 展示和正式评测。
+课程项目的工程初始化，依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2。目标是从 LoCoMo 长期对话构建有来源的结构化 Memory，比较 Full Text、Vector RAG、Dynamic 三路问答，并在后续完成 Web 展示和正式评测。
 
 ## 当前已实现
 
 - Python 3.11 / Pydantic v2 公共 DTO、部分结构校验、确定性 Memory ID 工具。
 - 无网络 synthetic Mock 入口及合同测试；不读取数据、不调用收费 API。
+- 已集成 A-05～A-09 的结构化 JSON 校验、Prompt 模板、模型调用控制、审计缓存与共享 LLM Runtime，并通过离线测试；新增 v2.2 业务接口尚待实现。
 - 冻结规范副本、配置初值和模块目录。配置中的 `null` 表示尚未冻结。
 
 真实 DeepSeek 抽取、Embedding 检索、动态状态推理、完整 Streamlit Web、正式 LoCoMo 评分均未实现；Mock 输出不能作为实验结果。
@@ -22,7 +23,7 @@
 
 ## Git 分支与团队协作
 
-`main` 是稳定的集成分支。五位成员各自从最新 `main` 建立个人分支，独立开发负责模块；个人真实提交历史和贡献应可追溯。本轮只确定以下分支命名，尚未创建 A、B、C、D、E 分支。
+`main` 是稳定的集成分支。五位成员各自从最新 `main` 建立个人分支，独立开发负责模块；个人真实提交历史和贡献应可追溯。各成员按照下列分支命名独立开发，具体已创建及已合并的分支状态以 GitHub 远端为准。
 
 | 成员 | 代号 | 个人开发分支（精确名称） | 负责模块 |
 | --- | --- | --- | --- |
@@ -36,7 +37,7 @@
 
 由 Codex 执行的工作沿用独立审查流程：Codex 只修改、测试，可以 `git add`，不得 commit 或 push；ChatGPT 审查后需用户明确确认，再由 ChatGPT 提交推送。这不限制人工成员在个人分支保留正常提交历史。
 
-[TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.1 是当前技术执行依据；公共契约唯一位置为 `src/dynamic_memory/contracts/`。跨模块接口或 Schema 需要调整时，先通知相关成员，并同步更新代码、[契约说明](docs/contracts.md)、fixtures 和测试。
+[TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2 是当前技术执行依据；公共契约唯一位置为 `src/dynamic_memory/contracts/`。跨模块接口或 Schema 需要调整时，先通知相关成员，并同步更新代码、[契约说明](docs/contracts.md)、fixtures 和测试。
 
 ## 参考资料
 
@@ -44,7 +45,7 @@
 - [软需工.pdf](docs/references/软需工.pdf)：课程原始项目与交付要求的依据。
 - [指导文档.md](docs/references/指导文档.md)：早期 v1.1 指导文档，仅供背景与沿革参考。
 
-正式实施方案以 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.1 为准，旧指导材料的技术细节不能覆盖冻结规范。课程 PDF 的 Version Control 页建议使用 private GitHub repository，而当前仓库是 Public；组长需确认课程是否允许公开仓库，以及课程资料是否获准公开发布。
+正式实施方案以 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2 为准，旧指导材料的技术细节不能覆盖冻结规范。课程 PDF 的 Version Control 页建议使用 private GitHub repository，而当前仓库是 Public；组长需确认课程是否允许公开仓库，以及课程资料是否获准公开发布。
 
 ## 安装与验证
 

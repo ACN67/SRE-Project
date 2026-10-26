@@ -1,1 +1,1 @@
-"""Reserved for the responsible team member."""
+"""Member E's Streamlit UI; business logic is provided by the shared service."""

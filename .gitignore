@@ -32,3 +32,4 @@ results/**
 !data/annotations/.gitkeep
 !evaluation/gold/.gitkeep
 !results/**/.gitkeep
+.streamlit/secrets.toml
