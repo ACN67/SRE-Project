@@ -174,6 +174,26 @@ class QueryOrchestrator:
         self._answer_vector_rag = answer_vector_rag
         self._answer_dynamic = answer_dynamic
 
+    def with_source_lookup(self, get_sample: Callable[[str], ConversationSample]) -> "QueryOrchestrator":
+        """Return an independent dispatcher bound to a service-owned source lookup.
+
+        Keep the analyzer, retrieval, resolution and answer ports unchanged, but
+        do not reuse a caller-supplied get_sample port from a different dataset.
+        """
+        if not callable(get_sample):
+            raise QueryPreparationError("INVALID_SOURCE_LOOKUP")
+        return QueryOrchestrator(
+            analyze_query=self._analyze_query,
+            get_sample=get_sample,
+            load_verified_index=self._load_verified_index,
+            retrieve=self._retrieve,
+            load_candidates=self._load_candidates,
+            resolve=self._resolve,
+            answer_full_text=self._answer_full_text,
+            answer_vector_rag=self._answer_vector_rag,
+            answer_dynamic=self._answer_dynamic,
+        )
+
     def _response(self, request: QueryRequest, analysis: QueryAnalysis, method: str,
                   answer: AnswerResult, sample: ConversationSample,
                   candidates: CandidateSet | None = None, memories: list[MemoryRecord] | None = None,

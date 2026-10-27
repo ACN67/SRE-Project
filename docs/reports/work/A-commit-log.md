@@ -131,3 +131,11 @@
 - 建议提交信息：实现三路批量预测与可比性核验。起点大写 A 分支，HEAD ee2350a49b4d9951ef045c490219faebc0b9dce9，工作区干净。
 - 功能及文件：evaluation/runners/__init__.py、three_method_runner.py 实现一次共享分析、三路预测、实际候选比较、三份 A-14 兼容文件保存及独立验收；tests/unit/test_three_method_batch_runner.py、test_batch_candidate_comparability.py 用离线 synthetic Fake 验证顺序、失败、候选差异与持久化门槛；docs/architecture.md 记录协议及边界。未修改 A-12 调度接口或公共 Schema。
 - 验证：Runner 专项 17 passed、候选比较专项 8 passed；完整 pytest 563 passed（起点 538，新增 25）；Mock smoke PASS；git diff --check 通过，以上退出码均为 0。实际 synthetic 三路持久化与独立回读 3/3 文件成功，2 道题候选 identical 2、mismatch/not_comparable/unverified 各 0。没有 Gold、付费 API、正式模型或真实成绩；未提交或推送。
+
+
+## A-18（2026-10-27，待用户审阅，未提交）
+
+- 建议提交信息：实现统一只读服务与构建状态接口。起点大写 A 分支，HEAD 3d62f27085701cf3fbc50b4fc7004155d91b3e6d，工作区干净。
+- 功能及文件：contracts/service_status.py 与 contracts/__init__.py 增量定义并导出 BuildStatus；services/dynamic_memory_service.py 与 services/__init__.py 提供六个只读方法、可信产物/索引状态门槛及脱敏错误；tests/contract/test_build_status_service.py、tests/unit/test_dynamic_memory_service.py、tests/integration/test_service_web_binding.py 用离线 synthetic Fake 验证状态、数据隔离、A-12 调度与 E WebBindings；docs/contracts.md、docs/architecture.md 说明接口与正式依赖。未改既有 Schema 字段、A-12、A-17 或 E 页面。
+- 验证：服务专项 14 passed、状态合同专项 20 passed、A→E 合成接入 1 passed、Web 回归 33 passed；完整 pytest 598 passed（起点 563，新增 35）；Mock smoke PASS、git diff --check 通过，以上退出码均为 0。未接入 B/C/D 正式 loader/索引/模型；无真实 Gold、API 或课程成绩。未暂存、提交、推送或合并。
+- 独立审查修复（2026-10-27）：一是服务和原 QueryOrchestrator 可以注入两个具有相同 sample_id/SourceRef 但快照不同的来源，误接受异源原文；现在 A-12 新增公开 `with_source_lookup`，A-18 服务构造时创建独立调度器并以自己的 SourceRepository.get_sample 强制绑定原文，外部原有调度器保持不变。二是旧服务先检查 Memory/索引再分析问题，会把可提前返回的 `time_uncertain` 覆盖为 `BUILD_NOT_FOUND`；现在先执行一次 `prepare_query`，错误/时间冲突立即通过 `run_prepared` 返回；正常请求再检查 Memory/索引并复用同一 PreparedQuery。早停与正常响应均复验身份和公共 Schema。新增 3 项 synthetic 反例测试，修复后 A-18 专项 **38 passed**、A-12 调度回归 **24 passed**、Web 回归 **33 passed**、完整 pytest **601 passed**、Mock smoke PASS、`git diff --check` 通过。A 仅能证明服务的 get_sample 与同一个 SourceRepository 绑定；任意注入的真实生成器和 C 索引语义必须由 B/C 可信组合根及指纹核验。本轮未调用真实模型/Gold，未更改 B/C/D/E/main。

@@ -17,3 +17,12 @@
 **G-01：** A 的 `GuardedLLMAdapter` 对 JSON 模式空白 Provider 内容统一分类为 `EMPTY_JSON`，与超时/网络/限流共享最多三次 Provider 尝试；`{}`、非空无效 JSON、截断和业务 Schema 失败直接失败。B/D 不叠加重试，失败不写入成功缓存。
 
 **G-02：** 公共 `contracts.artifacts` 已提供 `MemoryManifest` / `MemoryArtifact` / `memory_set_fingerprint`，正式索引签名固定为 `build_index(artifact: MemoryArtifact, settings: RetrievalSettings)`。B 严格 loader 才能确认磁盘哈希、来源与发布指针；公共对象的结构校验不代表 B/C 业务已实现。C 正式索引拒绝 partial、保留并核对 `source_manifest_fingerprint` 与实际 Embedding/检索身份；裸 Memory 列表只用于内部编码。
+
+
+## IC-012：统一只读服务状态（A-18）
+
+公共 BuildStatus 在 contracts/service_status.py 单一来源定义，由 dynamic_memory.contracts 导出；为新增的 Schema 2.1 兼容类型，不更改既有 DTO 字段或版本。字段为 schema_version=2.1、dataset_state（unloaded/ready/load_error）、memory_state（not_built/complete/partial/failed/stale/corrupt）、partial_build、build_id、error_code。严格、冻结、禁止额外字段并隐藏输入。dataset 非 ready 时只能是 not_built、无 build_id，错误码分别为 DATA_NOT_LOADED / DATA_LOAD_FAILED。ready+not_built 的错误码为 BUILD_NOT_FOUND；ready+complete 需要 build_id、partial_build=False、error_code=None，即使 Memory 数量为 0 也合法；partial/failed 要有 build_id、partial_build=True、各自错误码 ARTIFACT_INCOMPLETE / MEMORY_BUILD_FAILED；stale/corrupt 需 build_id、partial_build=False、对应 ARTIFACT_STALE / ARTIFACT_CORRUPT。矛盾组合拒绝。
+
+DynamicMemoryService 以构造时注入的 SourceRepository、只读 build_status 端口、load_verified_artifact 端口、index_readiness 端口及 A-12 QueryOrchestrator 组成。get_build_status 是只读诊断；complete 还必须通过产物门槛。接口缺失会报告稳定不可用错误，不能由字符串 complete 或任意 MemoryArtifact 自动证明生产构建。VerifiedMemoryLoad 是信任边界：formal 的 b_verified_loader 声明必须由 B 严格落盘 loader 在核验发布指针、字节哈希、原始来源和快照后提供；本轮仅使用 synthetic_fixture。A 在返回列表前独立复验公共 MemoryArtifact、完整构建、快照/样本/build ID/manifest 指纹、每条 Memory ID 和同样本真实来源，并返回防御性拷贝。磁盘摘要与 B current build 发布指针只能由 B loader 证明，A 内存复验不替代该证明。IndexReadiness 只是注入的只读索引状态/来源清单身份检查，C 正式索引装载仍应由同一组合根接线到 QueryOrchestrator；本轮未证明真实 C 索引。
+
+A-18 独立审查修复：服务必须通过 A-12 的公开 `QueryOrchestrator.with_source_lookup(service_sources.get_sample)` 派生独立调度实例，覆盖外部原调度器可能绑定的其它样本读取端口；只保证实际进入 A-12 get_sample 的原始来源与服务自己的 SourceRepository 相同，不宣称能静态证明任意业务回调或真实索引的语义来源。服务的 `run_query` 先运行一次 `prepare_query`：分析错误和合法时间冲突走 `run_prepared` 的原有早停结果，不能被缺少 Memory / Index 覆盖；正常查询再验证 B 产物和 C 索引后执行同一 PreparedQuery。早停与正常返回均检查公共响应身份，正常路径还检查本服务来源与 Memory 引用。
