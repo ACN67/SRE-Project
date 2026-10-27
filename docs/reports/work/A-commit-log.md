@@ -117,3 +117,10 @@
 - 上游依据：`snap-research/locomo` 的 `task_eval/evaluation.py`，commit `cbfbc1dba6bc53d00625212a0f22d55ffee7c1fc`；一次性动态对照 4 个归一化/词项样例和 5 个类别样例全部一致。未安装或运行完整 BERTScore/ROUGE 模块。
 - 测试：`test_official_qa_scoring.py` 13 passed、`test_qa_score_summary.py` 5 passed；完整 `pytest -q` 519 passed（A-14 基线 501，新增 18）；Mock smoke PASS；`git diff --check` 通过，以上退出码均为 0。所有 Gold 和预测均为 synthetic，无真实课程分数。
 - 审查修复：发现 GitHub Actions 原安装 `.[dev,web]`，未包含 A-15 的 `eval` 可选依赖；本轮将 `.github/workflows/contracts.yml` 改为 `.[dev,web,eval]`，保障全新 CI 环境能安装 NLTK/regex。修复后本地 A-15 专项 18 passed、全量 519 passed、Mock smoke PASS；正式 CI 结果以后续远端执行为准。
+
+## A-16（2026-10-27，待用户审阅，未提交）
+
+- 建议提交信息：`实现检索证据与动态状态评测指标`。起点大写 A 分支，HEAD `b17893b6d1411982cb5b474a2d38e6b1426cf78f`，工作区干净。
+- 功能及文件：`evaluation/metrics/evidence_recall.py` 实现来源仓库核验后的 Evidence-turn Recall@5/@10、逐题状态及方法/样本分母，并在 A-14 保存预测/回执验证后读取 Gold；`evaluation/metrics/state_metrics.py` 实现显式 Gold Memory 身份映射、关系/决定分类及有效集 P/R/F1/Exact Match，区分完整产物中的抽取缺失、候选缺失、身份不明和模型失败。`tests/unit/test_evidence_turn_recall.py` 与 `tests/unit/test_state_metrics.py` 为离线 synthetic 样例；`docs/architecture.md` 记录单位、空集、N/A、混淆矩阵和正式标注边界。
+- 验证：证据专项 11 passed、状态专项 5 passed；原完整回归 535 passed，Mock smoke PASS；无真实 Gold、API、下载或课程成绩；正式 `qa.evidence` 格式及状态 Gold/Memory ID 仍待核实。
+- 提交前独立审查修复（2026-10-27）：发现同名轮次来自不同冻结快照时仍可被算作合法召回，现为共享 `SourceRepository` 增加只读 `snapshot_sha256` 属性（取自严格验证的 DatasetBundle，不重新哈希原始文件），Evidence-turn Recall 先核对仓库与 Manifest 快照身份，再读取 Gold；不符报 `EVIDENCE_SNAPSHOT_MISMATCH`，未加载时报 `EVIDENCE_SOURCE_UNAVAILABLE`。同时新增 Gold 决策与有效集合的显式一致性检查，避免将 `EXCLUDE` 等误标为有效而继续评分；对已标注的 `RETAIN` / `EXCLUDE` / `UNRESOLVED` 与可用有效集矛盾时报 `STATE_GOLD_INCONSISTENT`，部分标注不擅自补齐。3 项新增回归测试覆盖反例及保存前核验顺序；修复后 A-16 专项 **19 passed**、完整回归 **538 passed**、Mock smoke PASS、`git diff --check` 通过。仅在 A 工作树实现该最小共享读取属性，未修改 B 分支。

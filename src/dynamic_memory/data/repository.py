@@ -38,6 +38,7 @@ class SourceRepository:
     """
 
     def __init__(self, bundle: DatasetBundle | None = None):
+        self._snapshot_sha256: str | None = None
         self._samples: dict[str, ConversationSample] | None = None
         self._turns: dict[tuple[str, str, str], SourceTurn] | None = None
         self._owners: dict[tuple[str, str], set[str]] | None = None
@@ -73,6 +74,14 @@ class SourceRepository:
         self._turns = turns
         self._owners = owners
         self._ordered_ids = tuple(ordered_ids)
+        self._snapshot_sha256 = validated.snapshot_sha256
+
+    @property
+    def snapshot_sha256(self) -> str:
+        """Read-only snapshot identity from the validated dataset bundle."""
+        self._ready()
+        assert self._snapshot_sha256 is not None
+        return self._snapshot_sha256
 
     @staticmethod
     def _check_structure(bundle: DatasetBundle) -> None:
