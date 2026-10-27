@@ -124,3 +124,10 @@
 - 功能及文件：`evaluation/metrics/evidence_recall.py` 实现来源仓库核验后的 Evidence-turn Recall@5/@10、逐题状态及方法/样本分母，并在 A-14 保存预测/回执验证后读取 Gold；`evaluation/metrics/state_metrics.py` 实现显式 Gold Memory 身份映射、关系/决定分类及有效集 P/R/F1/Exact Match，区分完整产物中的抽取缺失、候选缺失、身份不明和模型失败。`tests/unit/test_evidence_turn_recall.py` 与 `tests/unit/test_state_metrics.py` 为离线 synthetic 样例；`docs/architecture.md` 记录单位、空集、N/A、混淆矩阵和正式标注边界。
 - 验证：证据专项 11 passed、状态专项 5 passed；原完整回归 535 passed，Mock smoke PASS；无真实 Gold、API、下载或课程成绩；正式 `qa.evidence` 格式及状态 Gold/Memory ID 仍待核实。
 - 提交前独立审查修复（2026-10-27）：发现同名轮次来自不同冻结快照时仍可被算作合法召回，现为共享 `SourceRepository` 增加只读 `snapshot_sha256` 属性（取自严格验证的 DatasetBundle，不重新哈希原始文件），Evidence-turn Recall 先核对仓库与 Manifest 快照身份，再读取 Gold；不符报 `EVIDENCE_SNAPSHOT_MISMATCH`，未加载时报 `EVIDENCE_SOURCE_UNAVAILABLE`。同时新增 Gold 决策与有效集合的显式一致性检查，避免将 `EXCLUDE` 等误标为有效而继续评分；对已标注的 `RETAIN` / `EXCLUDE` / `UNRESOLVED` 与可用有效集矛盾时报 `STATE_GOLD_INCONSISTENT`，部分标注不擅自补齐。3 项新增回归测试覆盖反例及保存前核验顺序；修复后 A-16 专项 **19 passed**、完整回归 **538 passed**、Mock smoke PASS、`git diff --check` 通过。仅在 A 工作树实现该最小共享读取属性，未修改 B 分支。
+
+
+## A-17（2026-10-27，待用户审阅，未提交）
+
+- 建议提交信息：实现三路批量预测与可比性核验。起点大写 A 分支，HEAD ee2350a49b4d9951ef045c490219faebc0b9dce9，工作区干净。
+- 功能及文件：evaluation/runners/__init__.py、three_method_runner.py 实现一次共享分析、三路预测、实际候选比较、三份 A-14 兼容文件保存及独立验收；tests/unit/test_three_method_batch_runner.py、test_batch_candidate_comparability.py 用离线 synthetic Fake 验证顺序、失败、候选差异与持久化门槛；docs/architecture.md 记录协议及边界。未修改 A-12 调度接口或公共 Schema。
+- 验证：Runner 专项 17 passed、候选比较专项 8 passed；完整 pytest 563 passed（起点 538，新增 25）；Mock smoke PASS；git diff --check 通过，以上退出码均为 0。实际 synthetic 三路持久化与独立回读 3/3 文件成功，2 道题候选 identical 2、mismatch/not_comparable/unverified 各 0。没有 Gold、付费 API、正式模型或真实成绩；未提交或推送。
