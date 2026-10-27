@@ -9,7 +9,7 @@
 - 已集成 A-05～A-09 的结构化 JSON 校验、Prompt 模板、模型调用控制、审计缓存与共享 LLM Runtime，并通过离线测试；新增 v2.2 业务接口尚待实现。
 - 冻结规范副本、配置初值和模块目录。配置中的 `null` 表示尚未冻结。
 
-真实 DeepSeek 抽取、Embedding 检索、动态状态推理、完整 Streamlit Web、正式 LoCoMo 评分均未实现；Mock 输出不能作为实验结果。
+真实 DeepSeek 抽取、动态状态推理、完整 Streamlit Web、正式 LoCoMo 评分均未实现；C 的本地 Embedding 检索与历史候选扩展已提供独立实现，真实流水线接入仍待联调。Mock 输出不能作为实验结果。
 
 ## 分工
 
@@ -62,11 +62,11 @@ python -m venv .venv
 
 ## 配置读取
 
-C 模块已提供独立的本地 Embedding 接口（将 Memory 和问题转换成向量），安装、示例和验证步骤见 [Embedding 使用说明](docs/embedding.md)。候选检索与 Vector RAG 仍待实现，正式 Embedding 模型尚未冻结。
+C 模块已提供独立的本地 Embedding 接口（将 Memory 和问题转换成向量），安装、示例和验证步骤见 [Embedding 使用说明](docs/embedding.md)。Vector RAG 回答端口已实现并通过合成测试，正式 Embedding 模型尚未冻结。
 
 C 模块另提供无需模型或 API 的规则版查询分析，识别常见查询意图、实体/属性提示及时间条件；示例与限制见 [查询分析使用说明](docs/query-analysis.md)。
 
-C 的索引构建、保存与加载已实现，正式输入遵守 v2.2 `MemoryArtifact` 契约，详见 [记忆索引使用说明](docs/retrieval-index.md)。候选检索和 Vector RAG 仍待实现。
+C 的索引构建、保存与加载已实现，正式输入遵守 v2.2 `MemoryArtifact` 契约，详见 [记忆索引使用说明](docs/retrieval-index.md)。基础 Top-8、最多 12 条历史扩展、共享候选快照和按 rank 加载已实现，详见 [向量检索与历史候选扩展](docs/vector-retrieval.md)；Vector RAG 回答已提供共享 Runtime 接口，见 [Vector RAG 回答说明](docs/vector-rag.md)；A 调度器的合成接线验证已通过，见 [C 接线与联调交接](docs/C-integration-handoff.md)；真实 B/D 链路和三路回答格式统一仍待完成。
 
 `dynamic_memory.pipeline.settings.load_settings(config_dir=None)` 会从仓库的 `configs/` 读取并校验六份 YAML，也可传入自定义目录。它返回类型化的 `AppSettings`，不会读取 API Key 或发起模型请求。例如，在已安装项目的环境中运行：
 

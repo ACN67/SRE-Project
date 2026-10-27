@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 from dynamic_memory.contracts import MemoryArtifact, MemoryRecord
 from dynamic_memory.pipeline.settings import RetrievalSettings
 
-INDEX_IMPLEMENTATION = "c-local-index-v1"
+INDEX_IMPLEMENTATION = "c-local-index-v2-history"
 _DIGEST = r"^sha256:[0-9a-f]{64}$"
 
 
@@ -59,7 +59,7 @@ class IndexEncoder(Protocol):
 
 class _IndexDocument(_FrozenModel):
     format_version: Literal[1] = 1
-    implementation: Literal["c-local-index-v1"] = INDEX_IMPLEMENTATION
+    implementation: Literal["c-local-index-v2-history"] = INDEX_IMPLEMENTATION
     sample_id: str = Field(min_length=1)
     source_manifest_fingerprint: str = Field(pattern=_DIGEST)
     settings_fingerprint: str = Field(pattern=_DIGEST)

@@ -31,6 +31,8 @@ def test_model_or_tokenizer_changes_reject_cached_encoder(tmp_path, filename):
     (root / filename).write_bytes(b"changed")
     with pytest.raises(RetrievalIndexError, match="INDEX_STALE"):
         encoder.embed_documents(["must not load model"])
+    with pytest.raises(RetrievalIndexError, match="INDEX_STALE"):
+        encoder.embed_query("must not load model")
     fresh = LocalIndexEncoder(EmbeddingConfig(str(root), "synthetic-v1"))
     assert fresh.identity.model_fingerprint != old.model_fingerprint
 

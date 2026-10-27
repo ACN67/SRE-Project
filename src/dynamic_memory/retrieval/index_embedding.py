@@ -67,3 +67,9 @@ class LocalIndexEncoder:
         vectors = self._embedder.embed_documents(texts)
         self.identity
         return vectors
+
+    def embed_query(self, question: str) -> list[float]:
+        self.identity
+        vector = self._embedder.embed_query(question)
+        self.identity
+        return vector
