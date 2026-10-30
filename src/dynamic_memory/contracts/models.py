@@ -242,7 +242,7 @@ class QueryResponse(VersionedModel):
     query_id: str = Field(min_length=1)
     sample_id: str = Field(min_length=1)
     question: str = Field(min_length=1)
-    method: Literal["full_text", "vector_rag", "dynamic"]
+    method: Literal["full_text", "vector_rag", "dynamic", "pure_vector_topk"]
     query_analysis: QueryAnalysis | None
     retrieved: CandidateSet | None
     resolution: ResolutionResult | None
@@ -259,10 +259,12 @@ class QueryResponse(VersionedModel):
         if self.method == "full_text":
             if self.retrieved is not None or self.resolution is not None or self.answer_result.used_memory_ids:
                 raise ValueError("full_text cannot include retrieved, resolution or used_memory_ids")
-        elif self.method == "vector_rag":
+        elif self.method in {"vector_rag", "pure_vector_topk"}:
             if self.resolution is not None:
                 raise ValueError("vector_rag cannot include resolution")
             self._require_retrieval()
+            if self.method == "pure_vector_topk" and self.answer_result.status == "answered" and not self.retrieved.items:
+                raise ValueError("pure_vector_topk answered response requires candidates")
         else:
             self._require_retrieval()
             if self.resolution is None and not self._early_stop():

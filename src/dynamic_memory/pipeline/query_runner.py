@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import dataclass
+from math import isfinite
 from typing import Any
 
 from pydantic import BaseModel
 
 from dynamic_memory.contracts import (
-    AnswerResult, CandidateSet, ConversationSample, ErrorInfo, MemoryRecord,
+    AnswerResult, CandidateItem, CandidateSet, ConversationSample, ErrorInfo, MemoryRecord,
     QueryAnalysis, QueryRequest, QueryResponse, ResolutionResult, SourceRef,
     validate_resolution_against_candidates, validate_response_context,
 )
@@ -29,6 +31,9 @@ _UPSTREAM_CODES = frozenset({
     "ARTIFACT_CORRUPT", "ARTIFACT_STALE", "INDEX_NOT_FOUND", "INDEX_STALE",
 })
 _MESSAGES = {
+    "RAW_RETRIEVER_UNAVAILABLE": "Raw vector retrieval is unavailable.",
+    "RAW_CANDIDATES_EMPTY": "Raw vector retrieval returned no semantic candidates.",
+    "RAW_RETRIEVAL_FAILED": "Raw vector retrieval failed.",
     "COMPONENT_UNAVAILABLE": "Required query component is unavailable.",
     "COMPONENT_FAILED": "A query component failed.",
     "SAMPLE_INVALID": "The source sample violates the public contract.",
@@ -43,6 +48,13 @@ _MESSAGES = {
 class _DispatchFailure(Exception):
     def __init__(self, code: str) -> None:
         self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class PureVectorResult:
+    response: QueryResponse
+    initial_topk_ids: tuple[str, ...]
+    excluded_candidates: int
 
 
 def _reject_unknown_fields(value: object) -> None:
@@ -158,6 +170,7 @@ class QueryOrchestrator:
         get_sample: Callable[[str], ConversationSample] | None = None,
         load_verified_index: Callable[[ConversationSample], Any] | None = None,
         retrieve: Callable[[QueryRequest, QueryAnalysis, Any], CandidateSet] | None = None,
+        retrieve_raw_topk: Callable[[QueryRequest, QueryAnalysis, Any], CandidateSet] | None = None,
         load_candidates: Callable[[CandidateSet, Any], list[MemoryRecord]] | None = None,
         resolve: Callable[[QueryRequest, QueryAnalysis, list[MemoryRecord]], ResolutionResult] | None = None,
         answer_full_text: Callable[[QueryRequest, QueryAnalysis, ConversationSample], AnswerResult] | None = None,
@@ -168,6 +181,7 @@ class QueryOrchestrator:
         self._get_sample = get_sample
         self._load_verified_index = load_verified_index
         self._retrieve = retrieve
+        self._retrieve_raw_topk = retrieve_raw_topk
         self._load_candidates = load_candidates
         self._resolve = resolve
         self._answer_full_text = answer_full_text
@@ -187,6 +201,7 @@ class QueryOrchestrator:
             get_sample=get_sample,
             load_verified_index=self._load_verified_index,
             retrieve=self._retrieve,
+            retrieve_raw_topk=self._retrieve_raw_topk,
             load_candidates=self._load_candidates,
             resolve=self._resolve,
             answer_full_text=self._answer_full_text,
@@ -247,6 +262,74 @@ class QueryOrchestrator:
         if not isinstance(method, str) or method not in _METHODS:
             raise QueryPreparationError("INVALID_METHOD")
         return self.run_prepared(self.prepare_query(request), method)
+
+    def run_pure_vector_prepared(self, prepared: PreparedQuery, *, base_top_k: int = 8,
+                                 retriever_fingerprint: str | None = None) -> PureVectorResult:
+        """Run one raw Embedding retrieval and the existing vector QA port."""
+        method = "pure_vector_topk"
+        if not isinstance(prepared, PreparedQuery) or type(base_top_k) is not int or base_top_k < 1:
+            raise QueryPreparationError("INVALID_PREPARED_QUERY")
+        query, analysis = prepared.request, prepared.analysis
+        if prepared.must_early_stop:
+            early = prepared.make_early_response("vector_rag")
+            response = QueryResponse.model_validate({**early.model_dump(mode="python"), "method": method}, strict=True)
+            return PureVectorResult(response, (), 0)
+        if analysis is None:
+            raise QueryPreparationError("INVALID_PREPARED_QUERY")
+        excluded = 0
+        ids: tuple[str, ...] = ()
+        verified_candidates: CandidateSet | None = None
+        try:
+            sample = _checked(_invoke(self._get_sample, query.sample_id), ConversationSample, "SAMPLE_INVALID")
+            if sample.sample_id != query.sample_id:
+                raise _DispatchFailure("SAMPLE_INVALID")
+            index = _invoke(self._load_verified_index, deepcopy(sample))
+            if index is None:
+                raise _DispatchFailure("COMPONENT_UNAVAILABLE")
+            if not callable(self._retrieve_raw_topk):
+                raise _DispatchFailure("RAW_RETRIEVER_UNAVAILABLE")
+            try:
+                raw = self._retrieve_raw_topk(deepcopy(query), deepcopy(analysis), index)
+            except Exception:
+                raise _DispatchFailure("RAW_RETRIEVAL_FAILED") from None
+            if raw is None:
+                raise _DispatchFailure("RAW_RETRIEVER_UNAVAILABLE")
+            candidates = _checked_candidates(raw, query, sample)
+            if retriever_fingerprint is not None and candidates.retriever_fingerprint != retriever_fingerprint:
+                raise _DispatchFailure("CANDIDATE_INVALID")
+            if any(not isfinite(item.score) for item in candidates.items):
+                raise _DispatchFailure("CANDIDATE_INVALID")
+            semantic = sorted((item for item in candidates.items if item.origin == "semantic"),
+                              key=lambda item: (-item.score, item.memory_id))
+            excluded = len(candidates.items) - min(len(semantic), base_top_k)
+            selected = semantic[:base_top_k]
+            if not selected:
+                raise _DispatchFailure("RAW_CANDIDATES_EMPTY")
+            normalized = CandidateSet(query_id=query.query_id, sample_id=query.sample_id,
+                base_top_k=base_top_k, max_candidates=base_top_k,
+                retriever_fingerprint=candidates.retriever_fingerprint,
+                items=[CandidateItem.model_validate({**item.model_dump(mode="python"), "rank": rank}, strict=True)
+                       for rank, item in enumerate(selected, 1)])
+            normalized = _checked_candidates(normalized, query, sample)
+            verified_candidates = normalized
+            ids = tuple(item.memory_id for item in normalized.items)
+            memories = _checked_memories(_invoke(self._load_candidates, deepcopy(normalized), index), normalized, sample)
+            answer = _checked_answer(_invoke(self._answer_vector_rag, deepcopy(query), deepcopy(analysis), deepcopy(memories)))
+            return PureVectorResult(self._response(query, analysis, method, answer, sample, normalized, memories), ids, excluded)
+        except _DispatchFailure as exc:
+            if verified_candidates is None:
+                response = self._error(query, analysis, method, exc.code)
+            else:
+                error = AnswerResult(status="error", error=ErrorInfo(code=exc.code, message=_MESSAGES[exc.code]))
+                response = QueryResponse.model_validate({
+                    "query_id": query.query_id, "sample_id": query.sample_id,
+                    "question": query.question, "method": method, "query_analysis": analysis,
+                    "retrieved": verified_candidates, "resolution": None, "answer_result": error,
+                }, strict=True)
+                response = QueryResponse.model_validate_json(response.model_dump_json())
+            return PureVectorResult(response, ids, excluded)
+
+    # TODO: Wire the frozen B/C/D/E raw retrieval interfaces after their contracts are finalized.
 
     def run_prepared(self, prepared: PreparedQuery, method: str = "dynamic") -> QueryResponse:
         """Dispatch a previously prepared request without re-running C analysis."""

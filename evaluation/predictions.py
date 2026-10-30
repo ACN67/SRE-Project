@@ -16,7 +16,7 @@ from dynamic_memory.contracts import QueryResponse
 
 from .question_manifest import EvaluationInputError, QuestionManifest, _pairs
 
-_METHODS = frozenset({"full_text", "vector_rag", "dynamic"})
+_METHODS = frozenset({"full_text", "vector_rag", "dynamic", "pure_vector_topk"})
 
 
 @dataclass(frozen=True, slots=True)

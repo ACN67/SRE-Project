@@ -14,7 +14,23 @@ from evaluation.predictions import PredictionReceipt, _check_rows, verify_predic
 from evaluation.question_manifest import EvaluationInputError, QuestionManifest
 
 from .answer_adapter import adapt_answer
-from .official_qa import score_official_qa
+from .official_qa import official_token_f1, score_official_qa
+
+REASONS = ("execution_failure", "missing_gold", "no_evidence", "time_uncertain", "other")
+
+
+def _reason(row: "QuestionScore") -> str:
+    if row.execution_failed:
+        return "execution_failure"
+    if row.gold_missing:
+        return "missing_gold"
+    if row.original_status in ("no_evidence", "time_uncertain"):
+        return row.original_status
+    return "other"
+
+
+def _sample(value: object) -> str:
+    return value if isinstance(value, str) and value.strip() else "unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +47,7 @@ class QuestionScore:
     gold_missing: bool
     score: float | None
     annotation_source: str | None
+    text_token_f1: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +60,12 @@ class GroupScore:
     conditional_scored: int
     main_mean: float | None
     conditional_mean: float | None
+    reason_counts: tuple[tuple[str, int], ...] = ()
+    other_status_counts: tuple[tuple[str, int], ...] = ()
+    text_f1_scored: int = 0
+    text_f1_conditional_scored: int = 0
+    text_f1_main_mean: float | None = None
+    text_f1_conditional_mean: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +83,13 @@ class QASummary:
     by_category: tuple[GroupScore, ...]
     by_sample: tuple[GroupScore, ...]
     by_method: tuple[GroupScore, ...]
+    by_category_sample: tuple[GroupScore, ...] = ()
+    reason_counts: tuple[tuple[str, int], ...] = ()
+    other_status_counts: tuple[tuple[str, int], ...] = ()
+    text_f1_scored: int = 0
+    text_f1_conditional_scored: int = 0
+    text_f1_main_mean: float | None = None
+    text_f1_conditional_mean: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +101,11 @@ class QAReport:
 def _group(key: str, rows: tuple[QuestionScore, ...]) -> GroupScore:
     scored = [row for row in rows if not row.gold_missing]
     successful = [row for row in scored if not row.execution_failed]
+    f1 = [row for row in scored if row.text_token_f1 is not None]
+    f1_success = [row for row in f1 if not row.execution_failed]
+    reasons = tuple((reason, sum(_reason(row) == reason for row in rows)) for reason in REASONS)
+    other_states = tuple((status, sum(_reason(row) == "other" and row.original_status == status for row in rows))
+                         for status in sorted({row.original_status for row in rows if _reason(row) == "other"}))
     return GroupScore(
         key=key, total_predictions=len(rows), gold_scored=len(scored),
         gold_missing=len(rows) - len(scored),
@@ -78,6 +113,10 @@ def _group(key: str, rows: tuple[QuestionScore, ...]) -> GroupScore:
         conditional_scored=len(successful),
         main_mean=math.fsum(row.score for row in scored) / len(scored) if scored else None,
         conditional_mean=math.fsum(row.score for row in successful) / len(successful) if successful else None,
+        reason_counts=reasons, other_status_counts=other_states,
+        text_f1_scored=len(f1), text_f1_conditional_scored=len(f1_success),
+        text_f1_main_mean=math.fsum(row.text_token_f1 for row in f1) / len(f1) if f1 else None,
+        text_f1_conditional_mean=math.fsum(row.text_token_f1 for row in f1_success) / len(f1_success) if f1_success else None,
     )
 
 
@@ -85,15 +124,18 @@ def summarize_questions(rows: Iterable[QuestionScore]) -> QASummary:
     values = tuple(rows)
     if any(
         type(row) is not QuestionScore or
-        row.original_status not in ("answered", "no_evidence", "time_uncertain", "unresolved_conflict", "error") or
+        not isinstance(row.original_status, str) or not row.original_status or
         row.execution_failed != (row.original_status == "error") or
-        (row.gold_missing and (row.score is not None or row.category is not None or row.annotation_source is not None)) or
+        (row.gold_missing and (row.score is not None or row.category is not None or row.annotation_source is not None or row.text_token_f1 is not None)) or
         (not row.gold_missing and (type(row.category) is not int or row.category not in (1, 2, 3, 4, 5) or
                                    row.score is None or row.annotation_source not in
                                    ("course_gold", "team_annotated", "synthetic_fixture"))) or
         (row.execution_failed and row.score not in (None, 0.0)) or
         (row.score is not None and (not isinstance(row.score, (int, float)) or
-                                    not math.isfinite(row.score) or not 0 <= row.score <= 1))
+                                    not math.isfinite(row.score) or not 0 <= row.score <= 1)) or
+        (row.text_token_f1 is not None and (not isinstance(row.text_token_f1, (int, float)) or
+             not math.isfinite(row.text_token_f1) or not 0 <= row.text_token_f1 <= 1)) or
+        (row.execution_failed and row.text_token_f1 not in (None, 0.0))
         for row in values
     ):
         raise EvaluationInputError("QA_RESULT_INVALID")
@@ -101,11 +143,20 @@ def summarize_questions(rows: Iterable[QuestionScore]) -> QASummary:
         raise EvaluationInputError("DUPLICATE_QA_RESULT")
     overall = _group("all", values)
     categories = tuple(_group(str(category), tuple(row for row in values if row.category == category))
-                       for category in (1, 2, 3, 4, 5))
-    samples = tuple(_group(sample, tuple(row for row in values if row.sample_id == sample))
-                    for sample in dict.fromkeys(row.sample_id for row in values))
+                       for category in (1, 2, 3, 4, 5)) + ((
+                           _group("unknown", tuple(row for row in values if row.category is None)),)
+                           if any(row.category is None for row in values) else ())
+    samples = tuple(_group(sample, tuple(row for row in values if _sample(row.sample_id) == sample))
+                    for sample in dict.fromkeys(_sample(row.sample_id) for row in values))
     methods = tuple(_group(method, tuple(row for row in values if row.method == method))
                     for method in dict.fromkeys(row.method for row in values))
+    cross = tuple(_group(f"{category}|{sample}", tuple(row for row in values
+                    if (str(row.category) if row.category is not None else "unknown") == category
+                    and _sample(row.sample_id) == sample))
+                  for category in ("1", "2", "3", "4", "5", "unknown")
+                  for sample in dict.fromkeys(_sample(row.sample_id) for row in values)
+                  if any((str(row.category) if row.category is not None else "unknown") == category
+                         and _sample(row.sample_id) == sample for row in values))
     return QASummary(
         score_name="LoCoMo 官方 QA 综合得分", total_predictions=overall.total_predictions,
         gold_scored=overall.gold_scored, gold_missing=overall.gold_missing,
@@ -114,6 +165,12 @@ def summarize_questions(rows: Iterable[QuestionScore]) -> QASummary:
         execution_success_coverage=(len(values) - overall.execution_failed) / len(values) if values else None,
         scored_execution_coverage=overall.conditional_scored / overall.gold_scored if overall.gold_scored else None,
         by_category=categories, by_sample=samples, by_method=methods,
+        by_category_sample=cross, reason_counts=overall.reason_counts,
+        other_status_counts=overall.other_status_counts,
+        text_f1_scored=overall.text_f1_scored,
+        text_f1_conditional_scored=overall.text_f1_conditional_scored,
+        text_f1_main_mean=overall.text_f1_main_mean,
+        text_f1_conditional_mean=overall.text_f1_conditional_mean,
     )
 
 
@@ -150,10 +207,13 @@ def score_qa_results(manifest: QuestionManifest, responses: Iterable[QueryRespon
         gold_record = by_gold.get(question.gold_record_key)
         if gold_record is None:
             score = None
+            text_f1 = None
         elif adapted.execution_failed:
             score = 0.0
+            text_f1 = 0.0
         else:
             score = score_official_qa(gold_record.category, adapted.adapted_text, gold_record.answer)
+            text_f1 = official_token_f1(adapted.adapted_text, gold_record.answer)
         rows.append(QuestionScore(
             sample_id=question.sample_id, query_id=question.query_id,
             gold_record_key=question.gold_record_key, method=method,
@@ -162,6 +222,7 @@ def score_qa_results(manifest: QuestionManifest, responses: Iterable[QueryRespon
             adapted_text=adapted.adapted_text, execution_failed=adapted.execution_failed,
             gold_missing=gold_record is None, score=score,
             annotation_source=gold_record.annotation_source if gold_record else None,
+            text_token_f1=text_f1,
         ))
     values = tuple(rows)
     return QAReport(values, summarize_questions(values))

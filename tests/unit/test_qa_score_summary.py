@@ -72,9 +72,11 @@ def test_saved_entrypoint_exact_scores_and_denominators(tmp_path):
     assert summary.conditional_mean == pytest.approx(7/9)
     assert summary.execution_success_coverage == pytest.approx(7/8)
     assert summary.scored_execution_coverage == pytest.approx(6/7)
-    assert [(item.key, item.gold_scored, item.main_mean) for item in summary.by_category] == [
+    assert [(item.key, item.gold_scored, item.main_mean) for item in summary.by_category[:5]] == [
         ("1", 1, 1), ("2", 2, 0.5), ("3", 1, 1), ("4", 1, pytest.approx(2/3)),
         ("5", 2, 0.5)]
+    assert [(item.key, item.total_predictions, item.gold_missing) for item in summary.by_category[5:]] == [
+        ("unknown", 1, 1)]
     assert [item.key for item in summary.by_sample] == [f"synthetic-{i}" for i in range(4)]
     assert summary.by_sample[2].main_mean is None
     assert summary.by_method[0].key == "full_text" and summary.by_method[0].gold_scored == 7
