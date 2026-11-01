@@ -3,6 +3,7 @@
 import json
 import hashlib
 from dataclasses import replace
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -54,6 +55,18 @@ def test_one_analysis_three_methods_order_saved_and_verified(tmp_path):
     assert verify_run(result.directory, manifest,
                       expected_manifest_sha256=result.manifest_sha256).manifest_sha256 == result.manifest_sha256
     assert "SECRET_GOLD" not in result.manifest_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", ["run_manifest.json", "run_manifest.sha256"])
+def test_verify_run_rejects_linked_control_file(tmp_path, monkeypatch, name):
+    manifest, protocol = setup(1)
+    result = run_three_method_batch(manifest, QueryOrchestrator(**ports()),
+                                    protocol, results_root=tmp_path)
+    linked = result.directory / name
+    original = Path.is_symlink
+    monkeypatch.setattr(Path, "is_symlink", lambda path: path == linked or original(path))
+    with pytest.raises(EvaluationInputError, match="RUN_PATH_INVALID"):
+        verify_run(result.directory, manifest)
 
 
 def test_real_a14_synthetic_manifest_exposes_no_gold_to_batch(tmp_path, monkeypatch):

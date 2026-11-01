@@ -276,6 +276,8 @@ def verify_run(directory: Path | str, manifest: QuestionManifest, *,
         path = Path(directory).resolve()
         if _target(path.parent, path.name) != path:
             raise EvaluationInputError("RUN_PATH_INVALID")
+        if any((path / name).is_symlink() for name in ("run_manifest.json", "run_manifest.sha256")):
+            raise EvaluationInputError("RUN_PATH_INVALID")
         raw = (path / "run_manifest.json").read_bytes()
         recorded_sha = (path / "run_manifest.sha256").read_text(encoding="ascii")
     except EvaluationInputError:

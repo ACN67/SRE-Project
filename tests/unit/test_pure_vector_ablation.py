@@ -1,12 +1,14 @@
 """Offline supplementary Top-K contract and persistence checks."""
 
 from dataclasses import replace
+from datetime import date
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
-from dynamic_memory.contracts import CandidateItem, CandidateSet, QueryResponse
+from dynamic_memory.contracts import CandidateItem, CandidateSet, QueryAnalysis, QueryResponse, TimeIssue
 from dynamic_memory.contracts.memory_id import compute_memory_id
 from dynamic_memory.pipeline.query_runner import QueryOrchestrator
 from evaluation.predictions import PredictionReceipt, save_predictions, verify_predictions
@@ -84,10 +86,21 @@ def test_normal_deterministic_run_and_strict_readback(tmp_path):
     assert METHODS == ("full_text", "vector_rag", "dynamic")
 
 
+@pytest.mark.parametrize("name", ["run_manifest.json", "run_manifest.sha256"])
+def test_ablation_readback_rejects_linked_control_file(tmp_path, monkeypatch, name):
+    manifest, protocol, records = fixture()
+    orchestrator, _ = runner(records)
+    result = run_pure_vector_ablation(manifest, orchestrator, protocol, results_root=tmp_path)
+    linked = result.directory / name
+    original = Path.is_symlink
+    monkeypatch.setattr(Path, "is_symlink", lambda path: path == linked or original(path))
+    with pytest.raises(EvaluationInputError, match="RUN_PATH_INVALID"):
+        verify_pure_vector_run(result.directory, manifest)
+
+
 @pytest.mark.parametrize("kind,code", [
     ("missing", "RAW_RETRIEVER_UNAVAILABLE"),
     ("none", "RAW_RETRIEVER_UNAVAILABLE"),
-    ("empty", "RAW_CANDIDATES_EMPTY"),
     ("exception", "RAW_RETRIEVAL_FAILED"),
 ])
 def test_retrieval_failures_are_valid_errors(kind, code):
@@ -109,6 +122,64 @@ def test_retrieval_failures_are_valid_errors(kind, code):
     assert QueryResponse.model_validate_json(result.response.model_dump_json()) == result.response
     assert "SECRET" not in result.response.answer_result.error.message
     assert "resolve" not in events and "rag_answer" not in events
+
+
+def test_empty_raw_candidates_are_no_evidence_and_persist(tmp_path):
+    manifest, protocol, records = fixture()
+    orchestrator, events = runner(records, raw=lambda req: CandidateSet(
+        query_id=req.query_id, sample_id=req.sample_id, base_top_k=2, max_candidates=4,
+        retriever_fingerprint="synthetic-index", items=[]))
+    result = run_pure_vector_ablation(manifest, orchestrator, protocol, results_root=tmp_path)
+    row = result.responses[0]
+    assert row.answer_result.status == "no_evidence"
+    assert row.answer_result.error is None and row.retrieved is not None
+    assert row.retrieved.items == []
+    assert result.responses == verify_pure_vector_run(result.directory, manifest,
+        expected_manifest_sha256=result.manifest_sha256).responses
+    assert "rag_answer" not in events and "resolve" not in events
+
+
+def test_pure_vector_conflict_stops_before_retrieval():
+    _, _, records = fixture()
+    events = []
+    orchestrator, _ = runner(records, log=events)
+    def conflict(req):
+        events.append("analyze")
+        return QueryAnalysis(query_id=req.query_id, sample_id=req.sample_id,
+            query_intent="historical_state", time_mode="conflict",
+            time_issue=TimeIssue(code="QUERY_TIME_CONFLICT", message="Synthetic conflict",
+                explicit_as_of="2023-05-01", question_time="2024-01-01"))
+    orchestrator._analyze_query = conflict
+    response = orchestrator.run_pure_vector_prepared(
+        orchestrator.prepare_query(query(as_of=date(2023, 5, 1)))).response
+    assert response.method == "pure_vector_topk"
+    assert response.answer_result.status == "time_uncertain"
+    assert response.answer_result.error is None
+    assert response.retrieved is None and response.resolution is None
+    assert events == ["analyze"]
+    assert QueryResponse.model_validate_json(response.model_dump_json()) == response
+
+
+@pytest.mark.parametrize("raw", ["not a candidate set", None])
+def test_pure_vector_invalid_raw_type_or_absence(raw):
+    _, _, records = fixture()
+    orchestrator, _ = runner(records)
+    orchestrator._retrieve_raw_topk = lambda *_: raw
+    response = orchestrator.run_pure_vector_prepared(orchestrator.prepare_query(query())).response
+    assert response.answer_result.status == "error"
+    assert response.answer_result.error.code == (
+        "RAW_RETRIEVER_UNAVAILABLE" if raw is None else "CANDIDATE_INVALID")
+
+
+def test_pure_vector_invalid_candidate_budget():
+    _, _, records = fixture()
+    bad = CandidateSet(query_id=query().query_id, sample_id=SAMPLE, base_top_k=2,
+        max_candidates=4, retriever_fingerprint="synthetic-index", items=[])
+    bad = bad.model_copy(update={"base_top_k": 0})
+    orchestrator, _ = runner(records, raw=bad)
+    response = orchestrator.run_pure_vector_prepared(orchestrator.prepare_query(query())).response
+    assert response.answer_result.status == "error"
+    assert response.answer_result.error.code == "CANDIDATE_INVALID"
 
 
 @pytest.mark.parametrize("kind", ["query", "sample", "fingerprint", "nan", "infinity", "duplicate", "source"])

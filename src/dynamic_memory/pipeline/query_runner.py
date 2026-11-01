@@ -304,7 +304,18 @@ class QueryOrchestrator:
             excluded = len(candidates.items) - min(len(semantic), base_top_k)
             selected = semantic[:base_top_k]
             if not selected:
-                raise _DispatchFailure("RAW_CANDIDATES_EMPTY")
+                normalized = CandidateSet(query_id=query.query_id, sample_id=query.sample_id,
+                    base_top_k=base_top_k, max_candidates=base_top_k,
+                    retriever_fingerprint=candidates.retriever_fingerprint, items=[])
+                answer = AnswerResult(status="no_evidence",
+                    uncertainty="No retrieval candidates are available.")
+                response = QueryResponse.model_validate({
+                    "query_id": query.query_id, "sample_id": query.sample_id,
+                    "question": query.question, "method": method, "query_analysis": analysis,
+                    "retrieved": normalized, "resolution": None, "answer_result": answer,
+                }, strict=True)
+                return PureVectorResult(QueryResponse.model_validate_json(
+                    response.model_dump_json()), (), excluded)
             normalized = CandidateSet(query_id=query.query_id, sample_id=query.sample_id,
                 base_top_k=base_top_k, max_candidates=base_top_k,
                 retriever_fingerprint=candidates.retriever_fingerprint,

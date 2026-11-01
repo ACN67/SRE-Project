@@ -3,7 +3,9 @@
 import hashlib
 import json
 import math
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -108,9 +110,245 @@ def test_saved_scoring_and_distinct_units(tmp_path):
     assert data["total_predictions"] == 8
     assert data["official_qa_summary"]["main_denominator"] == 7
     assert data["text_f1_summary"]["main_denominator"] == 7
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_PATH_IN_USE"):
+        save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                 annotation_source="synthetic_fixture")
+    assert path.read_bytes() == first
+
+
+def test_scoring_requires_complete_proof_and_trusted_digest(tmp_path):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
+    saved = save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                     annotation_source="synthetic_fixture")
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_HASH_MISMATCH"):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+            annotation_source="synthetic_fixture", expected_sha256="0" * 64)
+    complete = path.with_suffix(".complete.json")
+    assert complete.is_file()
+    original = complete.read_bytes()
+    complete.unlink()
+    with pytest.raises(EvaluationInputError):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+    complete.write_bytes(original)
+    assert verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                      annotation_source="synthetic_fixture") == saved
+    path.with_suffix(".sha256").unlink()
+    with pytest.raises(EvaluationInputError):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+
+
+def test_scoring_rejects_outside_and_symlink_escape(tmp_path, monkeypatch):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_PATH_INVALID"):
+        save_qa_scoring_manifest(tmp_path / "wrong.json", prediction, manifest, receipt, report,
+                                 annotation_source="synthetic_fixture")
+    outside = Path(__file__).resolve().parents[2] / "qa_scoring_manifest.json"
+    original_write = Path.write_bytes
+    def guarded_write(path, data):
+        if path == outside:
+            raise AssertionError("outside write attempted")
+        return original_write(path, data)
+    monkeypatch.setattr(Path, "write_bytes", guarded_write)
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_PATH_INVALID"):
+        save_qa_scoring_manifest(outside, prediction, manifest, receipt, report,
+                                 annotation_source="synthetic_fixture")
+
+
+def test_scoring_rejects_symlink_directory_escape(tmp_path, monkeypatch):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    outside = Path(__file__).resolve().parents[2]
+    link = tmp_path / "escape"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        # Windows may deny symlink creation. Exercise the same resolved-path gate.
+        original_resolve = Path.resolve
+        def resolved(self, *args, **kwargs):
+            if self == link / "qa_scoring_manifest.json":
+                return outside / "qa_scoring_manifest.json"
+            return original_resolve(self, *args, **kwargs)
+        monkeypatch.setattr(Path, "resolve", resolved)
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_PATH_INVALID"):
+        save_qa_scoring_manifest(link / "qa_scoring_manifest.json", prediction,
+            manifest, receipt, report, annotation_source="synthetic_fixture")
+    assert not (outside / "qa_scoring_manifest.json").exists()
+
+
+def test_scoring_concurrent_publication_has_one_winner(tmp_path):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
+    def publish():
+        try:
+            return save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                            annotation_source="synthetic_fixture")
+        except EvaluationInputError as exc:
+            return str(exc)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda _: publish(), range(2)))
+    assert sum(isinstance(item, str) for item in outcomes) == 1
+    assert any(isinstance(item, str) and "QA_SCORING_PATH_IN_USE" in item for item in outcomes)
+    assert verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                      annotation_source="synthetic_fixture") == next(
+        item for item in outcomes if not isinstance(item, str))
+
+
+@pytest.mark.parametrize("stage", [1, 2, 3])
+def test_scoring_interrupted_publish_fails_closed(tmp_path, monkeypatch, stage):
+    import evaluation.metrics.qa_scoring_manifest as scoring
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
+    original = scoring.os.link
+    calls = 0
+    def interrupted(source_path, destination):
+        nonlocal calls
+        calls += 1
+        if calls == stage:
+            raise OSError("SECRET_GOLD interruption")
+        return original(source_path, destination)
+    monkeypatch.setattr(scoring.os, "link", interrupted)
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_SAVE_FAILED") as error:
+        save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                 annotation_source="synthetic_fixture")
+    assert "SECRET_GOLD" not in str(error.value)
+    with pytest.raises(EvaluationInputError):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+
+
+def test_scoring_rejects_marker_and_rehashed_manifest(tmp_path):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
     save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
                              annotation_source="synthetic_fixture")
-    assert path.read_bytes() == first
+    complete = path.with_suffix(".complete.json")
+    complete.write_bytes(b"{}")
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_INVALID"):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+    data = json.loads(path.read_bytes())
+    data["prediction_method"] = "dynamic"
+    raw = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                     allow_nan=False).encode("utf-8")
+    path.write_bytes(raw)
+    path.with_suffix(".sha256").write_text(hashlib.sha256(raw).hexdigest() + "\n", encoding="ascii")
+    with pytest.raises(EvaluationInputError):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+
+
+def test_scoring_fsync_failure_has_no_complete_artifact(tmp_path, monkeypatch):
+    import evaluation.metrics.qa_scoring_manifest as scoring
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
+    monkeypatch.setattr(scoring.os, "fsync", lambda _: (_ for _ in ()).throw(OSError("SECRET_GOLD")))
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_SAVE_FAILED") as error:
+        save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                 annotation_source="synthetic_fixture")
+    assert "SECRET_GOLD" not in str(error.value)
+    assert not path.exists() and not path.with_suffix(".complete.json").exists()
+    with pytest.raises(EvaluationInputError):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+
+
+def test_scoring_orphan_sidecar_and_traversal_rejected(tmp_path):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
+    path.with_suffix(".sha256").write_text("0" * 64 + "\n", encoding="ascii")
+    with pytest.raises(EvaluationInputError):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_PATH_IN_USE"):
+        save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                 annotation_source="synthetic_fixture")
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_PATH_INVALID"):
+        save_qa_scoring_manifest(tmp_path / "child" / ".." / path.name,
+            prediction, manifest, receipt, report, annotation_source="synthetic_fixture")
+
+
+def test_scoring_modified_prediction_and_report_identity_rejected(tmp_path):
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    path = tmp_path / "qa_scoring_manifest.json"
+    save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                             annotation_source="synthetic_fixture")
+    changed = replace(report.questions[0], query_id="wrong")
+    changed_questions = (changed, *report.questions[1:])
+    with pytest.raises(EvaluationInputError, match="QA_REPORT_ID_MISMATCH"):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt,
+            replace(report, questions=changed_questions, summary=summarize_questions(changed_questions)),
+            annotation_source="synthetic_fixture")
+    prediction.write_bytes(prediction.read_bytes() + b" ")
+    with pytest.raises(EvaluationInputError, match="PREDICTION_HASH_MISMATCH"):
+        verify_qa_scoring_manifest(path, prediction, manifest, receipt, report,
+                                   annotation_source="synthetic_fixture")
+
+
+def test_scoring_run_receipt_identity_and_sidecar(tmp_path):
+    from dynamic_memory.pipeline.query_runner import QueryOrchestrator
+    from evaluation.runners import RunProtocol, run_three_method_batch
+    from test_run_query_dispatch import ports
+
+    source, split, manifest, _, _, _ = scored_fixture(tmp_path)
+    protocol = RunProtocol("synthetic_run", manifest.snapshot_sha256, manifest.selected_splits,
+        "synthetic-prompt", "synthetic-model", "synthetic-settings", "synthetic-index",
+        "synthetic-index-artifact", "latest_known", 8, 12)
+    run = run_three_method_batch(manifest, QueryOrchestrator(**ports()), protocol,
+                                 results_root=tmp_path)
+    prediction, receipt = run.receipts[0].path, run.receipts[0]
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    run_path = run.manifest_path
+    target = tmp_path / "qa_scoring_manifest.json"
+    saved = save_qa_scoring_manifest(target, prediction, manifest, receipt, report,
+        annotation_source="synthetic_fixture", run_manifest_path=run_path)
+    assert verify_qa_scoring_manifest(target, prediction, manifest, receipt, report,
+        annotation_source="synthetic_fixture", run_manifest_path=run_path) == saved
+    run_data = json.loads(run_path.read_bytes())
+    run_data["query_ids"] = ["wrong"]
+    changed = json.dumps(run_data, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    run_path.write_bytes(changed)
+    run_path.with_suffix(".sha256").write_text(hashlib.sha256(changed).hexdigest() + "\n", encoding="ascii")
+    with pytest.raises(EvaluationInputError, match="QA_SCORING_RUN_INVALID"):
+        verify_qa_scoring_manifest(target, prediction, manifest, receipt, report,
+            annotation_source="synthetic_fixture", run_manifest_path=run_path)
+
+
+def test_scoring_integrity_readback_needs_no_gold(tmp_path, monkeypatch):
+    import evaluation.gold_loader as gold_loader
+
+    source, split, manifest, prediction, receipt, _ = scored_fixture(tmp_path)
+    report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
+                               annotation_source="synthetic_fixture")
+    target = tmp_path / "qa_scoring_manifest.json"
+    saved = save_qa_scoring_manifest(target, prediction, manifest, receipt, report,
+        annotation_source="synthetic_fixture")
+    source.unlink()
+    split.unlink()
+    monkeypatch.setattr(gold_loader, "load_gold_after_predictions",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Gold read")))
+    assert verify_qa_scoring_manifest(target, prediction, manifest, receipt, report,
+        annotation_source="synthetic_fixture", expected_sha256=saved.file_sha256) == saved
 
 
 def test_rehashed_tampering_and_identity_mismatch(tmp_path):

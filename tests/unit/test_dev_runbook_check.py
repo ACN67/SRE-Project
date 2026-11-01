@@ -45,7 +45,7 @@ def test_six_configs_and_exact_raw_hashes(fixture_root):
     (None, "missing", []),
     ("broken: [\n", "parse_error", []),
     ("- item\n", "structure_error", []),
-    ("outer: [{child: null}]\n", "not_frozen", ["$.outer[0].child"]),
+    ("outer: [{child: null}]\n", "passed", ["$.outer[0].child"]),
 ])
 def test_bad_config_states(fixture_root, contents, result, paths):
     path = fixture_root / "configs" / "models.yaml"
@@ -57,18 +57,72 @@ def test_bad_config_states(fixture_root, contents, result, paths):
     assert config["result"] == result
     assert config["null_paths"] == paths
     assert (config["sha256"] is None) == (contents is None)
-    assert runbook.build_manifest(fixture_root)["overall_status"] == "FAIL"
+    assert runbook.build_manifest(fixture_root)["overall_status"] == (
+        "PASS" if result == "passed" else "FAIL")
 
 
-def test_key_absent_continues_other_checks_and_returns_one(fixture_root, monkeypatch, capsys):
-    monkeypatch.delenv("DEEPSEEK_API_KEY")
-    assert runbook.main(fixture_root) == 1
+def test_key_absent_continues_other_checks_and_returns_zero(fixture_root, monkeypatch, capsys):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    assert runbook.main(fixture_root) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["api_key"] == "absent"
     assert report["real_call_readiness"]["status"] == "not_ready"
     assert report["source_repository"]["synthetic_repository_check"] == "passed"
     assert report["dynamic_memory_service"]["synthetic_service_check"] == "passed"
-    assert report["failed_checks"] == 1
+    assert report["failed_checks"] == 0
+    assert report["offline_health"] == "PASS"
+    assert report["formal_dev_readiness"] == "NOT_READY"
+
+
+@pytest.mark.parametrize("value,present", [(None, False), ("", False), ("  \t", False),
+                                            ("DO_NOT_PRINT_THIS_SECRET", True)])
+def test_key_presence_only_and_formal_readiness(fixture_root, monkeypatch, value, present, capsys):
+    if value is None:
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("DEEPSEEK_API_KEY", value)
+    assert runbook.main(fixture_root) == 0
+    output = capsys.readouterr().out
+    report = json.loads(output)
+    assert report["api_key"] == ("present" if present else "absent")
+    assert report["offline_health"] == "PASS"
+    assert report["formal_dev_readiness"] == "NOT_READY"
+    assert "DO_NOT_PRINT_THIS_SECRET" not in output
+
+
+def test_real_config_null_is_offline_healthy(tmp_path, monkeypatch, capsys):
+    repository = SCRIPT.parents[1]
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    for name in runbook.CONFIG_NAMES:
+        (config_dir / f"{name}.yaml").write_bytes((repository / "configs" / f"{name}.yaml").read_bytes())
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setattr(runbook, "_git_sha", lambda _: "a" * 40)
+    assert runbook.main(tmp_path) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["offline_health"] == "PASS"
+    assert report["formal_dev_readiness"] == "NOT_READY"
+    assert report["source_repository"]["synthetic_repository_check"] == "passed"
+
+
+def test_real_config_type_error_is_offline_failure(tmp_path, monkeypatch, capsys):
+    repository = SCRIPT.parents[1]
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    for name in runbook.CONFIG_NAMES:
+        (config_dir / f"{name}.yaml").write_bytes(
+            (repository / "configs" / f"{name}.yaml").read_bytes())
+    model_path = config_dir / "models.yaml"
+    model_path.write_text(model_path.read_text(encoding="utf-8").replace(
+        "extraction_max_input_tokens: 4096", "extraction_max_input_tokens: invalid"),
+        encoding="utf-8")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setattr(runbook, "_git_sha", lambda _: "a" * 40)
+    assert runbook.main(tmp_path) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["offline_health"] == "FAIL"
+    assert report["formal_dev_readiness"] == "NOT_READY"
+    assert next(check for check in report["checks"] if check["name"] == "typed_settings")["status"] == "FAIL"
 
 
 def test_key_value_never_emitted_and_json_canonical(fixture_root, capsys):

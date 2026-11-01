@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 import pytest
 from pydantic import ValidationError
@@ -46,6 +47,48 @@ def test_version_and_intent_time_independence():
         QueryAnalysis(query_id="q1", sample_id="s", query_intent="invalid", time_mode="latest_known")
     with pytest.raises(ValidationError):
         QueryAnalysis(query_id="q1", sample_id="s", query_intent="unknown", time_mode="conflict")
+
+
+def test_synthetic_legacy_style_dto_readback_preserves_defaults_and_identity():
+    # A minimal Schema 2.1 JSON shape, omitting fields with published defaults.
+    old_memory = {
+        "schema_version": "2.1", "memory_id": memory().memory_id,
+        "sample_id": "synthetic_001", "content": "Alex opened a shop.",
+        "entity": "Alex", "attribute": "shop", "value": "opened",
+        "fact_kind": "event", "assertion_type": "fact", "polarity": "positive",
+        "source_refs": [{"session_id": "s1", "dia_id": "d1"}],
+        "extractor_version": "synthetic",
+    }
+    restored = MemoryRecord.model_validate_json(json.dumps(old_memory))
+    assert restored == memory()
+    assert restored.recorded_at is None and restored.event_time is None
+    assert MemoryRecord.model_validate_json(restored.model_dump_json()) == restored
+
+    old_response = {
+        "schema_version": "2.1", "query_id": "q1", "sample_id": "synthetic_001",
+        "question": "When?", "method": "full_text", "query_analysis": None,
+        "retrieved": None, "resolution": None,
+        "answer_result": {"schema_version": "2.1", "status": "no_evidence",
+                          "uncertainty": "synthetic legacy-style no evidence"},
+    }
+    reply = QueryResponse.model_validate_json(json.dumps(old_response))
+    assert reply.answer_result.used_memory_ids == []
+    assert reply.answer_result.context_source_refs == []
+    assert reply.answer_result.evidence_refs == []
+    assert QueryResponse.model_validate_json(reply.model_dump_json()) == reply
+
+
+@pytest.mark.parametrize("change", [
+    {"schema_version": "2.0"},
+    {"gold_answer": "synthetic forbidden field"},
+    {"source_refs": []},
+    {"memory_id": "mem_bad"},
+])
+def test_synthetic_legacy_style_memory_rejects_incompatible_payload(change):
+    old_memory = memory().model_dump(mode="json", exclude_none=True)
+    old_memory.update(change)
+    with pytest.raises(ValidationError):
+        MemoryRecord.model_validate_json(json.dumps(old_memory))
 
 
 def test_time_and_caption():
