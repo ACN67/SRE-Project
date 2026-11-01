@@ -2,6 +2,13 @@
 
 # Only allowlisted codes may reach the page. Never display exception messages.
 ERROR_MESSAGES = {
+    "BUILD_STATUS_UNAVAILABLE": "构建状态服务未配置，请由集成方注入状态端口。",
+    "BUILD_STATUS_INVALID": "服务返回的构建状态无效，请检查公共接口。",
+    "ARTIFACT_LOADER_UNAVAILABLE": "已验证产物读取端口未配置。",
+    "ARTIFACT_UNVERIFIED": "记忆产物未通过可信读取验证。",
+    "INDEX_NOT_FOUND": "尚无匹配索引，请由服务端完成离线索引构建。",
+    "COMPONENT_UNAVAILABLE": "所需业务组件尚未接入。",
+    "QUERY_EXECUTION_FAILED": "问答执行失败，请检查服务端诊断记录。",
     "DATA_NOT_LOADED": "数据未加载：请由服务端完成数据加载后刷新。",
     "DATA_LOAD_FAILED": "数据加载失败：请检查服务端数据加载结果。",
     "BUILD_NOT_FOUND": "记忆未构建：原始数据与记忆构建是不同步骤，请等待离线构建完成。",

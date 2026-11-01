@@ -29,7 +29,7 @@ def test_list_failure_is_not_empty_state(monkeypatch):
     assert not app.exception
     assert "读取记忆列表失败" in app.error[0].value
     assert "private" not in app.error[0].value
-    assert not app.info
+    assert not any("尚无记忆" in item.value for item in app.info)
 
 
 def test_detail_failure_clears_previous_source(monkeypatch):

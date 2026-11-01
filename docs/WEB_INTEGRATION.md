@@ -1,4 +1,6 @@
-# E Web 第一期接入说明
+# E Web 接入说明
+
+当前接口以文末“2026-11-01 统一服务接入”一节为准；第一期及 10-21 段落为历史增量记录。
 
 本期从独立原型迁入记忆浏览、筛选、分页、详情与原文追溯。实现位于 `src/dynamic_memory/web/`，启动入口为 `streamlit_app.py`。规范依据为 `TECHNICAL_SPEC.md` v2.2；公共业务 Schema 版本仍为 2.1。公共对象直接引用 `dynamic_memory.contracts.models`，不维护第二套 Schema。
 
@@ -60,3 +62,19 @@ $env:DYNAMIC_MEMORY_WEB_FACTORY = 'your_integration_module:create_bindings'
 当前仍使用四个既有只读接口，不添加替代 BuildStatus。A 提供公共类型、`get_build_status(sample_id)` 和统一服务后，再接入完整状态面板，核验 dataset_state、memory_state、partial_build、build_id、error_code 的含义及一致性。完整零 Memory、就绪状态必须结合公共状态结果确认；当前页面不自行推导。Memory 不可用时独立来源访问的页面流程也留待该接入批次完成，现有来源入口仍依赖记忆详情。
 
 本批没有实现构建、产物加载、索引、问答或模型调用。状态测试使用 synthetic 服务异常，不代表实际 A/B 服务联调完成。
+
+## 2026-11-01 统一服务接入
+
+E 已支持 A 的六个公开业务方法：四个既有浏览接口，以及 `get_build_status(sample_id)`、`run_query(request, method="dynamic")`。只调用统一服务，不直接 import B 的产物仓库或 C 的检索器；B/C 端口、模型及索引路径由 A 的组合入口注入。工厂仍返回 `WebBindings(service=已初始化的统一服务)`，每个会话一份绑定。
+
+`get_build_status` 返回 A 的 `dynamic_memory.contracts.service_status.BuildStatus`，E 通过该公共类型重新校验，不定义替代 DTO。当前 E 基线尚未合并 A 的该文件时，页面明确提示缺少公共接口；没有此方法的旧浏览服务仍能使用四个浏览接口。
+
+`run_query` 使用现有公共 `QueryRequest` / `QueryResponse`，方法值为 `full_text/vector_rag/dynamic`。提交表单时生成 `interactive_<UUID>`，传入原问题和可空 `as_of`，只调用一次服务。结果保存在 `st.session_state`；来源选择、搜索及分页不重复查询。切换样本、方法、服务或构建身份会清除旧结果。编辑未提交的问题时，旧结果仍显示其原始提交问题。
+
+E 核对响应的 query/sample/question/method 身份，用公共验证器核验候选、有效集合和使用项关系；候选详情及实际上下文轮次经统一 `get_memory/get_turn` 读取并校验身份。服务侧仍须负责完整来源、产物和索引的可信验证。Full Text 不依赖 Memory 读取成功；读取 Memory 失败后问答及独立 Session ID / Dia ID 回查入口仍可使用。
+
+页面分别展示 answered、no_evidence、time_uncertain、unresolved_conflict、error，展示服务返回的查询分析、候选顺序、状态解析和实际使用 ID。null 中间对象与已完成但为空的候选集合分开处理。仅实际上下文来源生成问答来源按钮，答案证据单独标记；点击后通过 get_turn 回查，原文与 caption 分开显示。服务错误的原始消息不展示，未知错误码使用固定通用文案。
+
+构建状态面板展示数据与 Memory 状态、构建 ID；只有公共状态确认 ready/complete 且列表读取成功，才显示“已就绪”或“完整构建，零条 Memory”。不触发离线构建。完整交接清单与分支核对结果见 [E_SERVICE_HANDOFF.md](reports/E_SERVICE_HANDOFF.md)。
+
+B/C 的实际端口已通过临时 A+B+C+E 合成链路检查。可执行 `python scripts/check_web_handoff.py` 重复验证，使用已获取的远端分支，不合并当前工作区。精确映射、测试限制和合并时必须保留的 A/B 差异见交接说明的“B/C 接入补充验证”。

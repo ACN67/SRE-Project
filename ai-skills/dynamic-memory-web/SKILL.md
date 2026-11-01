@@ -9,12 +9,13 @@ Read `docs/WEB_INTEGRATION.md` from the repository root before editing the Web s
 
 ## Current increment
 
-Implement only read-only browsing in this increment: samples, memories, local filtering, pagination, details, and original source inspection. Query submission, evidence decisions, and relation rendering are subsequent increments. Do not silently migrate unfinished query mocks into production.
+Implement browsing and E's unified-service consumer: samples, memories, filters, pagination, public build status, query submission/results and source inspection. Use A's actual public interfaces. Never migrate unfinished query mocks or B/C/D algorithms into production.
 
 ## Integration rules
 
 - Own only `src/dynamic_memory/web/`. Import MemoryRecord, SourceRef, SourceTurn and render_visible_turn from public contracts. Do not introduce alternative DTO definitions, canonical hashing, parsing, or inference.
-- A supplies an initialized service through WebBindings; use the four read-only methods documented in the integration guide. The trusted environment variable DYNAMIC_MEMORY_WEB_FACTORY selects a module:function factory. Configuration failure must stay visible; never fall back silently to synthetic data.
+- A supplies an initialized service through WebBindings; use the four browsing methods plus get_build_status and run_query documented in the integration guide. The trusted environment variable DYNAMIC_MEMORY_WEB_FACTORY selects a module:function factory. Configuration failure must stay visible; never fall back silently to synthetic data.
+- BuildStatus comes exclusively from A's contracts.service_status. If absent before merge, report the missing interface without creating a local DTO. Only explicit query form submission creates interactive_<UUID> and invokes run_query; rerenders, filtering and source lookup reuse the response. Clear response on sample, method, binding or build identity changes. Full Text remains callable when Memory browsing fails. Display all five answer statuses and preserve null versus empty intermediates.
 - Keep bindings and selected records session-scoped. Clear selection on sample, filter, page, service, or selected-memory changes. Never cache mutable per-user state globally.
 - Validate returned identifiers against the requested sample, memory, and source before rendering. event_time and recorded_at may be null. Unknown values must remain unknown.
 - Keep fixtures in demo.py and label them synthetic. Use the public compute_memory_id helper. No LoCoMo Gold or raw file access from UI.

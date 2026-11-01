@@ -7,8 +7,10 @@ from uuid import uuid4
 
 import streamlit as st
 
-from dynamic_memory.contracts.models import render_visible_turn
+from dynamic_memory.contracts.models import render_visible_turn, SourceRef
 from .bindings import load_bindings
+from .bindings import InterfaceUnavailable
+from .query import query_panel, clear_query
 from .demo import demo_bindings
 from .status import ERROR_MESSAGES, known_error_code
 
@@ -27,6 +29,7 @@ def reset_filter():
 
 
 def reset_sample():
+    clear_query()
     reset_filter()
     for key in ("search", "entity", "kind"):
         st.session_state.pop(key, None)
@@ -124,6 +127,57 @@ def show_source(bindings, sample):
         st.text(render_visible_turn(turn))
 
 
+def independent_source(bindings, sample):
+    with st.expander("按轮次回查原文（不依赖记忆构建）"):
+        with st.form("source_lookup"):
+            session = st.text_input("Session ID")
+            dia = st.text_input("Dia ID")
+            submitted = st.form_submit_button("回查原文")
+        if submitted:
+            try:
+                if not session.strip() or not dia.strip():
+                    st.warning("请输入 Session ID 和 Dia ID。")
+                else:
+                    turn = bindings.get_turn(sample, SourceRef(session_id=session.strip(), dia_id=dia.strip()))
+                    st.text(turn.text)
+                    if turn.image_caption:
+                        st.caption(f"图片描述 · 来源：{turn.caption_origin}")
+                        st.text(turn.image_caption)
+                    st.text(render_visible_turn(turn))
+            except Exception as error:
+                report_error("回查原文", error)
+
+
+def build_panel(bindings, sample):
+    if not bindings.supports("get_build_status"):
+        return None
+    try:
+        status = bindings.get_build_status(sample)
+        labels = {"not_built": "未构建", "complete": "完整构建", "partial": "部分构建",
+                  "failed": "构建失败", "stale": "产物过期", "corrupt": "产物损坏"}
+        st.write(f"数据状态：{status.dataset_state} · 记忆状态：{labels[status.memory_state]}")
+        if status.build_id:
+            st.text(f"构建 ID：{status.build_id}")
+        if status.error_code:
+            st.warning(ERROR_MESSAGES.get(status.error_code, "服务报告未就绪状态。"))
+        identity = (sample, status.dataset_state, status.memory_state, status.build_id, status.error_code)
+        if st.session_state.get("build_identity") != identity:
+            clear_selection()
+            clear_query()
+            st.session_state["build_identity"] = identity
+        return status
+    except InterfaceUnavailable:
+        st.info("构建状态公共接口尚未合并，暂不能展示构建状态。")
+    except Exception as error:
+        identity = (sample, "status_error", known_error_code(error), type(error).__name__)
+        if st.session_state.get("build_identity") != identity:
+            clear_selection()
+            clear_query()
+            st.session_state["build_identity"] = identity
+        report_error("读取构建状态", error)
+    return None
+
+
 def main():
     st.set_page_config(page_title="Memory Atlas · 记忆浏览", page_icon="◈", layout="wide")
     css = Path(__file__).with_name("assets").joinpath("theme.css").read_text(encoding="utf-8")
@@ -148,7 +202,7 @@ def main():
     with st.sidebar:
         st.header("Memory Atlas")
         st.text(bindings.label)
-        st.caption("E · 第一期 / 只读浏览")
+        st.caption("E · 记忆浏览与统一服务接入")
         if st.button("刷新服务", help="重新初始化当前会话的服务并清除已选记忆"):
             for key in ("bindings", "sample"):
                 st.session_state.pop(key, None)
@@ -156,7 +210,7 @@ def main():
             st.rerun()
     if bindings.synthetic:
         st.warning("Synthetic 合成演示数据：仅用于界面与接口验证，不代表真实样本、模型输出或实验结果。")
-    else:
+    elif not bindings.supports("get_build_status"):
         st.caption("当前仅展示只读接口返回结果；构建状态接口尚未接入，不据此判断构建是否就绪。")
     try:
         samples = bindings.list_samples()
@@ -172,12 +226,17 @@ def main():
         reset_sample()
         st.session_state["sample"] = samples[0]
     sample = st.sidebar.selectbox("样本", samples, key="sample", on_change=reset_sample)
+    status = build_panel(bindings, sample)
     try:
         memories = bindings.list_memories(sample)
     except Exception as error:
         clear_selection()
         report_error("读取记忆列表", error)
-        st.stop()
-    browse(bindings, sample, memories)
-    st.divider()
-    show_source(bindings, sample)
+    else:
+        if status is not None and status.dataset_state == "ready" and status.memory_state == "complete":
+            st.success("已就绪" if memories else "完整构建，零条 Memory。")
+        browse(bindings, sample, memories)
+        st.divider()
+        show_source(bindings, sample)
+    independent_source(bindings, sample)
+    query_panel(bindings, sample, report_error)
