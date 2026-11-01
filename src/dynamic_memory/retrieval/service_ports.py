@@ -72,11 +72,18 @@ class RetrievalServicePorts:
         return index
 
     def retrieve(self, request, analysis, index):
+        return self._retrieve(request, analysis, index, pure=False)
+
+    def retrieve_raw_topk(self, request, analysis, index):
+        return self._retrieve(request, analysis, index, pure=True)
+
+    def _retrieve(self, request, analysis, index, *, pure):
         self._active.set(None)
         snapshot = self._shared.retrieve_with_trace(request, analysis, index)
+        candidates = snapshot.pure_vector if pure else snapshot.candidates
         key = fingerprint({"request": request.model_dump(mode="json"), "analysis": analysis.model_dump(mode="json")})
-        self._active.set((key, index, snapshot.final_candidate_ids))
-        return snapshot.candidates
+        self._active.set((key, index, tuple(item.memory_id for item in candidates.items)))
+        return candidates
 
     def load_candidates(self, candidates, index):
         _, current = self._load(index.sample_id)

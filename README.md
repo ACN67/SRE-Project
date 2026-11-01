@@ -62,6 +62,8 @@ python -m venv .venv
 
 ## 配置读取
 
+C 模块的阶段交付、统一检查命令、接口清单和未完成的真实验收条件见 [C 交付入口](docs/C-delivery.md)。
+
 C 模块已提供独立的本地 Embedding 接口（将 Memory 和问题转换成向量），安装、示例和验证步骤见 [Embedding 使用说明](docs/embedding.md)。Vector RAG 回答端口已实现并通过合成测试，正式 Embedding 模型尚未冻结。
 
 C 模块另提供无需模型或 API 的规则版查询分析，识别常见查询意图、实体/属性提示及时间条件；示例与限制见 [查询分析使用说明](docs/query-analysis.md)。

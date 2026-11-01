@@ -23,17 +23,18 @@ def sample(source):
                                   for m in source.memories for r in m.source_refs])])
 
 
-def setup_ports(tmp_path, diagnostics=None):
+def setup_ports(tmp_path, diagnostics=None, **config_changes):
     sources = {name: artifact(sample=name) for name in ("synthetic-a", "synthetic-b")}
     paths = {name: tmp_path / f"{name}.json" for name in sources}
     encoder, qa = QueryEncoder(), SyntheticQA()
+    config = settings(**config_changes)
     manager = IndexManager(encoder)
     for name, source in sources.items():
-        save_index(manager.build_index(source, settings()), paths[name])
+        save_index(manager.build_index(source, config), paths[name])
     def provenance(source):
         return VectorAnswerProvenance("sha256:" + source.manifest.dataset_snapshot_sha256,
                                       QUERY_ANALYSIS_VERSION, "0" * 40, "development")
-    ports = RetrievalServicePorts(encoder=encoder, settings=settings(), load_artifact=sources.__getitem__,
+    ports = RetrievalServicePorts(encoder=encoder, settings=config, load_artifact=sources.__getitem__,
                                   index_path=paths.__getitem__, readiness_factory=SimpleNamespace,
                                   runtime=create_runtime(synthetic_adapter=qa), provenance_factory=provenance,
                                   on_diagnostic=diagnostics.append if diagnostics is not None else None,
@@ -131,3 +132,17 @@ def test_source_manifest_mismatch_and_missing_source_refs(tmp_path):
     empty = sample(source)
     empty.sessions[0].turns = []
     assert_code("ARTIFACT_CORRUPT", lambda: ports.load_verified_index(empty))
+
+
+def test_ablation_pins_raw_candidates_for_answer_without_reencoding(tmp_path):
+    ports, sources, _, encoder, _, _ = setup_ports(tmp_path, optional_pure_vector_top_k=1)
+    source = sources["synthetic-a"]
+    request, analysis, _, main = prepare(ports, source)
+    index = ports.load_verified_index(sample(source))
+    pure = ports.retrieve_raw_topk(request, analysis, index)
+    assert len(main.items) == 2 and len(pure.items) == 1
+    assert pure.base_top_k == pure.max_candidates == 1
+    memories = ports.load_candidates(pure, index)
+    answer = ports.answer_vector_rag(request, analysis, memories)
+    assert answer.used_memory_ids == [pure.items[0].memory_id]
+    assert len(encoder.questions) == 1

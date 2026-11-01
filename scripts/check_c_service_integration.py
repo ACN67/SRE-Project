@@ -38,6 +38,7 @@ def load_module(revision, name, path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--a-ref", required=True)
+    parser.add_argument("--check-ablation", action="store_true", help="Requires A's updated QueryResponse contract")
     args = parser.parse_args()
     orchestrator, revision = load_a(args.a_ref)
     status_module = load_module(revision, "dynamic_memory.contracts.service_status",
@@ -95,6 +96,7 @@ def main():
                                       runtime=runtime, provenance_factory=provenance, synthetic_test_mode=True)
         runner = orchestrator(analyze_query=analyze_query, load_verified_index=ports.load_verified_index,
                               retrieve=ports.retrieve, load_candidates=ports.load_candidates,
+                              **({"retrieve_raw_topk": ports.retrieve_raw_topk} if args.check_ablation else {}),
                               answer_vector_rag=ports.answer_vector_rag)
         service = service_module.DynamicMemoryService(sources=repository, build_status=build_status,
                     load_verified_artifact=verified_fixture, query_orchestrator=runner,
@@ -116,6 +118,16 @@ def main():
             assert response.answer_result.status == "answered", response.model_dump_json()
             responses.append(response)
         assert not set(responses[0].answer_result.used_memory_ids) & set(responses[1].answer_result.used_memory_ids)
+        if args.check_ablation:
+            ablation_runner = runner.with_source_lookup(repository.get_sample)
+            for name in sources:
+                request = QueryRequest(query_id="same-query", sample_id=name, question="What is Sam's job?")
+                result = ablation_runner.run_pure_vector_prepared(
+                    ablation_runner.prepare_query(request), base_top_k=settings.optional_pure_vector_top_k)
+                assert result.response.method == "pure_vector_topk"
+                assert result.response.answer_result.status == "answered", result.response.model_dump_json()
+                assert all(item.origin == "semantic" for item in result.response.retrieved.items)
+                assert tuple(result.response.answer_result.used_memory_ids) == result.initial_topk_ids
         name = first.manifest.sample_id
         old_fp = responses[0].retrieved.retriever_fingerprint
         sources[name] = first.model_copy(update={"manifest": first.manifest.model_copy(update={"build_id": "synthetic-v2"})})
@@ -132,6 +144,7 @@ def main():
         print(json.dumps({"run_kind": "synthetic_A_service_C_ports_E_readonly", "a_revision": revision,
                           "samples_answered": 2, "sample_isolation": True, "read_only_no_query_encoding": True,
                           "published_index_update": True, "missing_index_no_rebuild": True,
+                          "a_pure_vector_entry_verified": args.check_ablation,
                           "real_B_loader": False, "real_model": False}, indent=2))
 
 

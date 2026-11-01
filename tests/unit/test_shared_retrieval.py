@@ -64,3 +64,19 @@ def test_invalid_capacity(size):
     *_, retriever = setup()
     with pytest.raises(ValueError):
         SharedRetrieval(retriever, max_entries=size)
+
+
+def test_raw_port_excludes_history_and_preserves_main_snapshot():
+    from test_history_expansion import history_artifact, run
+    _, retriever, index, encoder, request = run(history_artifact())
+    from dynamic_memory.retrieval import analyze_query
+    shared = SharedRetrieval(retriever)
+    analysis = analyze_query(request)
+    before = encoder.query_calls
+    main = shared.retrieve(request, analysis, index)
+    pure = shared.retrieve_raw_topk(request, analysis, index)
+    assert len(main.items) > len(pure.items) == 8
+    assert all(item.origin == "semantic" for item in pure.items)
+    assert [item.memory_id for item in pure.items] == [item.memory_id for item in main.items[:8]]
+    assert shared.retrieve(request, analysis, index) == main
+    assert encoder.query_calls == before + 1

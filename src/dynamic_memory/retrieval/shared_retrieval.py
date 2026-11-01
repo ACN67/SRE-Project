@@ -45,6 +45,10 @@ class SharedRetrieval:
     def retrieve(self, request, analysis, index):
         return self.retrieve_with_trace(request, analysis, index).candidates
 
+    def retrieve_raw_topk(self, request, analysis, index):
+        """A's supplementary ablation port; never returns history expansion."""
+        return self.retrieve_with_trace(request, analysis, index).pure_vector
+
     def load_candidates(self, candidates, index):
         return self._retriever.load_candidates(candidates, index)
 
