@@ -1,3 +1,4 @@
+from test_empty_and_failure import go, switch_sample
 """Run on A's public types after merge; never duplicate an unavailable DTO."""
 import pytest
 
@@ -30,9 +31,9 @@ def test_public_status_panel_and_no_fake_empty(monkeypatch, status_type, state, 
         def unavailable(sample):
             raise ServiceFailure(code)
         service.list_memories = unavailable
-    app = launch(monkeypatch, service)
+    app = launch(monkeypatch, service, page="服务状态")
     assert not app.exception
-    assert any(label in item.value for item in app.markdown)
+    assert any(label in item.value for item in app.metric)
     assert not any("完整构建，零条" in item.value for item in app.success)
 
 
@@ -41,13 +42,14 @@ def test_public_status_complete_empty_and_build_change_clears_query(monkeypatch,
     service = QueryService()
     status = status_type(dataset_state="ready", memory_state="complete", partial_build=False, build_id="synthetic-1")
     service.get_build_status = lambda sample: status
-    app = launch(monkeypatch, service)
+    app = launch(monkeypatch, service, page="问答工作台")
     submit(app)
     status = status_type(dataset_state="ready", memory_state="complete", partial_build=False, build_id="synthetic-2")
     app.run()
     assert "query_response" not in app.session_state
     assert len(service.calls) == 1
-    app.selectbox(key="sample").select("demo_empty").run()
+    switch_sample(app, "demo_empty")
+    go(app, "记忆浏览")
     assert any("完整构建，零条 Memory" in item.value for item in app.success)
 
 

@@ -10,10 +10,32 @@ from dynamic_memory.web.demo import DemoService
 ENTRY = Path(__file__).resolve().parents[2] / "streamlit_app.py"
 
 
-def launch(monkeypatch, service):
+def go(app, page):
+    current = app.session_state["workspace_page"] if "workspace_page" in app.session_state else "首页"
+    if current == page:
+        return app
+    if current != "首页":
+        next(b for b in app.button if b.label == "← 返回首页").click().run()
+    if page != "首页":
+        matches = [b for b in app.button if b.label == f"进入{page} →"]
+        if matches:
+            matches[0].click().run()
+    return app
+
+
+def switch_sample(app, sample):
+    current = app.session_state["workspace_page"] if "workspace_page" in app.session_state else "首页"
+    go(app, "首页")
+    app.selectbox(key="sample_choice").select(sample).run()
+    go(app, current)
+
+
+def launch(monkeypatch, service, page="记忆浏览"):
     monkeypatch.setitem(sys.modules, "empty_factory", SimpleNamespace(create=lambda: WebBindings(service)))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "empty_factory:create")
-    return AppTest.from_file(str(ENTRY)).run()
+    app = AppTest.from_file(str(ENTRY)).run()
+    go(app, page)
+    return app
 
 
 def test_no_samples(monkeypatch):

@@ -142,7 +142,7 @@ def test_c_missing_index_errors_without_rebuilding_or_losing_sources(bc_service)
 def test_bc_service_in_web_does_not_regenerate_on_source_navigation(monkeypatch, bc_service):
     from test_empty_and_failure import launch
     f = bc_service
-    app = launch(monkeypatch, f.service)
+    app = launch(monkeypatch, f.service, page="问答工作台")
     assert not app.exception
     app.selectbox(key="query_method").select("vector_rag").run()
     app.text_area(key="query_question").set_value("What is Sam's job?")

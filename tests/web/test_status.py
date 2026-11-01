@@ -5,7 +5,7 @@ import pytest
 
 from dynamic_memory.web.demo import DemoService
 from dynamic_memory.web.status import ERROR_MESSAGES, known_error_code
-from test_empty_and_failure import launch
+from test_empty_and_failure import launch, go
 
 
 class ServiceFailure(RuntimeError):
@@ -50,6 +50,7 @@ def test_sample_load_failure_remains_refreshable(monkeypatch):
     assert not app.selectbox
     service.list_samples = original
     next(b for b in app.button if b.label == "刷新服务").click().run()
+    go(app, "记忆浏览")
     assert not app.exception
     assert not app.error
     assert any(b.label == "查看详情" for b in app.button)

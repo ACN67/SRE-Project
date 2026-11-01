@@ -1,3 +1,4 @@
+from test_empty_and_failure import go, switch_sample
 from datetime import date
 
 import pytest
@@ -8,7 +9,11 @@ from dynamic_memory.contracts.models import (
 )
 from dynamic_memory.web.bindings import ContractError, WebBindings
 from dynamic_memory.web.demo import DemoService
-from test_empty_and_failure import launch
+from test_empty_and_failure import launch as launch_page
+
+
+def launch(monkeypatch, service):
+    return launch_page(monkeypatch, service, page="问答工作台")
 
 
 class QueryService(DemoService):
@@ -70,13 +75,15 @@ def test_submit_once_and_navigation_never_requeries(monkeypatch, method):
     assert request.query_id.startswith("interactive_")
     assert request.as_of == date(2023, 1, 1)
     app.run()
+    go(app, "记忆浏览")
     app.selectbox(key="page").select(2).run()
+    go(app, "问答工作台")
     assert len(service.calls) == 1
     if method == "full_text":
         next(b for b in app.button if b.label.startswith("答案证据 ↗")).click().run()
         assert len(service.calls) == 1
         assert service.memories[0].content in [t.value for t in app.text]
-    app.selectbox(key="sample").select("demo_empty").run()
+    switch_sample(app, "demo_empty")
     assert "query_response" not in app.session_state
     assert "query_source" not in app.session_state
 
@@ -117,7 +124,7 @@ def test_source_lookup_works_when_memory_unavailable(monkeypatch):
     def fail(*args):
         raise RuntimeError("unavailable")
     service.list_memories = fail
-    app = launch(monkeypatch, service)
+    app = launch_page(monkeypatch, service, page="原文回查")
     next(x for x in app.text_input if x.label == "Session ID").set_value("session_1")
     next(x for x in app.text_input if x.label == "Dia ID").set_value("D1:1")
     next(b for b in app.button if b.label == "回查原文").click().run()
