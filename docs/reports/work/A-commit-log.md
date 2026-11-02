@@ -80,3 +80,62 @@
 - 功能及文件：`src/dynamic_memory/contracts/data.py` 唯一定义 IC-001 的 `ConversationSession`、`ConversationSample`、`DatasetBundle`，复用 `SourceTurn` 和公共基类，校验同层唯一性、父子来源身份、划分集合与快照摘要；`contracts/__init__.py` 导出；`tests/contract/test_dataset_containers.py` 使用纯 synthetic fixture 覆盖保序、回读、空结构、Gold 字段拒绝及异常路径，并对三个公共容器启用 `hide_input_in_errors=True`、验证格式化校验错误不会回显被拒绝的 Gold 标记；`docs/contracts.md` 写明结构合同、脱敏边界与 B 加载器职责。
 - 测试：`.\.venv\Scripts\python.exe -m pytest -q tests\contract\test_dataset_containers.py`：26 passed（含 4 项异常脱敏测试，退出码 0）；完整 `pytest -q`：310 passed（原有 284 项无回归，退出码 0）；`mock_smoke`：PASS（退出码 0）；`git diff --check`：退出码 0。全部离线，不读取真实数据、Gold 或调用模型 API。
 - 限制：公共容器只检查结构与字段白名单；B-02 负责原始 LoCoMo 解析和 Gold 剥离，B-03 负责 SourceRepository，快照文件 SHA 和冻结配置一致性由 B 的严格加载器核验。v2.2 未设置列表最小数量，故空 session、sample 和 Bundle 在结构层合法；不代表正式数据可为空。
+
+## A-11（2026-10-20）
+
+- Commit Message：`实现共享查询条件处理入口`。
+- 功能及文件：`src/dynamic_memory/pipeline/query_conditions.py` 新增可注入 `QueryAnalyzer`、`prepare_shared_query` 和防御性快照 `PreparedQuery`，每个请求分析一次，复验 Schema 2.1/ID/显式日期，并在序列化前检查 QueryRequest、QueryAnalysis、嵌套 TimeIssue 原始字段白名单以拒绝 model_copy 注入的未知字段，统一三路时间冲突或错误早停；`tests/unit/test_shared_query_conditions.py` 使用 synthetic Fake 覆盖六种意图、时间一致性、脱敏失败与隔离；`docs/architecture.md` 增加接入示例和边界。
+- 测试：专项 `pytest -q tests\unit\test_shared_query_conditions.py`：35 passed（含 8 项未知字段/嵌套字段的回归测试，退出码 0）；完整 `pytest -q`：345 passed（退出码 0）；`mock_smoke`：PASS（退出码 0）；文档 synthetic Fake 示例输出 `historical_state conflict`（退出码 0）；`git diff --check`：退出码 0。所有测试均离线，无 C 正式分析、真实模型或 Gold。
+- 限制：本轮仅有 A 侧查询条件接线，没有 C 正式分析器，也不实现检索、状态推理或三路答案。原计划 A-10 的统一只读业务访问未完成；B-03 的来源仓库未合入 A，A-12 的正式三路调度仍待单独任务。
+
+## A-12（2026-10-23）
+
+- 拟提交信息：`实现run_query三路查询调度`。
+- 功能及文件：`src/dynamic_memory/pipeline/query_runner.py` 新增显式注入端口的 `QueryOrchestrator`，提供 `run_query`、`prepare_query`、`run_prepared`；复用 A-11 单次分析/早停，Full Text 只读原始样本，Vector RAG 与 Dynamic 共享 C 检索/候选装载路径，D 解析通过校验后才进入 Dynamic 回答。逐层复验公共 DTO、Memory ID、候选来源、解析决定/关系证据与最终响应，失败使用稳定脱敏码；`tests/unit/test_run_query_dispatch.py` 覆盖三路 synthetic Fake 调度、调用顺序、空候选、异常与边界；`docs/architecture.md` 说明端口职责与离线示例。
+- 测试：A-12 专项 `pytest -q tests/unit/test_run_query_dispatch.py`：24 passed；A-11 专项：35 passed；排除 Web 的离线完整回归 `pytest -q --ignore=tests/web`：437 passed；Mock smoke：PASS；文档 synthetic 示例输出 `full_text no_evidence`；`git diff --check`：通过，以上退出码均为 0。完整 `pytest -q` 在收集两项 Web 测试时因当前 `.venv` 缺少可选依赖 `streamlit` 中断，退出码 1，未获得完整套件通过结论；本轮未安装依赖。
+- 限制：C 正式查询分析/检索/Vector QA、D 正式解析/Dynamic QA、B 严格产物与匹配索引读取适配、A 正式 Full Text 生成器及统一只读服务尚待接入；测试均为 synthetic，不是 LoCoMo 事实或正式三路问答结果。A 调度器信任注入的 `load_verified_index` 端口完成 B/C 文件、来源、完整性和索引版本验证，不将内存 DTO 当作磁盘验证证据。
+
+## A-13（2026-10-24，待用户审阅，未提交）
+
+- 建议提交信息：`实现Full Text问答基线`。
+- 功能及文件：`src/dynamic_memory/baselines/full_text.py` 与包导出实现原始可见轮次组织、完整 QA 输入预算估算、最近完整轮次截断、不可变来源诊断、共享 QA Prompt/Runtime/身份记录及脱敏失败；`tests/unit/test_full_text_baseline.py` 用离线 synthetic Fake 覆盖原文、来源、预算、异常与 A-12 注入；`docs/architecture.md` 说明正式接入和限制。
+- 测试：A-13 专项 `pytest -q tests/unit/test_full_text_baseline.py`：10 passed；A-11/A-12 回归：59 passed；完整 `pytest -q`：480 passed（原 470 项无回归）；Mock smoke：PASS；`git diff --check`：通过，退出码均为 0。未运行正式 LoCoMo/Gold 或付费模型；Fake 回答不代表事实正确。
+- 限制：预算以注入的 TokenEstimator 为估计而非 Provider 精确用量；`qa_shared@demo-v1` 尚非正式冻结 Prompt，未验证真实模型回答的事实性。正式 B/C/D、统一服务/Web、三路评分及 Gold 隔离评测仍待后续接入。
+
+## A-14（2026-10-25，待用户审阅，未提交）
+
+- 建议提交信息：`建立QA身份与Gold隔离评测基础`。
+- 功能及文件：`evaluation/question_manifest.py` 提供冻结快照校验、问题白名单、原始 QA 下标及稳定身份；`evaluation/predictions.py` 提供完整预测的临时/忽略目录保存、字节回执与回读验证；`evaluation/gold_loader.py` 仅在预测核验后读取 Gold，区分缺失与格式错误；`evaluation/metrics/answer_adapter.py` 提供五状态固定评分输入。新增三组 synthetic 单元测试，更新 `docs/architecture.md`。
+- 测试：题目身份专项 4 passed、Gold 隔离专项 9 passed、答案适配专项 6 passed；完整 `pytest -q`：499 passed（A-13 基线 480 项，新增 19 项）；Mock smoke：PASS；`git diff --check`：通过。所有退出码为 0，未读取真实 LoCoMo 测试 Gold、未调用模型或生成正式分数。
+- 审查修复：修正 `evaluation/predictions.py` 对仓库 `results/` 的根目录计算（`parents[1]`），并将预写入后 `os.replace` 改为不可覆盖已有目标的原子硬链接发布；增加真实仓库结果目录/仓库父目录拒绝测试和并发目标先创建时的保留性测试。修复后 Gold 隔离专项 **11 passed**、A-14 三组专项 **21 passed**、完整回归 **501 passed**，Mock smoke：PASS，均无真实 Gold 或付费调用。硬链接文件系统不受支持时返回固定保存失败错误，不改写已存在文件。
+- 限制：官方 ID 字段须在外部核实后显式指定；本轮不含官方 QA F1、Recall、状态指标和三路 Runner。`docs/references/Milestone4/` 为用户已授权的预存未跟踪资料，本轮未触碰；下次经用户授权提交时随 A-14 统一纳入。
+
+## A-15（2026-10-25，待用户审阅，未提交）
+
+- 建议提交信息：`实现LoCoMo官方五类QA评分器`。
+- 功能及文件：`evaluation/metrics/official_qa.py` 复现固定上游五类 QA 规则；`evaluation/metrics/qa_summary.py` 在 A-14 预测/Gold 门槛后逐题评分并汇总主/条件分母、失败、缺 Gold、类别/样本/方法；`pyproject.toml` 增加有界 `eval` 可选依赖；两组 synthetic 离线专项测试；`docs/architecture.md` 说明固定版本及边界。
+- 上游依据：`snap-research/locomo` 的 `task_eval/evaluation.py`，commit `cbfbc1dba6bc53d00625212a0f22d55ffee7c1fc`；一次性动态对照 4 个归一化/词项样例和 5 个类别样例全部一致。未安装或运行完整 BERTScore/ROUGE 模块。
+- 测试：`test_official_qa_scoring.py` 13 passed、`test_qa_score_summary.py` 5 passed；完整 `pytest -q` 519 passed（A-14 基线 501，新增 18）；Mock smoke PASS；`git diff --check` 通过，以上退出码均为 0。所有 Gold 和预测均为 synthetic，无真实课程分数。
+- 审查修复：发现 GitHub Actions 原安装 `.[dev,web]`，未包含 A-15 的 `eval` 可选依赖；本轮将 `.github/workflows/contracts.yml` 改为 `.[dev,web,eval]`，保障全新 CI 环境能安装 NLTK/regex。修复后本地 A-15 专项 18 passed、全量 519 passed、Mock smoke PASS；正式 CI 结果以后续远端执行为准。
+
+## A-16（2026-10-27，待用户审阅，未提交）
+
+- 建议提交信息：`实现检索证据与动态状态评测指标`。起点大写 A 分支，HEAD `b17893b6d1411982cb5b474a2d38e6b1426cf78f`，工作区干净。
+- 功能及文件：`evaluation/metrics/evidence_recall.py` 实现来源仓库核验后的 Evidence-turn Recall@5/@10、逐题状态及方法/样本分母，并在 A-14 保存预测/回执验证后读取 Gold；`evaluation/metrics/state_metrics.py` 实现显式 Gold Memory 身份映射、关系/决定分类及有效集 P/R/F1/Exact Match，区分完整产物中的抽取缺失、候选缺失、身份不明和模型失败。`tests/unit/test_evidence_turn_recall.py` 与 `tests/unit/test_state_metrics.py` 为离线 synthetic 样例；`docs/architecture.md` 记录单位、空集、N/A、混淆矩阵和正式标注边界。
+- 验证：证据专项 11 passed、状态专项 5 passed；原完整回归 535 passed，Mock smoke PASS；无真实 Gold、API、下载或课程成绩；正式 `qa.evidence` 格式及状态 Gold/Memory ID 仍待核实。
+- 提交前独立审查修复（2026-10-27）：发现同名轮次来自不同冻结快照时仍可被算作合法召回，现为共享 `SourceRepository` 增加只读 `snapshot_sha256` 属性（取自严格验证的 DatasetBundle，不重新哈希原始文件），Evidence-turn Recall 先核对仓库与 Manifest 快照身份，再读取 Gold；不符报 `EVIDENCE_SNAPSHOT_MISMATCH`，未加载时报 `EVIDENCE_SOURCE_UNAVAILABLE`。同时新增 Gold 决策与有效集合的显式一致性检查，避免将 `EXCLUDE` 等误标为有效而继续评分；对已标注的 `RETAIN` / `EXCLUDE` / `UNRESOLVED` 与可用有效集矛盾时报 `STATE_GOLD_INCONSISTENT`，部分标注不擅自补齐。3 项新增回归测试覆盖反例及保存前核验顺序；修复后 A-16 专项 **19 passed**、完整回归 **538 passed**、Mock smoke PASS、`git diff --check` 通过。仅在 A 工作树实现该最小共享读取属性，未修改 B 分支。
+
+
+## A-17（2026-10-27，待用户审阅，未提交）
+
+- 建议提交信息：实现三路批量预测与可比性核验。起点大写 A 分支，HEAD ee2350a49b4d9951ef045c490219faebc0b9dce9，工作区干净。
+- 功能及文件：evaluation/runners/__init__.py、three_method_runner.py 实现一次共享分析、三路预测、实际候选比较、三份 A-14 兼容文件保存及独立验收；tests/unit/test_three_method_batch_runner.py、test_batch_candidate_comparability.py 用离线 synthetic Fake 验证顺序、失败、候选差异与持久化门槛；docs/architecture.md 记录协议及边界。未修改 A-12 调度接口或公共 Schema。
+- 验证：Runner 专项 17 passed、候选比较专项 8 passed；完整 pytest 563 passed（起点 538，新增 25）；Mock smoke PASS；git diff --check 通过，以上退出码均为 0。实际 synthetic 三路持久化与独立回读 3/3 文件成功，2 道题候选 identical 2、mismatch/not_comparable/unverified 各 0。没有 Gold、付费 API、正式模型或真实成绩；未提交或推送。
+
+
+## A-18（2026-10-27，待用户审阅，未提交）
+
+- 建议提交信息：实现统一只读服务与构建状态接口。起点大写 A 分支，HEAD 3d62f27085701cf3fbc50b4fc7004155d91b3e6d，工作区干净。
+- 功能及文件：contracts/service_status.py 与 contracts/__init__.py 增量定义并导出 BuildStatus；services/dynamic_memory_service.py 与 services/__init__.py 提供六个只读方法、可信产物/索引状态门槛及脱敏错误；tests/contract/test_build_status_service.py、tests/unit/test_dynamic_memory_service.py、tests/integration/test_service_web_binding.py 用离线 synthetic Fake 验证状态、数据隔离、A-12 调度与 E WebBindings；docs/contracts.md、docs/architecture.md 说明接口与正式依赖。未改既有 Schema 字段、A-12、A-17 或 E 页面。
+- 验证：服务专项 14 passed、状态合同专项 20 passed、A→E 合成接入 1 passed、Web 回归 33 passed；完整 pytest 598 passed（起点 563，新增 35）；Mock smoke PASS、git diff --check 通过，以上退出码均为 0。未接入 B/C/D 正式 loader/索引/模型；无真实 Gold、API 或课程成绩。未暂存、提交、推送或合并。
+- 独立审查修复（2026-10-27）：一是服务和原 QueryOrchestrator 可以注入两个具有相同 sample_id/SourceRef 但快照不同的来源，误接受异源原文；现在 A-12 新增公开 `with_source_lookup`，A-18 服务构造时创建独立调度器并以自己的 SourceRepository.get_sample 强制绑定原文，外部原有调度器保持不变。二是旧服务先检查 Memory/索引再分析问题，会把可提前返回的 `time_uncertain` 覆盖为 `BUILD_NOT_FOUND`；现在先执行一次 `prepare_query`，错误/时间冲突立即通过 `run_prepared` 返回；正常请求再检查 Memory/索引并复用同一 PreparedQuery。早停与正常响应均复验身份和公共 Schema。新增 3 项 synthetic 反例测试，修复后 A-18 专项 **38 passed**、A-12 调度回归 **24 passed**、Web 回归 **33 passed**、完整 pytest **601 passed**、Mock smoke PASS、`git diff --check` 通过。A 仅能证明服务的 get_sample 与同一个 SourceRepository 绑定；任意注入的真实生成器和 C 索引语义必须由 B/C 可信组合根及指纹核验。本轮未调用真实模型/Gold，未更改 B/C/D/E/main。

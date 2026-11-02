@@ -149,3 +149,117 @@ print(runtime.backend, len(runtime.recorder.store.events()))  # mock 2
 ```
 
 三路 QA 由调用方传同一 QA 模板及 Runtime，故 system 指令、模型及生成设置一致；只有已筛选的 context、`method`、scope 和适用索引版本因路径而异。JSON 任务须由 B/D 显式传入适用业务 `validator` 才会成功缓存，不能把未校验输出当事实。配置指纹由已校验的全部 `AppSettings` 生成；执行策略指纹包含后端/型号、API 开关、超时、重试、并发、预算模式与显式 `estimator_version`。注入 TokenEstimator 时必须给该版本，估算值不当作服务端实际 Token。上层应在 Web 重渲染时复用同一 Runtime；正式 `run_query` 仍待 B/C/D 的业务接口和真实数据、索引、证据核验到位。
+
+## 共享查询条件准备与早停（A-11）
+
+`dynamic_memory.pipeline.query_conditions.prepare_shared_query(request: QueryRequest, analyzer: QueryAnalyzer) -> PreparedQuery` 接收显式注入的 C 方可调用能力，**每个请求只调用一次**，并把已复验的 Schema 2.1 `QueryRequest`、`QueryAnalysis` 存为隔离的快照。`PreparedQuery.request` / `.analysis` 每次给出独立 DTO 副本，供之后 Full Text、Vector RAG、Dynamic 消费同一次分析；`must_early_stop` 和 `make_early_response(method)` 为三路提供统一门槛。正常路径的 `make_early_response` 返回 `None`，不制造检索结果或答案。当前 C 正式 `analyze_query` 尚未接入；以下仅为 synthetic Fake 合同示例：
+
+```python
+from datetime import date
+from dynamic_memory.contracts.models import QueryAnalysis, QueryRequest, TimeIssue
+from dynamic_memory.pipeline.query_conditions import prepare_shared_query
+
+def fake_c_analyzer(request):  # synthetic contract fake, not C's actual algorithm
+    return QueryAnalysis(
+        query_id=request.query_id, sample_id=request.sample_id,
+        query_intent="historical_state", time_mode="conflict",
+        time_issue=TimeIssue(code="QUERY_TIME_CONFLICT", message="Synthetic dates conflict",
+                             explicit_as_of="2023-05-01", question_time="2024-01-02"),
+    )
+
+request = QueryRequest(query_id="synthetic_q1", sample_id="synthetic_sample",
+                       question="Synthetic historical question?", as_of=date(2023, 5, 1))
+prepared = prepare_shared_query(request, fake_c_analyzer)
+assert prepared.must_early_stop
+for method in ("full_text", "vector_rag", "dynamic"):
+    response = prepared.make_early_response(method)
+    assert response.answer_result.status == "time_uncertain"
+    assert response.retrieved is response.resolution is None
+print(prepared.analysis.query_intent, prepared.analysis.time_mode)  # historical_state conflict
+```
+
+入口只核验 C 返回的真实公共 DTO、请求/分析 ID 及显式 `as_of` 一致性，不在 A 猜意图、解析日期或补电脑当前时间。`latest_known` 保持已知对话范围末端含义，与六种 `query_intent` 独立；`TIME_PARSE_UNCERTAIN` 保留为非冲突条件供后续模块处理。合法冲突需保留 `time_issue` 的请求日期和问题时间线索，三路共用 `status=time_uncertain`、空候选/关系/证据的早停响应。分析器异常、错误类型/Schema、越样本身份或不一致时间条件则使用固定脱敏错误码形成 `status=error`、`query_analysis=None` 的响应；无可信 `QueryRequest` 时抛出 `INVALID_QUERY_REQUEST`，因为不能构造合法响应。诊断不拼接问题、实体线索或原始异常。
+
+当时 A-11 只完成 A 的接线和公共合同早停；原计划 A-10 的统一只读业务访问尚未实现，B-03 的来源仓库虽已在 A 可用，正式 B 产物/索引适配及 C/D 业务算法仍待接入。E/评测器不得把本 synthetic Fake 演示当作 C 正式分析或真实三路问答。
+
+## 统一三路查询调度（A-12）
+
+`dynamic_memory.pipeline.query_runner.QueryOrchestrator` 是服务持有的同步调度入口，显式注入 `analyze_query`、`get_sample`、`load_verified_index`、`retrieve`、`load_candidates`、`resolve` 和三种 `answer_*` callable。`run_query(request, method="dynamic")` 每次调用 A-11 一次，非法 method 在任何上游调用前拒绝；批量对照可先 `prepare_query(request)`，再用同一个 `PreparedQuery` 分别调用 `run_prepared(prepared, method)`，避免三路重复分析。A-11 的时间冲突/程序错误在读样本或索引前直接返回已有早停 `QueryResponse`。
+
+Full Text 只读取 B 的原始 `ConversationSample` 并调用注入的 `answer_full_text`，不要求 Memory 或索引。Vector RAG 和 Dynamic 均通过同一 C 检索/候选装载端口；前者调用 `answer_vector_rag`，后者先调用 D 的 `resolve`，验证候选决定/关系及来源，再调用 `answer_dynamic`。`load_verified_index(sample)` 是**可信 B/C 适配器的责任边界**：必须拒绝未通过 B 严格文件/来源校验的产物、partial 构建或与样本不匹配/过期的索引；本 A 调度器不把仅构造的 `MemoryArtifact` 视为已完成磁盘核验，也不实现索引算法。返回值对 A 是不透明的，只原样传给 C 的 `retrieve` / `load_candidates`。
+
+以下仅验证注入方式与合法 Full Text 形状，内容全部 synthetic，未调用正式 C/D 或 LLM：
+
+```python
+from dynamic_memory.contracts import AnswerResult, ConversationSample, ConversationSession, QueryAnalysis, QueryRequest
+from dynamic_memory.pipeline.query_runner import QueryOrchestrator
+
+sample = ConversationSample(sample_id="synthetic_sample", source_order_1_based=1,
+                            sessions=[ConversationSession(session_id="synthetic_session", turns=[])])
+runner = QueryOrchestrator(
+    analyze_query=lambda request: QueryAnalysis(query_id=request.query_id, sample_id=request.sample_id,
+                                                query_intent="unknown", time_mode="latest_known"),
+    get_sample=lambda _sample_id: sample,
+    answer_full_text=lambda _request, _analysis, _sample: AnswerResult(
+        status="no_evidence", uncertainty="Synthetic fixture has no turns."),
+)
+result = runner.run_query(QueryRequest(query_id="synthetic_q1", sample_id="synthetic_sample",
+                                       question="Synthetic question?"), "full_text")
+print(result.method, result.answer_result.status)  # full_text no_evidence
+```
+
+端口返回的公共 DTO 会递归检查字段白名单并重新验证 Schema 2.1、请求/样本身份、候选 rank/预算/Memory ID 与真实样本中的来源、解析决定覆盖和关系来源、回答引用与最终 `QueryResponse`。原有 `validate_resolution_against_candidates` / `validate_response_context` 继续承担上下文验证；引用可定位不代表语义事实受原文支持。已知数据/构建/索引错误保留稳定码，缺少端口或未知异常使用固定脱敏错误，正常空候选才可形成 `no_evidence`。Dynamic 空候选仍需 D 返回合法的空解析结果。缺少正式 C/D、B 严格产物/索引适配或正式 A Full Text 生成器时，不能把此调度层的 Fake 测试视为完整三路问答；原计划 A-10 统一只读服务亦尚未实现。
+
+## Full Text 回答基线（A-13）
+
+`dynamic_memory.baselines.FullTextAnswerer(runtime, provenance, on_diagnostic=...)` 是 A-12 的 `answer_full_text(request, analysis, sample)` 端口；直接作为 `QueryOrchestrator(answer_full_text=answerer)` 注入。它只读取已经由来源端口提供的 `ConversationSample`，逐 Session 和轮次沿原顺序调用 `render_visible_turn`。每条非空可见轮次带 Session、dia_id、speaker 和可用的 recorded_at；caption 保持公共 `[image_caption: ...]` 标记。纯空可见轮次另记在诊断的 `empty_refs`，不伪造话语。样本、请求及共享分析的 ID、DTO 结构和重复轮次都要通过校验。合法的全空可见上下文直接返回 `no_evidence`，不调用模型。
+
+回答器使用同一个 `QA_PROMPT` (`qa_shared@demo-v1`) 和 `LLMRuntime.make_request / make_identity / execute`。原问题原样置于 question 变量开头，后附共享 `QueryAnalysis` 已给出的有限意图、时间模式及解析日期，不自行推断日期。A-11 的明确时间冲突由调度器在读来源前早停；若直接误调回答器则报错。正常文本响应可组装为 `answered`，但目前没有可靠的模型语义拒答或事实核验协议；因此 `evidence_refs=[]`，`context_source_refs` 只列实际送入 QA 的轮次，`used_memory_ids=[]`。默认 Mock 被拒绝为正式回答；仅显式 `synthetic_test_mode=True` 且注入自定义 Fake 时允许离线测试答案。
+
+预算使用同一 Runtime Guard 配置的 `TokenEstimator`，每次对完整 QA system 和 user 消息估算输入，而不只数对话。超过 `qa_max_input_tokens` 时逐个删除最早的完整可见轮次，保留后缀及其原有相对顺序；单轮也装不下则报 `INPUT_BUDGET_EXCEEDED`。严格模式无估算器或估算未知时调用前报 `INPUT_BUDGET_UNKNOWN`；宽松模式保留全部轮次但标记未核验。`FullTextDiagnostics` 回调提供纳入、预算丢弃、空可见轮次的来源键、截断标志、估算输入 Token 和预算核验状态，不含原文。估算核验并非 Provider 实测 Token，真实用量仍以 Runtime 记录为准。生产环境应在 `create_runtime` 显式注入可信估算器及版本，使用严格预算；本模块暂借用 Guard 内部的同一估算器/严格开关，未来可由公共 Runtime 提供只读预算端口。
+
+`FullTextProvenance` 必须由上游提供已核实的数据快照指纹、共享分析器版本、真实源码 Git SHA 和运行类别。`make_identity` 使用当前查询/样本、`method=full_text`、QA 模板/配置/执行策略身份，且无检索指纹；Runtime 录制与缓存键还包含完整请求指纹。缺少合法身份、模型失败、空白或截断响应会抛固定脱敏错误，由 A-12 映射为合法 `QueryResponse(status=error)`。仅能确认来源进入上下文，不能从 Fake、Prompt 文本或引用集合推断回答事实正确。正式 B/C/D 接入、服务/Web 和三路 Gold 评测属于后续工作。
+
+## QA 身份与 Gold 隔离评测基础（A-14）
+
+`evaluation.question_manifest.load_question_manifest(snapshot_path, split_path, selected_splits=...)` 复用 B 的 `inspect_snapshot` / `validate_split` 核对原始字节 SHA、十个真实 sample ID 顺序及冻结 main_dev/extra_dev/test。返回的不可变 `QuestionManifest` 仅包含原始 QA 下标、`qa.question`、样本/划分、`query_id` 和快照绑定的 `gold_record_key`；`QuestionRecord.to_query_request()` 只生成公共 Schema 2.1 的问题字段，`as_of=None`。默认 ID 为 `qa_{sample_id}_{原始0-based下标}`，不会按过滤后位置编号。只有外部已验证真实官方题号字段时才显式传 `official_id_field`；未知字段不会被猜测，答案、证据、类别等字段不可指定为 ID。Web 的 `interactive_<UUID>` 不进入该清单。相同题面不用于联接，重复/冲突 ID 直接失败。
+
+`evaluation.predictions.save_predictions(path, manifest, responses, method)` 在 OS 临时目录或仓库忽略的 `results/` 写入完整预测工件，并返回与路径、字节 SHA256、数据快照、方法及题目集合绑定的 `PredictionReceipt`。路径需以 `.predictions.json` 结尾，仓库结果目录明确定位为 `SRE-Project/results/`（不是仓库父目录）；发布采用同一文件系统上的已刷盘临时文件与原子硬链接，目标文件即使在并发检查窗口内刚被创建，也绝不执行替换；已有目标文件报 `PREDICTION_PATH_IN_USE`，不支持原子硬链接的文件系统报 `PREDICTION_SAVE_FAILED`。`verify_predictions` 回读文件，重验摘要、Schema、问题/样本/方法/Gold 键及完整集合。`evaluation.gold_loader.load_gold_after_predictions(...)` **先调用该核验**，成功后才重新打开同一冻结快照，重建问题映射并只按唯一身份加载 Gold。缺少 `qa.answer` 单列在 `GoldLoadResult.missing_keys`，异常类别或证据结构字段报稳定脱敏错误；`GoldRecord.evidence_json` 保留原始 QA 证据 JSON，不猜测 Memory ID。标注来源显式区分 `course_gold`、`team_annotated`、`synthetic_fixture`。这是一条程序调用门槛，部署时文件系统权限仍需另行保障。仓库将 `evaluation/gold/**` 忽略，用于 Gold 数据；可审查的评测源码置于 `evaluation/` 顶层。
+
+`evaluation.metrics.answer_adapter.adapt_answer` 为无 Gold 的纯函数：`answered` 保留原答案字节文本，`no_evidence` → `No information available`，`time_uncertain` → `Unable to determine the time from available evidence`，`unresolved_conflict` → `Conflicting information in the conversation`。`error` 返回 `adapted_text=None`、`execution_failed=True`，不可作为正确拒答。Gold 缺失与执行失败分别记录；本轮尚无官方类别评分器、QA 综合分数、Recall/状态指标或正式三路 Runner。A-15/A-16 在冻结评分口径后方可对已保存预测评分；课程关系 Gold 未确认时状态指标为 `N/A (gold unavailable)`。评测包不被业务 pipeline、B/C/D 或 Web import。
+
+## LoCoMo 五类 QA 评分（A-15）
+
+`evaluation.metrics.official_qa` 仅复现固定 [LoCoMo 上游 `task_eval/evaluation.py`，commit `cbfbc1dba6bc53d00625212a0f22d55ffee7c1fc`](https://github.com/snap-research/locomo/blob/cbfbc1dba6bc53d00625212a0f22d55ffee7c1fc/task_eval/evaluation.py) 的 QA 规则：先删逗号、转小写、去 ASCII 标点和独立 `a/an/the/and`，按空白切词后使用 NLTK `PorterStemmer`，由 `Counter` 多重集求 F1。类别 1 将预测和 Gold 分别按英文逗号拆分，对每个 Gold 片段取预测片段的最大 F1 再平均；2/4 直接 F1；3 仅截取 Gold 首个分号前文本后 F1；5 由 `no information available` 或 `not mentioned` 的大小写无关包含匹配给出 1/0。整体名称是“LoCoMo 官方 QA 综合得分”，其中类别 5 并非文本 F1。独立 `eval` 可选依赖声明 `nltk>=3.9,<4` 与 `regex>=2021.8.3,<2027`，不需语料或模型。
+
+`evaluation.metrics.qa_summary.evaluate_saved_qa` 先调用 A-14 `load_gold_after_predictions`，由其验证预测文件/回执后才读取 Gold，再复核预测字节并用 `gold_record_key`、`query_id` 及样本身份逐题评分。`score_qa_results` 与 `summarize_questions` 可在评测层独立复算逐题及汇总。每条 `QuestionScore` 保存原预测、A-14 适配文本、类别、标注来源、得分或 `None` 和失败/缺 Gold 标记，不含 Gold 答案。合法 Gold 下业务 `error` 得 0 且保留在主分母；缺 Gold 保留题目行并记 `score=None`，不入可计分分母。主平均按全部有 Gold 题宏平均；条件平均仅在有 Gold 且执行成功的题上计算；另报所有预测的执行覆盖率及有 Gold 题的执行覆盖率、按类别/样本/方法的分母与均值。零分母为 `None`。类别 5 的正常 `no_evidence` 可因固定拒答短语得 1，执行错误不能得 1。
+
+固定上游源码仅以 AST 抽取四个 QA 函数做一次性动态对照：4 组归一化/词项样例和每类 1 题的五类分支均与本地结果逐项相同；常规单元测试均为手工 synthetic、离线运行，不在测试时获取上游代码。此一致性不代表真实 LoCoMo 模型成绩。本轮不实现 Recall、状态指标、Gold Memory 映射、三路批量 Runner、Web 或正式数据运行。
+
+## 证据轮次与动态状态评测（A-16）
+
+`evaluation.metrics.evidence_recall.score_evidence_turns` 只对 `vector_rag` / `dynamic` 的最终 `CandidateSet` 评分。K 固定为配置中的 5、10，单位是按 `rank` 排序的前 K 条 **Memory**；将其 `source_refs` 合并去重成 `(session_id,dia_id)` 后，与同样去重且经当前样本 `SourceRepository.get_turn` 验证的 Gold 轮次比较：`|交集| / |Gold轮次|`。候选不足 K 只取实有项。正常空候选、Gold 非空得 0；`full_text` 为 `not_applicable`；Gold 空集合为 `gold_empty`，Recall 为 N/A；缺 Gold、无法识别、轮次不存在、Session 歧义、候选来源无效、无检索及模型错误分别保留状态与空分数。逐题保存 Gold 轮次数、前 K Memory 数、去重来源数、命中数、快照和检索器指纹、方法、样本与标注来源；分组平均只以 `ready` 题为分母，同时逐项统计所有不可评分状态。此数是**证据轮次召回**，不是 Memory/事实召回，也不证明答案或关系正确。
+
+本轮合成协议只接受 `evidence_json` 为 JSON 数组，元素为完整 `{session_id,dia_id}`，或一个完整 `dia_id` 字符串；后者只在当前样本恰有一个同名轮次时映射，绝不按 `D1:3` 的文本拆出 Session。项目内尚无经独立核实的正式 `qa.evidence` 格式；真实 Gold 格式与课程状态标注需确认后才能使用该适配。`evaluate_saved_evidence` 先验证 A-14 的已落盘预测文件，再核查来源仓库快照身份，最后才读取 Gold。为避免两个快照中恰好使用相同 `(session_id,dia_id)` 时算出误导性的 Recall，`SourceRepository.snapshot_sha256` 仅暴露**经过 DatasetBundle 验证后保存的只读快照身份**；评分前必须与 `QuestionManifest.snapshot_sha256` 一致，否则报 `EVIDENCE_SNAPSHOT_MISMATCH`；来源未加载时报 `EVIDENCE_SOURCE_UNAVAILABLE`。此属性不是原始文件字节的重新哈希，正式来源仓库仍必须由 B 的严格冻结快照加载流程构建，不得用手填哈希的临时容器冒充可信来源。已加入同轮次 ID、不同快照的反例测试。Vector RAG 与 Dynamic 是否使用同一候选快照、预算和指纹，需要后续 Runner 校验；本层仅记录，不声称公平性已经验证。
+
+`evaluation.metrics.state_metrics` 使用公共 `QueryResponse`、`MemoryRecord`、`ResolutionResult` 和 `validate_resolution_against_candidates`，Gold 仅在评测层的 `StateGold` / `GoldItemMapping` 中。映射显式记录样本、来源轮次、实体、属性、值、匹配依据、标注来源、数据和 Memory 指纹、人工说明；所有轮次须由来源仓库验证，目标 ID 须属于可信同样本 Memory 清单。0 个 ID 标为 `unmapped` 或在**完整清单且有明确核查结论**时标为 `extraction_missing`；多个 ID 标为 `ambiguous`，不可任选其一。团队标注须附标注者与复核者；`synthetic_fixture` 不冒充人工复核。课程关系/决定/有效集 Gold 未提供时三个指标均为 `gold_unavailable`，没有课程真实分数。
+
+关系单位是已声明的 `(Memory对, scope_attribute)`；`UPDATE/SUPERSEDE` 有旧→新方向，`CONFLICT` 无向；`RETAIN` 不是关系标签。只有 `relation_universe_closed=True` 且 Gold 明列该 pair/attribute 时 `NO_RELATION` 作为评测负类。决定单位是每个标注的 `(query_id,memory_id)`，比较 `RETAIN/EXCLUDE/UNRESOLVED`；候选内必须由公共校验保证逐项恰有一个决定。有效集单位是每题 ID 集，`P=命中/预测数`、`R=命中/Gold数`、`F1=2PR/(P+R)`、Exact Match 为集合相等；两边皆空固定为 `P=R=F1=1` 和 Exact Match 真，单边空且另一边非空对应 P/R 为 0。三类结果都保留 Gold 总单位、已映射、候选覆盖、实际评分、模型失败及遗漏原因；分类混淆矩阵仅包含真正可比较的单位。端到端分类准确率以全部已声明 Gold 单位为分母，候选条件准确率以候选覆盖单位为分母，模型失败在该分母内按未正确计。有效集 P/R/F1 使用完整 Gold/预测 ID 集作端到端口径；仅当该题 Gold 集合全部进入候选时填写条件指标，否则条件指标为 N/A。有效集业务错误在端到端 P/R/F1 中固定计 0，Exact Match 假。无 Gold 单位时平均为 N/A；未知映射、候选缺失、执行失败不被隐去。闭集外预测边单独计 `unexpected_predictions`，不据此虚构真负例。有效集身份不明时不强算集合 P/R/F1。为了避免将标注自身的错误错算为模型错误，若 Gold 同时提供明确的 `DecisionGold` 和 `effective_item_ids`，每个已标注为 `RETAIN` 的项必须在该有效集中，`EXCLUDE` / `UNRESOLVED` 项必须不在集合中；矛盾时报脱敏的 `STATE_GOLD_INCONSISTENT`，不输出分数。未在决策列表中出现的项不自动补标签，`effective_item_ids=None` 仍代表正式 Gold 不可用。所有测试只用手工 synthetic 标注；正式 Memory 产物完整性、标注协议和三路 Runner 留待后续集成。
+
+
+## 三路批量预测与实际候选可比性（A-17）
+
+evaluation.runners.run_three_method_batch 接受先前已由 A-14 冻结的开发集 QuestionManifest 和显式注入的公共 QueryOrchestrator。本阶段协议仅容许 synthetic_fixture / provider_not_run、n=1；入口检查快照 SHA、split、题目顺序与身份。每题从 QuestionRecord.to_query_request() 建请求，只调用一次 prepare_query，再依 full_text → vector_rag → dynamic 调用 run_prepared。分析早停沿用公共 QueryResponse；调用异常转脱敏批次错误，不删除题目。三法响应先经 A-14 _check_rows 核对全量身份，再分别 save_predictions，并逐文件 verify_predictions 回读真实字节。Runner 不读取 Gold，也不调用 QA、Recall 或状态评分；这些仍属于预测保存后的独立路径。
+
+本轮未改 A-12 调度接口，也没有用其私有检索端口做代理。Vector RAG 与 Dynamic 各自检索一次；Runner 对两路实际 QueryResponse 比较共享 QueryAnalysis 和最终 CandidateSet 的 query/sample、检索指纹、候选预算及有序 ID、rank、score、origin、SourceRef。任一差异为 mismatch；缺少一侧候选为 not_comparable；实际候选相同但声明的 Prompt、模型、检索器、索引或时间身份不足为 unverified；其余是观测到的 identical。identical 只证明这次返回的候选快照相等，不证明两次调用来自同一冻结索引。运行身份由 synthetic 端口声明，正式 B/C/D 集成仍须核验真实索引、Prompt、模型及预算，不能把 Fake 的 identical 当成正式公平实验。
+
+每次运行只在忽略的 results/<run_id>/ 新建目录，已有 run ID 拒绝覆盖。三份 A-14 兼容预测文件全部保存和回读后，才原子发布 run_manifest.sha256 和最终完成标记 run_manifest.json。元数据记录实际 Git SHA、数据快照、split、方法顺序、起止时间、固定条件、每份文件名与哈希、题目顺序、数量、答案状态及错误码分布、逐题候选比较及计数。全部可比时标 completed_verified，其余标 complete_not_comparable；二者仅表示三份 synthetic 文件的持久化状态，不表示正式实验完成。保存失败保留已有完整文件，没有最终 manifest 则不能通过验收。独立只读 verify_run 验证摘要、规范 JSON、三份预测的 A-14 内容，并从已保存响应重新计算统计与可比性。摘要可发现意外修改；调用方可保存 RunResult.manifest_sha256 并在 verify_run(expected_manifest_sha256=...) 中作外部摘要比对，检测连同 sidecar 一起改写的元数据。此机制仍不是带密钥的防恶意签名。目录路径仅可在仓库 results 或系统临时目录下。正式 Gold、真实开发集及服务接入均未运行。
+
+
+## 统一只读 DynamicMemoryService（A-18）
+
+服务位于 dynamic_memory.services.dynamic_memory_service，提供 get_build_status(sample_id)、list_samples()、list_memories(sample_id)、get_memory(sample_id,memory_id)、get_turn(sample_id,ref) 及 run_query(request,method='dynamic')。E 的 WebBindings 已有四项浏览协议，可直接接收此服务实例；Web 页面及工厂未变，正式问答 UI 仍需 E 接入。离线评测器可以持有同一已初始化服务及其 A-12 调度核心，在 Gold-free 预测保存后另行读取 Gold；A-17 Runner 未改造，本轮未另造三路算法。
+
+list_samples/get_turn 仅由 SourceRepository 读取。未加载为 DATA_NOT_LOADED，显式已知加载失败为 DATA_LOAD_FAILED；仅已加载且真实空数据集才返回 []。get_turn 不依赖 Memory build，保留 SourceRepository 的 SAMPLE_NOT_FOUND/SOURCE_NOT_FOUND/SAMPLE_MISMATCH。list_memories/get_memory 要求 ready+complete、已验证产物身份与同快照真实来源；真正 complete 且 0 条 Memory 才返回 []，合法完整库中 ID 不存在才是 MEMORY_NOT_FOUND。not_built/partial/failed/stale/corrupt 分别是 BUILD_NOT_FOUND/ARTIFACT_INCOMPLETE/MEMORY_BUILD_FAILED/ARTIFACT_STALE/ARTIFACT_CORRUPT。所有服务异常仅含稳定错误码，不回显源数据、路径或上游异常字符串。
+
+run_query 使用 A-12 的 QueryOrchestrator：构造服务时，通过公开的 with_source_lookup 创建独立调度实例，强制将 get_sample 绑定到本服务的 SourceRepository.get_sample，而非信任调用方提供的同名样本数据。先且只执行一次 prepare_query；若分析失败或存在时间冲突，则经同一实例 run_prepared 返回 A-12 的 error/time_uncertain 早停响应，不查询 Memory 和索引。正常问题的 Full Text 只要求来源可用；正常 RAG/Dynamic 先检查状态、MemoryArtifact 与索引就绪身份，再经同一 PreparedQuery 执行 run_prepared。数据缺少或失效时返回合法 QueryResponse(status=error)，retrieved/resolution 可空；仅上游正常且真实候选为空时沿用 no_evidence。无论正常或早停均检查响应身份及公共 DTO；正常路径还以本服务来源、完整 Memory 和真实 SourceRef 复核响应。来源绑定避免相同 sample_id/SourceRef 指向另一数据快照的原始样本被调度器读取，且不会修改外部原有 QueryOrchestrator；但任意注入的答案函数如何产生文本仍属可信组合根责任，C 索引与 B 产物的真实版本一致性须由正式端口及验证指纹进一步保证。服务不 import Gold 或评分，不触发抽取、索引构建、模型下载、文件写入或 Web 服务器。B 正式 loader、C 索引、D 解析、E 正式工厂及 QA 页面未接线，当前仅是合同与 Fake 接口通过。
