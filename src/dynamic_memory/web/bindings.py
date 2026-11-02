@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Protocol
 
-from dynamic_memory.contracts.models import MemoryRecord, SourceRef, SourceTurn
+from dynamic_memory.contracts.models import MemoryRecord, SourceRef, SourceTurn, QueryRequest, QueryResponse
+from dynamic_memory.contracts.validation import validate_response_context
 
 
 class ReadOnlyService(Protocol):
@@ -17,11 +18,50 @@ class ContractError(ValueError):
     """Returned data does not belong to the requested context."""
 
 
+class InterfaceUnavailable(RuntimeError):
+    code = "COMPONENT_UNAVAILABLE"
+
+
 @dataclass(frozen=True)
 class WebBindings:
     service: ReadOnlyService
     label: str = "团队统一服务"
     synthetic: bool = False
+
+    def supports(self, method: str) -> bool:
+        return callable(getattr(self.service, method, None))
+
+    def get_build_status(self, sample: str):
+        # Use A's sole public DTO after merge; never maintain a local substitute.
+        if not self.supports("get_build_status"):
+            raise InterfaceUnavailable()
+        try:
+            from dynamic_memory.contracts.service_status import BuildStatus
+        except ModuleNotFoundError:
+            raise InterfaceUnavailable() from None
+        value = self.service.get_build_status(sample)
+        if not isinstance(value, BuildStatus):
+            raise ContractError("Expected public BuildStatus")
+        return BuildStatus.model_validate(value.model_dump(mode="python"), strict=True)
+
+    def run_query(self, request: QueryRequest, method: str = "dynamic") -> QueryResponse:
+        if method not in {"full_text", "vector_rag", "dynamic"}:
+            raise ContractError("Unknown query method")
+        if not self.supports("run_query"):
+            raise InterfaceUnavailable()
+        request = QueryRequest.model_validate(request.model_dump(mode="python"))
+        expected = (request.query_id, request.sample_id, request.question, method)
+        raw = self.service.run_query(request, method=method)
+        response = QueryResponse.model_validate(raw.model_dump(mode="python") if isinstance(raw, QueryResponse) else raw)
+        if (response.query_id, response.sample_id, response.question, response.method) != expected:
+            raise ContractError("Query response identity mismatch")
+        # Read only referenced records through the same service. A also validates
+        # provenance; these checks protect the UI from mismatched integrations.
+        memories = [self.get_memory(request.sample_id, item.memory_id)
+                    for item in response.retrieved.items] if response.retrieved is not None else []
+        turns = [self.get_turn(request.sample_id, ref) for ref in response.answer_result.context_source_refs]
+        validate_response_context(response, memories, turns)
+        return response
 
     def list_samples(self) -> list[str]:
         values = self.service.list_samples()

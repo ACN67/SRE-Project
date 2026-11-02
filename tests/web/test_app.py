@@ -8,6 +8,7 @@ from streamlit.testing.v1 import AppTest
 from dynamic_memory.contracts.models import render_visible_turn
 from dynamic_memory.web.bindings import WebBindings
 from dynamic_memory.web.demo import DemoService
+from test_empty_and_failure import go, switch_sample
 
 ENTRY = Path(__file__).resolve().parents[2] / "streamlit_app.py"
 
@@ -16,6 +17,7 @@ ENTRY = Path(__file__).resolve().parents[2] / "streamlit_app.py"
 def app(monkeypatch):
     monkeypatch.delenv("DYNAMIC_MEMORY_WEB_FACTORY", raising=False)
     result = AppTest.from_file(str(ENTRY)).run()
+    go(result, "记忆浏览")
     assert not result.exception
     return result
 
@@ -34,8 +36,18 @@ def test_initial_browse_is_visibly_synthetic(app):
 
 
 def test_details_and_caption_use_shared_renderer(app):
+    service = app.session_state["bindings"].service
+    original = service.get_turn
+    calls = []
+    def get_turn(sample, ref):
+        calls.append((sample, ref))
+        return original(sample, ref)
+    service.get_turn = get_turn
     [b for b in app.button if b.label == "查看详情"][2].click().run()
+    assert calls == []
+    assert not any("#source-inspector" in m.value for m in app.markdown)
     click(app, "↗ session_3 / D3:1")
+    assert len(calls) == 1
     turn = DemoService().turns[("session_3", "D3:1")]
     assert turn.text in [t.value for t in app.text]
     assert turn.image_caption in [t.value for t in app.text]
@@ -52,6 +64,8 @@ def test_null_time_details(app):
 def test_navigation_clears_stale_details_and_source(app, action):
     click(app, "查看详情")
     click(app, "↗ session_1 / D1:1")
+    if action != "sample":
+        click(app, "← 返回记忆列表")
     if action == "search":
         app.text_input(key="search").set_value("no matches").run()
     elif action == "kind":
@@ -59,7 +73,7 @@ def test_navigation_clears_stale_details_and_source(app, action):
     elif action == "page":
         app.selectbox(key="page").select(2).run()
     else:
-        app.selectbox(key="sample").select("demo_empty").run()
+        switch_sample(app, "demo_empty")
     assert not app.exception
     assert "selected_source" not in app.session_state
     assert "selected_memory" not in app.session_state
@@ -69,6 +83,7 @@ def test_navigation_clears_stale_details_and_source(app, action):
 def test_selecting_another_memory_clears_source(app):
     click(app, "查看详情")
     click(app, "↗ session_1 / D1:1")
+    click(app, "← 返回记忆列表")
     [b for b in app.button if b.label == "查看详情"][1].click().run()
     assert "selected_source" not in app.session_state
 
@@ -94,11 +109,13 @@ def test_live_service_is_session_scoped_readonly_and_escapes_html(monkeypatch):
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "test_app_factory:create")
     app = AppTest.from_file(str(ENTRY)).run()
     assert not app.warning
+    go(app, "记忆浏览")
     cards = "".join(m.value for m in app.markdown)
     assert "&lt;script&gt;" in cards and "<script>" not in cards
     click(app, "查看详情")
     click(app, "↗ session_1 / D1:1")
     assert calls == ["create"]
+    go(app, "首页")
     click(app, "刷新服务")
     assert calls == ["create", "create"]
     assert "selected_source" not in app.session_state

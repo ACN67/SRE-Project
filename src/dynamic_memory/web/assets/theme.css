@@ -1,18 +1,58 @@
-.stApp { background: #f7f8f5; }
+.stApp { background: #f7f8f5; --atlas-font: "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif; font-family: var(--atlas-font); }
+/* Use a full-width local UI font stack; keep Material icons and code fonts intact. */
+.stApp :is(h1,h2,h3,p,label,input,textarea,button,table) { font-family: var(--atlas-font); }
+.stApp [data-testid="stMarkdownContainer"] p,
+.stApp [data-testid="stText"] { font-family: var(--atlas-font); font-size: 1rem; line-height: 1.6; letter-spacing: normal; }
+.stApp [data-testid="stCaptionContainer"] p { font-size: .9375rem; line-height: 1.6; color: #637168; }
+.stApp [data-testid="stWidgetLabel"] p { font-size: 1rem; font-weight: 500; }
+.stApp :is(input,textarea,[role="combobox"]) { font-size: 1rem; line-height: 1.6; }
+.stApp button p { font-size: 1rem; line-height: 1.5; font-weight: 500; }
+.stApp h1 { font-size: clamp(1.65rem, 2.5vw, 2.25rem); line-height: 1.3; font-weight: 650; letter-spacing: normal; color: #202b25; padding-bottom: .4rem; }
+.stApp h2 { font-size: 1.6rem; line-height: 1.4; font-weight: 600; letter-spacing: normal; }
+.stApp h3 { font-size: 1.3rem; line-height: 1.45; font-weight: 600; letter-spacing: normal; }
+.stApp [data-testid="stTable"] table { font-size: 1rem; line-height: 1.6; }
+.stApp [data-testid="stTable"] :is(th,td) { padding: .6rem .85rem; }
+.stApp [data-testid="stTable"] th { background: #edf1ec; font-weight: 600; color: #34483d; }
 .block-container { max-width: 1400px; padding-bottom: 3rem; }
 /* Leave room for Streamlit's fixed header and native sidebar controls. */
-[data-testid="stMainBlockContainer"] { padding-top: 5rem; }
-[data-testid="stSidebar"] { background: #e9efea; border-right: 1px solid #d7e1da; }
-h1,h2,h3 { letter-spacing: -.035em; }
-.brand { color: #147d70; font-size: .72rem; letter-spacing: .18em; font-weight: 750; margin-bottom: .65rem; }
+[data-testid="stMainBlockContainer"] { padding-top: 4rem; }
+[data-testid="stSidebar"] { background: #fff; border-right: 1px solid #e5e8e4; }
+.sidebar-brand { color: #20352f; font-family: var(--atlas-font); font-size: 1.6rem; letter-spacing: -.025em; font-weight: 700; margin: .5rem 0 .5rem; }
+.st-key-side-navigation { margin-top: 1rem; }
+.st-key-side-navigation button { border: 0; border-radius: 18px; min-height: 2.75rem; padding: .5rem .85rem; justify-content: flex-start; background: transparent; color: #58635d; box-shadow: none; }
+.st-key-side-navigation button > div { width: 100%; justify-content: flex-start; gap: .85rem; }
+.st-key-side-navigation [data-testid="stIconMaterial"] { font-size: 1.4rem; }
+.st-key-side-navigation button [data-testid="stMarkdownContainer"] { flex-grow: 1; text-align: left; }
+.stApp .st-key-side-navigation button p { font-size: 1rem; font-weight: 400; }
+.st-key-side-navigation button[kind="primary"] { background: #f3f0e8; color: #20352f; border-radius: 18px; }
+.st-key-side-navigation button:hover { background: #f5f7f3; color: #147d70; }
+.st-key-side-navigation button:focus-visible { outline: 2px solid #147d70; outline-offset: 2px; }
+[data-testid="stSidebar"] [role="radiogroup"] { gap: .6rem; }
+[data-testid="stSidebar"] [role="radiogroup"] label { padding: .5rem .65rem; border-radius: 8px; }
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) { background: #d5e7dc; }
+[data-testid="stForm"] { background: #fff; border-radius: 14px; }
+[class*="st-key-home-card-"] { background: #fff; border-radius: 14px; }
+.st-key-home-service { background: #e9efea; border-radius: 14px; }
+.brand { color: #147d70; font-size: .8rem; letter-spacing: .16em; font-weight: 600; margin-bottom: 1rem; }
 .hero { padding: 24px 28px; border: 1px solid #d8e4dc; background: linear-gradient(110deg,#e7f0e9,#f4f7ee); border-radius: 18px; margin-bottom: 22px; }
 .hero h1 { font-size: 2.15rem; line-height: 1.2; margin: 0 0 10px; font-weight: 700; color: #183f35; }
 .hero p { color: #52695e; font-size: .95rem; margin: 0; }
 .eyebrow { font-size: .7rem; color: #648374; letter-spacing: .14em; font-weight: 700; margin-bottom: 12px; }
-.memory-card { background: #fff; border: 1px solid #e0e7df; border-radius: 12px; padding: 16px 18px; margin-bottom: 8px; }
-.memory-card p { margin: 9px 0 0; color: #294237; line-height: 1.65; overflow-wrap: anywhere; }
-.small-label { font-size: .75rem; color: #6d7e73; }
-.chip { display: inline-block; font-size: .72rem; font-weight: 650; border-radius: 5px; padding: 3px 7px; margin-right: 5px; background: #e7f2ed; color: #246a54; }
+.memory-card { font-family: var(--atlas-font); background: #fff; border: 1px solid #dce3dc; border-radius: 16px; padding: 18px; margin: 0; min-height: 220px; display: flex; flex-direction: column; transition: border-color .15s ease, box-shadow .15s ease; }
+.memory-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.memory-card-title { font-family: var(--atlas-font); font-size: 1.125rem; font-weight: 600; margin-top: 12px; color: #20352f; overflow-wrap: anywhere; }
+.memory-card p { margin: 6px 0 14px; color: #394b41; line-height: 1.75; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.memory-card-footer { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #e7ebe6; padding-top: 10px; margin-top: auto; font-size: .9375rem; color: #617267; }
+.memory-card-footer span:last-child { color: #246a54; }
+[class*="st-key-memory-tile-"] { position: relative; cursor: pointer; margin-bottom: 12px; min-height: 220px; }
+[class*="st-key-memory-tile-"] [data-testid="stElementContainer"]:has(> [data-testid="stButton"]) { position: absolute; inset: 0; z-index: 1; height: 100%; }
+[class*="st-key-memory-tile-"] [data-testid="stButton"],
+[class*="st-key-memory-tile-"] [data-testid="stButton"] button { width: 100%; height: 100%; }
+[class*="st-key-memory-tile-"] [data-testid="stButton"] button { opacity: 0; cursor: pointer; }
+[class*="st-key-memory-tile-"]:hover .memory-card { border-color: #9fb4a7; box-shadow: 0 6px 20px #20352f14; }
+[class*="st-key-memory-tile-"]:focus-within .memory-card { outline: 2px solid #147d70; outline-offset: 3px; }
+.small-label { font-size: .9375rem; color: #617267; }
+.chip { display: inline-block; font-size: .875rem; font-weight: 600; border-radius: 5px; padding: 4px 9px; margin-right: 7px; background: #e7f2ed; color: #246a54; }
 .chip-neutral { background: #edf0ed; color: #647268; }
 .chip-warm { background: #fbedd8; color: #885e26; }
 .answer { border-left: 4px solid #147d70; padding: 18px 22px; background: #eaf3ee; border-radius: 0 12px 12px 0; font-size: 1.12rem; line-height: 1.8; overflow-wrap: anywhere; }
@@ -22,3 +62,19 @@ h1,h2,h3 { letter-spacing: -.035em; }
 [data-testid="stMetricValue"] { color: #21614e; }
 button[kind="primary"] { border-radius: 8px; }
 @media(max-width: 700px) { .hero { padding: 18px; } .hero h1 { font-size: 1.65rem; } .block-container { padding-left: 1rem; padding-right: 1rem; } }
+@media(max-width: 700px) {
+  .stApp h1 { font-size: 1.65rem; }
+  .stApp h2 { font-size: 1.5rem; }
+  .stApp h3 { font-size: 1.3rem; }
+  .stApp [data-testid="stMarkdownContainer"] p, .stApp [data-testid="stText"] { font-size: 1rem; }
+  .stApp [data-testid="stTable"] :is(th,td) { padding: .65rem .6rem; overflow-wrap: anywhere; }
+  .memory-card { padding: 16px; min-height: 210px; }
+  [class*="st-key-memory-tile-"] { min-height: 210px; }
+}
+
+/* A moderate density across headings, filters and card rows. */
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] { gap: .75rem; }
+.st-key-memory-pagination { margin-top: .5rem; }
+.pagination-summary { text-align: center; font-family: var(--atlas-font); font-size: .9375rem; color: #637168; }
+.st-key-memory-pagination [data-testid="stHorizontalBlock"] { flex-wrap: nowrap; }
+.st-key-memory-pagination [data-testid="stColumn"] { min-width: 0; }
