@@ -1,15 +1,15 @@
 # SRE-Project：智能体动态记忆管理系统
 
-课程项目的工程初始化，依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2。目标是从 LoCoMo 长期对话构建有来源的结构化 Memory，比较 Full Text、Vector RAG、Dynamic 三路问答，并在后续完成 Web 展示和正式评测。
+课程项目依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2 开发。A/B/C/E 已有明确的离线合成集成入口；正式模型、真实数据及 D 的动态推理仍属后续阶段。
 
 ## 当前已实现
 
-- Python 3.11 / Pydantic v2 公共 DTO、部分结构校验、确定性 Memory ID 工具。
-- 无网络 synthetic Mock 入口及合同测试；不读取数据、不调用收费 API。
-- 已集成 A-05～A-09 的结构化 JSON 校验、Prompt 模板、模型调用控制、审计缓存与共享 LLM Runtime，并通过离线测试；新增 v2.2 业务接口尚待实现。
-- 冻结规范副本、配置初值和模块目录。配置中的 `null` 表示尚未冻结。
+- Python 3.11 / Pydantic v2 公共 DTO、B 的来源加载与严格 Memory 产物、C 的索引与检索、A 的统一服务/Full Text/Vector RAG、E 的 Web 消费者。
+- `offline_synthetic` 从合成原始对话经 B Builder、严格发布、C 索引到 A/E 的可重复入口；固定向量、Mock QA 和合成证据检查器有明确标记。
+- 预测先落盘并校验的非 D 诊断运行；Dynamic 默认不可用，保留 D 的公共注入合同。
+- 正式 YAML 中 `null` 仍表示尚未冻结，不会被离线 profile 覆盖成虚构的生产值。
 
-真实 DeepSeek 抽取、动态状态推理、完整 Streamlit Web、正式 LoCoMo 评分均未实现；C 的本地 Embedding 检索与历史候选扩展已提供独立实现，真实流水线接入仍待联调。Mock 输出不能作为实验结果。
+真实 DeepSeek 抽取、生产证据审核、真实 Embedding、D 动态状态推理和正式 LoCoMo 评分尚未验收。Mock 输出不能作为正式实验结果。完整离线运行步骤见 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。
 
 ## 分工
 
@@ -53,12 +53,12 @@
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e '.[dev]'
+.\.venv\Scripts\python.exe -m pip install -e '.[dev,web,eval]'
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke
 ```
 
-测试 fixture 全部为 synthetic。Mock 只证明公共对象能传递和校验，不生成正式答案。
+离线集成测试均为 synthetic，Mock 答案始终标明合成性质，不代表正式准确率。`tests/integration/test_offline_system.py` 从合成原始对话真实调用 B 的 Builder 和 C 的 IndexManager。
 
 ## 配置读取
 
@@ -68,7 +68,7 @@ C 模块已提供独立的本地 Embedding 接口（将 Memory 和问题转换�
 
 C 模块另提供无需模型或 API 的规则版查询分析，识别常见查询意图、实体/属性提示及时间条件；示例与限制见 [查询分析使用说明](docs/query-analysis.md)。
 
-C 的索引构建、保存与加载已实现，正式输入遵守 v2.2 `MemoryArtifact` 契约，详见 [记忆索引使用说明](docs/retrieval-index.md)。基础 Top-8、最多 12 条历史扩展、共享候选快照和按 rank 加载已实现，详见 [向量检索与历史候选扩展](docs/vector-retrieval.md)；Vector RAG 回答已提供共享 Runtime 接口，见 [Vector RAG 回答说明](docs/vector-rag.md)；A 调度器的合成接线验证已通过，见 [C 接线与联调交接](docs/C-integration-handoff.md)；真实 B/D 链路和三路回答格式统一仍待完成。
+C 的索引构建、保存与加载遵守 v2.2 `MemoryArtifact` 契约，详见 [记忆索引使用说明](docs/retrieval-index.md)。基础 Top-8、最多 12 条历史扩展、共享候选快照和按 rank 加载已实现，详见 [向量检索与历史候选扩展](docs/vector-retrieval.md)。当前 main 的离线组合根已接 B 严格加载与 A 服务；正式 B 生产构建、真实 Embedding 和 D 推理仍待后续验收。
 
 `dynamic_memory.pipeline.settings.load_settings(config_dir=None)` 会从仓库的 `configs/` 读取并校验六份 YAML，也可传入自定义目录。它返回类型化的 `AppSettings`，不会读取 API Key 或发起模型请求。例如，在已安装项目的环境中运行：
 

@@ -17,7 +17,12 @@ def query_panel(bindings, sample, report_error):
         clear_query()
         st.info("当前服务未提供问答接口，接入统一服务后可提问。")
         return
-    method = st.selectbox("问答方法", ["full_text", "vector_rag", "dynamic"],
+    methods = ["full_text", "vector_rag"]
+    if bindings.dynamic_available:
+        methods.append("dynamic")
+    else:
+        st.info("Dynamic 需要 D 状态解析模块；当前离线集成仅提供 Full Text 与 Vector RAG。")
+    method = st.selectbox("问答方法", methods,
                           key="query_method", on_change=clear_query)
     with st.form("query_form"):
         question = st.text_area("问题", key="query_question")

@@ -16,6 +16,7 @@ ENTRY = Path(__file__).resolve().parents[2] / "streamlit_app.py"
 @pytest.fixture
 def app(monkeypatch):
     monkeypatch.delenv("DYNAMIC_MEMORY_WEB_FACTORY", raising=False)
+    monkeypatch.setenv("SRE_INTEGRATION_PROFILE", "demo")
     result = AppTest.from_file(str(ENTRY)).run()
     go(result, "记忆浏览")
     assert not result.exception
@@ -95,6 +96,14 @@ def test_factory_failure_never_falls_back_to_demo(monkeypatch):
     assert app.error
     assert not app.warning
     assert not app.selectbox
+
+
+def test_missing_factory_without_explicit_demo_fails_closed(monkeypatch):
+    monkeypatch.delenv("DYNAMIC_MEMORY_WEB_FACTORY", raising=False)
+    monkeypatch.delenv("SRE_INTEGRATION_PROFILE", raising=False)
+    app = AppTest.from_file(str(ENTRY)).run()
+    assert not app.exception
+    assert app.error and not app.warning and not app.selectbox
 
 
 def test_live_service_is_session_scoped_readonly_and_escapes_html(monkeypatch):

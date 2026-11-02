@@ -175,6 +175,15 @@ class RetrievalIndex:
         return self._document().retriever_fingerprint
 
     @property
+    def index_fingerprint(self) -> str:
+        """Fingerprint the full persisted index payload, including embeddings.
+
+        Unlike retriever_fingerprint, this changes if vectors are replaced
+        while the encoder, source manifest and retrieval settings stay equal.
+        """
+        return fingerprint(self._document().model_dump(mode="json"))
+
+    @property
     def dimension(self) -> int:
         return self._document().dimension
 

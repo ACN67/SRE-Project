@@ -11,3 +11,11 @@ jobs:
       - run: python -m pip install -e '.[dev,web,eval]'
       - run: python -m pytest -q
       - run: python -m dynamic_memory.pipeline.mock_smoke
+      - run: python -m pytest -q tests/integration/test_offline_system.py tests/web tests/contract
+      - name: Reproduce direct-main synthetic B/C/A/E chain
+        run: |
+          STATE=$(mktemp -d)
+          RESULTS=$(mktemp -d)
+          python scripts/offline_integration.py prepare --state "$STATE"
+          python scripts/offline_integration.py check --state "$STATE"
+          python scripts/offline_integration.py evaluate --state "$STATE" --results "$RESULTS"

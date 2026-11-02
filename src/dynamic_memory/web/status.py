@@ -17,6 +17,7 @@ ERROR_MESSAGES = {
     "ARTIFACT_CORRUPT": "记忆产物损坏：请由服务端核验或重新构建。",
     "ARTIFACT_STALE": "记忆产物已过期：请由服务端更新后刷新。",
     "INDEX_STALE": "检索索引已过期：请由服务端更新索引。",
+    "INDEX_CORRUPT": "检索索引文件损坏：请由服务端核验并重新构建。",
     "SAMPLE_NOT_FOUND": "样本不存在：请刷新服务并重新选择样本。",
     "MEMORY_NOT_FOUND": "记忆不存在：记录可能已更新，请重新选择。",
     "SOURCE_NOT_FOUND": "原始轮次不存在：请检查该来源引用。",

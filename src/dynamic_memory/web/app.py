@@ -198,7 +198,9 @@ def build_panel(bindings, sample, *, details=False):
                 st.text(f"构建 ID：{status.build_id}")
             if status.error_code:
                 st.warning(ERROR_MESSAGES.get(status.error_code, "服务报告未就绪状态。"))
-        identity = (sample, status.dataset_state, status.memory_state, status.build_id, status.error_code)
+        query_state = bindings.get_query_state(sample)
+        identity = (sample, status.dataset_state, status.memory_state, status.build_id,
+                    status.error_code, query_state)
         if st.session_state.get("build_identity") != identity:
             clear_selection()
             clear_query()
@@ -293,13 +295,17 @@ def main():
     css = Path(__file__).with_name("assets").joinpath("theme.css").read_text(encoding="utf-8")
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
     factory = os.environ.get("DYNAMIC_MEMORY_WEB_FACTORY", "").strip()
-    if st.session_state.get("factory") != factory:
+    profile = os.environ.get("SRE_INTEGRATION_PROFILE", "").strip()
+    selection = (profile, factory)
+    if st.session_state.get("factory") != selection:
         reset_sample()
         st.session_state.pop("bindings", None)
         st.session_state.pop("sample", None)
-        st.session_state["factory"] = factory
+        st.session_state["factory"] = selection
     try:
         if "bindings" not in st.session_state:
+            if not factory and profile != "demo":
+                raise ValueError("WEB_FACTORY_REQUIRED")
             st.session_state["bindings"] = load_bindings(factory) if factory else demo_bindings()
         bindings = st.session_state["bindings"]
     except Exception as error:

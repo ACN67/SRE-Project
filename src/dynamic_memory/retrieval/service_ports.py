@@ -50,7 +50,7 @@ class RetrievalServicePorts:
         if artifact.source_manifest_fingerprint == source_manifest_fingerprint:
             try:
                 index = self._manager.load_index(self._index_path(sample_id), artifact, self._settings)
-                state, index_fp = "ready", index.retriever_fingerprint
+                state, index_fp = "ready", index.index_fingerprint
             except RetrievalIndexError as error:
                 states = {"INDEX_NOT_FOUND": "not_found", "INDEX_CORRUPT": "corrupt",
                           "INDEX_STALE": "stale", "SAMPLE_MISMATCH": "stale"}

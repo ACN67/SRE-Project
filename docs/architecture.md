@@ -1,6 +1,6 @@
 # 架构说明
 
-离线：B 规范化对话及抽取 Memory，C 构建索引。在线：C 分析查询并检索，D 解析状态与问答，A 组装统一业务服务，E 展示。Gold 仅在 A 的独立评分路径读取。详见 `TECHNICAL_SPEC.md` 第二章。上述真实模块尚未实现。
+离线：B 规范化对话、审核并发布 Memory，C 根据 B 的严格回读产物构建索引。在线：A 统一服务持有同一 SourceRepository、B 可信产物适配和 C 检索端口，提供 Full Text 与 Vector RAG；E 通过 WebBindings 消费服务。Gold 仅在预测保存且校验后的独立评测路径读取。`src/dynamic_memory/integration/offline.py` 和 `scripts/offline_integration.py` 给出明确标记的合成离线组合；真实模型和 D 的动态状态解析尚未接入。参见 `docs/ABCE_OFFLINE_INTEGRATION.md` 与 `TECHNICAL_SPEC.md` 第二章。
 
 ## 共享模型调用接口（A-02）
 

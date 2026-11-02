@@ -59,7 +59,7 @@ _MEMORY_CODES = {
     "corrupt": "ARTIFACT_CORRUPT",
 }
 _INDEX_CODES = {"not_found": "INDEX_NOT_FOUND", "stale": "INDEX_STALE",
-                "corrupt": "INDEX_STALE"}
+                "corrupt": "INDEX_CORRUPT"}
 _MEMORY_ID = re.compile(r"mem_[0-9a-f]{20}\Z")
 
 
@@ -213,6 +213,23 @@ class DynamicMemoryService:
         status, _artifact = self._status_and_artifact(sample_id)
         return status.model_copy(deep=True)
 
+    def get_query_state(self, sample_id: str) -> str:
+        """Opaque read-only version for UI invalidation; never builds an index."""
+        status, artifact = self._status_and_artifact(sample_id)
+        if artifact is None:
+            return f"{status.dataset_state}:{status.memory_state}:{status.build_id or ''}"
+        if self._index_readiness is None:
+            return f"{status.build_id}:index_unavailable"
+        try:
+            info = self._index_readiness(sample_id, artifact.source_manifest_fingerprint)
+            if (type(info) is not IndexReadiness or info.sample_id != sample_id or
+                    info.dataset_snapshot_sha256 != self._ready() or
+                    info.source_manifest_fingerprint != artifact.source_manifest_fingerprint):
+                raise ValueError
+            return f"{status.build_id}:{info.state}:{info.index_fingerprint or ''}"
+        except Exception:
+            return f"{status.build_id}:index_error"
+
     def list_memories(self, sample_id: str) -> list[MemoryRecord]:
         self._ready()
         status, artifact = self._status_and_artifact(sample_id)
@@ -232,7 +249,8 @@ class DynamicMemoryService:
                 return record
         raise ServiceError("MEMORY_NOT_FOUND")
 
-    def _index_ready(self, sample_id: str, artifact: MemoryArtifact) -> None:
+    def _index_ready(self, sample_id: str, artifact: MemoryArtifact) -> str:
+        """Return the verified index identity for request-end consistency checks."""
         if self._index_readiness is None:
             raise ServiceError("INDEX_NOT_FOUND")
         try:
@@ -246,6 +264,7 @@ class DynamicMemoryService:
                 raise ServiceError(_INDEX_CODES[info.state])
             if not isinstance(info.index_fingerprint, str) or not info.index_fingerprint.strip():
                 raise ServiceError("INDEX_STALE")
+            return info.index_fingerprint
         except ServiceError:
             raise
         except Exception:
@@ -299,6 +318,7 @@ class DynamicMemoryService:
             return self._error(checked, method, "QUERY_EXECUTION_FAILED")
 
         artifact = None
+        initial_index_fingerprint = None
         if method == "full_text":
             try:
                 self._ready()
@@ -313,11 +333,24 @@ class DynamicMemoryService:
                 if status.memory_state != "complete":
                     raise ServiceError(_MEMORY_CODES[status.memory_state])
                 assert artifact is not None
-                self._index_ready(checked.sample_id, artifact)
+                initial_index_fingerprint = self._index_ready(checked.sample_id, artifact)
             except ServiceError as exc:
                 return self._error(checked, method, exc.code)
         try:
             response = self._query_orchestrator.run_prepared(prepared, method)
+            if artifact is not None:
+                current_status, current_artifact = self._status_and_artifact(checked.sample_id)
+                if (current_artifact is None or current_status.build_id != artifact.manifest.build_id or
+                        current_artifact.source_manifest_fingerprint != artifact.source_manifest_fingerprint):
+                    return self._error(checked, method, "ARTIFACT_STALE")
+                # C revalidates the current index only before generation. A must
+                # also reject a removed, corrupt, stale, or replaced index at
+                # this final request checkpoint; Full Text never needs an index.
+                current_index_fingerprint = self._index_ready(checked.sample_id, current_artifact)
+                if current_index_fingerprint != initial_index_fingerprint:
+                    return self._error(checked, method, "INDEX_STALE")
             return self._checked_response(checked, method, response, artifact, early_stop=False)
+        except ServiceError as exc:
+            return self._error(checked, method, exc.code)
         except Exception:
             return self._error(checked, method, "QUERY_EXECUTION_FAILED")

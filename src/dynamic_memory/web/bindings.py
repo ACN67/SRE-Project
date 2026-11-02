@@ -27,9 +27,18 @@ class WebBindings:
     service: ReadOnlyService
     label: str = "团队统一服务"
     synthetic: bool = False
+    dynamic_available: bool = True
 
     def supports(self, method: str) -> bool:
         return callable(getattr(self.service, method, None))
+
+    def get_query_state(self, sample: str) -> str | None:
+        if not self.supports("get_query_state"):
+            return None
+        value = self.service.get_query_state(sample)
+        if type(value) is not str or not value or len(value) > 512:
+            raise ContractError("Invalid query state")
+        return value
 
     def get_build_status(self, sample: str):
         # Use A's sole public DTO after merge; never maintain a local substitute.

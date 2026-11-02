@@ -13,7 +13,7 @@
 .\.venv\Scripts\python.exe scripts/run_web.py
 ```
 
-默认地址 http://127.0.0.1:8501。未配置服务时仅显示明确标注的 synthetic 合成数据，不使用真实数据或 API。测试：
+默认地址 http://127.0.0.1:8501。现在必须显式设置 `SRE_INTEGRATION_PROFILE=demo` 才显示 Demo；未配置工厂且未指定 Demo 会显示初始化错误，不隐式回退。`offline_synthetic` 的真实 A/B/C/E 工厂命令见 [离线集成说明](ABCE_OFFLINE_INTEGRATION.md)。测试：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/web -q
@@ -29,7 +29,7 @@ $env:DYNAMIC_MEMORY_WEB_FACTORY = 'your_integration_module:create_bindings'
 .\.venv\Scripts\python.exe scripts/run_web.py
 ```
 
-`your_integration_module` 是接入方实际模块的占位名称，本期没有实现 A 的运行时。工厂每个浏览器会话初始化一次；“刷新服务”会重新初始化当前会话。工厂配置只来自部署环境，不接收页面输入；配置错误会显示失败，不切回演示。
+`your_integration_module` 是其他部署方式的占位名称；当前离线工厂为 `dynamic_memory.integration.offline:create_web_bindings`。工厂每个浏览器会话初始化一次；“刷新服务”会重新初始化当前会话。工厂配置只来自部署环境，不接收页面输入；配置错误会显示失败，不切回演示。
 
 | 方法 | 参数 | 返回 |
 | --- | --- | --- |

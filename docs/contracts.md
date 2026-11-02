@@ -1,5 +1,7 @@
 # 公共合同 v2.1
 
+> A/B/C/E 离线集成补充（2026-11-02）：`DynamicMemoryService.get_query_state(sample_id)` 提供只读、不触发构建的 UI 缓存失效标记，随已发布 build ID、C 索引状态/指纹变化；E 只经 `WebBindings.get_query_state` 消费，不读取索引文件。C 的索引损坏现在区分为 `INDEX_CORRUPT`，与版本过期 `INDEX_STALE` 分开；二者都返回 `QueryResponse(status=error)`，不是正常无证据。上述为服务诊断和错误码的向后兼容增量，不改变业务 DTO 的 schema_version 2.1。
+
 主要业务 DTO 位于 `src/dynamic_memory/contracts/models.py`，IC-001 数据容器位于 `contracts/data.py`，Memory 产物 DTO 位于 `contracts/artifacts.py`；公共类型统一由 `contracts/` 导出，完整语义见 `TECHNICAL_SPEC.md` 第五章。主要对象为 SourceRef、SourceTurn、TimeSpan、MemoryRecord、QueryRequest、QueryAnalysis、CandidateItem、CandidateSet、RelationEdge、MemoryDecision、ResolutionResult、AnswerResult、QueryResponse。独立跨模块对象要求 `schema_version="2.1"`。
 
 `QueryAnalysis.query_intent` 和 `time_mode` 是独立字段。SourceTurn 原文与 image_caption 分开，统一用 `render_visible_turn` 显示。Memory ID 使用 `contracts.memory_id` 中的规范化 canonical JSON SHA-256 算法。CandidateSet 从 rank 1 连续排序、去重并受预算约束。ResolutionResult 的有效 ID 恰好是 RETAIN ID。Full Text 无 retrieved/resolution；Vector RAG 有 retrieved、无 resolution；Dynamic 正常同时有两者。
