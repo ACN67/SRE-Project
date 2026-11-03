@@ -6,6 +6,40 @@ import json
 import math
 from typing import TypeVar
 
+# Only schema-owned names/types may leave the validator. Pydantic error locations
+# can include arbitrary model-provided extra keys, so unknown parts are redacted.
+_SAFE_FIELDS = frozenset({
+    "facts", "content", "entity", "attribute", "value", "fact_kind",
+    "assertion_type", "polarity", "recorded_at", "event_time",
+    "source_refs", "session_id", "dia_id", "raw", "start",
+    "end_exclusive", "precision", "resolution", "schema_version",
+})
+_SAFE_ERROR_TYPES = frozenset({
+    "missing", "extra_forbidden", "string_type", "string_too_short",
+    "list_type", "dict_type", "model_type", "literal_error",
+    "datetime_type", "datetime_from_date_parsing", "datetime_parsing",
+    "int_type", "int_parsing", "bool_type", "value_error",
+    "none_required", "greater_than", "less_than", "enum",
+})
+
+
+def _safe_validation_errors(exc: ValidationError) -> tuple[dict[str, str], ...]:
+    """Small allowlisted field/type diagnostics; never include user values."""
+    safe = []
+    for err in exc.errors(include_input=False, include_context=False, include_url=False)[:8]:
+        pieces = []
+        for part in err.get("loc", ())[:8]:
+            if type(part) is int and 0 <= part <= 9999:
+                pieces.append(f"[{part}]")
+            elif isinstance(part, str) and part in _SAFE_FIELDS:
+                pieces.append(("." if pieces else "") + part)
+            else:
+                pieces.append((".unknown_field" if pieces else "unknown_field"))
+        kind = err.get("type", "")
+        safe.append({"field": "".join(pieces) or "root",
+                     "type": kind if kind in _SAFE_ERROR_TYPES else "other_validation_error"})
+    return tuple(safe)
+
 from pydantic import BaseModel, ValidationError
 
 from dynamic_memory.contracts.models import SCHEMA_VERSION, VersionedModel
@@ -18,8 +52,12 @@ T = TypeVar("T", bound=BaseModel)
 class StructuredOutputError(ValueError):
     """Sanitized failure with a stable code for the calling pipeline."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, *,
+                 validation_errors: tuple[dict[str, str], ...] = (),
+                 validation_error_count: int = 0) -> None:
         self.code = code
+        self.validation_errors = validation_errors
+        self.validation_error_count = validation_error_count
         super().__init__(f"{code}: {message}")
 
 
@@ -92,4 +130,6 @@ def validate_structured_output(request: LLMRequest, response: LLMResponse, schem
     try:
         return schema.model_validate(parsed)
     except ValidationError as exc:
-        raise StructuredOutputError("SCHEMA_INVALID", f"business schema validation failed ({exc.error_count()} errors)") from None
+        raise StructuredOutputError("SCHEMA_INVALID", "business schema validation failed",
+            validation_errors=_safe_validation_errors(exc),
+            validation_error_count=exc.error_count()) from None

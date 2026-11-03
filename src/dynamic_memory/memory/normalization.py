@@ -102,6 +102,17 @@ def _check_evidence(
     draft: AtomicFactDraft, sources: tuple[SourceTurn, ...],
     checker: EvidenceChecker | None, window_id: str,
 ) -> None:
+    if checker is not None and getattr(checker, "_human_verified", False):
+        try:
+            assessment = checker(draft, sources)
+        except Exception:
+            _fail("EVIDENCE_CHECK_FAILED", window_id, "CHECKER_EXCEPTION")
+        if not isinstance(assessment, EvidenceAssessment):
+            _fail("EVIDENCE_CHECK_FAILED", window_id, "INVALID_ASSESSMENT")
+        if assessment.status != "supported":
+            _fail("EVIDENCE_UNSUPPORTED" if assessment.status == "unsupported" else "EVIDENCE_UNCLEAR",
+                  window_id, assessment.reason_code)
+        return
     for source in sources:
         conflict = _conflict_code(draft, source)
         if conflict is not None:

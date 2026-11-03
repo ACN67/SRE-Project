@@ -21,6 +21,7 @@ _PROVIDER_CODES = _RETRYABLE | frozenset({
     "API_STATUS", "API_DISABLED", "AUTH", "MODEL_REQUIRED", "MODEL_MISMATCH",
     "CREDENTIAL_REQUIRED", "SDK_MISSING", "INVALID_REQUEST", "UNSUPPORTED_THINKING",
     "INVALID_RESPONSE", "INVALID_USAGE", "CLIENT_INIT", "PROVIDER_ERROR",
+    "EMPTY_FINAL", "UNSUPPORTED_MODEL", "EFFORT_REQUIRED",
     "TRUNCATED", "INCOMPLETE",
 })
 
@@ -35,6 +36,15 @@ class LLMCallSummary:
     prompt_tokens_known: int | None
     completion_tokens_known: int | None
     unknown_usage_attempts: int
+    safe_status_code: int | None = None
+    safe_reason: str = "UNKNOWN"
+    reasoning_tokens_known: int | None = None
+    final_tokens_known: int | None = None
+    finish_reason: str | None = None
+    response_model_id: str | None = None
+    http_response_received: bool = False
+    prompt_cache_hit_tokens_known: int | None = None
+    prompt_cache_miss_tokens_known: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +124,15 @@ class GuardedLLMAdapter:
         verified = False
         prompt_known: int | None = None
         completion_known: int | None = None
+        reasoning_known: int | None = None
         unknown_usage = 0
+        safe_status_code: int | None = None
+        safe_reason = "UNKNOWN"
+        finish_reason: str | None = None
+        response_model_id: str | None = None
+        http_response_received = False
+        cache_hit_known: int | None = None
+        cache_miss_known: int | None = None
 
         def summary() -> LLMCallSummary:
             return LLMCallSummary(
@@ -122,6 +140,14 @@ class GuardedLLMAdapter:
                 failure_codes=tuple(failures), input_tokens_estimated=estimated,
                 input_budget_verified=verified, prompt_tokens_known=prompt_known,
                 completion_tokens_known=completion_known, unknown_usage_attempts=unknown_usage,
+                safe_status_code=safe_status_code, safe_reason=safe_reason,
+                reasoning_tokens_known=reasoning_known,
+                final_tokens_known=(completion_known - reasoning_known
+                                    if completion_known is not None and reasoning_known is not None else None),
+                finish_reason=finish_reason, response_model_id=response_model_id,
+                http_response_received=http_response_received,
+                prompt_cache_hit_tokens_known=cache_hit_known,
+                prompt_cache_miss_tokens_known=cache_miss_known,
             )
 
         def fail(code: str) -> None:
@@ -162,13 +188,25 @@ class GuardedLLMAdapter:
                 response = self._adapter.generate(request)
             except DeepSeekAdapterError as exc:
                 provider_code = exc.code if isinstance(exc.code, str) and exc.code in _PROVIDER_CODES else "PROVIDER_ERROR"
+                safe_status_code = exc.safe_status_code
+                safe_reason = exc.safe_reason
+                finish_reason = exc.finish_reason
+                response_model_id = exc.response_model_id
+                http_response_received = exc.http_response_received
+                if exc.usage is not None:
+                    prompt_known = exc.usage.prompt_tokens
+                    completion_known = exc.usage.completion_tokens
+                    reasoning_known = exc.usage.reasoning_tokens
+                    cache_hit_known = exc.usage.prompt_cache_hit_tokens
+                    cache_miss_known = exc.usage.prompt_cache_miss_tokens
             except Exception:
                 provider_code = "ADAPTER_ERROR"
             finally:
                 self._limiter.release()
 
             if provider_code is not None:
-                unknown_usage += 1
+                if prompt_known is None or completion_known is None:
+                    unknown_usage += 1
                 failures.append(provider_code)
                 if (provider_code not in _RETRYABLE or
                     (provider_code == "EMPTY_JSON" and request.output_mode != "json") or
@@ -190,6 +228,12 @@ class GuardedLLMAdapter:
                 else:
                     prompt_known = checked.usage.prompt_tokens
                     completion_known = checked.usage.completion_tokens
+                    reasoning_known = checked.usage.reasoning_tokens
+                    cache_hit_known = checked.usage.prompt_cache_hit_tokens
+                    cache_miss_known = checked.usage.prompt_cache_miss_tokens
+                finish_reason = checked.finish_reason
+                response_model_id = checked.model_id if checked.model_id == "deepseek-flash" else None
+                http_response_received = request.model_id == "deepseek-flash"
                 try:
                     validate_response_for_request(request, checked)
                 except ValueError:

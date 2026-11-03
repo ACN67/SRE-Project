@@ -124,9 +124,13 @@ def call_cache_key(request: LLMRequest, identity: CallIdentity) -> str:
 
 
 class RecordingError(RuntimeError):
-    def __init__(self, code: str, summary: LLMCallSummary | None = None) -> None:
+    def __init__(self, code: str, summary: LLMCallSummary | None = None, *,
+                 validation_errors: tuple[dict[str, str], ...] = (),
+                 validation_error_count: int = 0) -> None:
         self.code = code
         self.summary = summary
+        self.validation_errors = validation_errors
+        self.validation_error_count = validation_error_count
         super().__init__(f"{code}: call recording failed")
 
 
@@ -306,18 +310,25 @@ class RecordedLLMExecutor:
                 self._unlock_for(key, lock)
 
     def _execute_locked(self, request, identity, key, fingerprint, validator, cacheable, started, call_id, timestamp):
-        def event(status, cache_status, summary, error_code=None):
-            return _canonical({
+        def event(status, cache_status, summary, error_code=None,
+                  validation_errors=(), validation_error_count=0):
+            payload = {
                 "call_id": call_id, "timestamp": timestamp,
                 "elapsed_ms": round((time.monotonic() - started) * 1000, 3),
                 "identity": asdict(identity), "request_fingerprint": fingerprint,
                 "cache_key": key, "cache_status": cache_status, "status": status,
                 "error_code": error_code, "summary": asdict(summary), "estimated_cost": None,
-            })
+            }
+            if validation_error_count or validation_errors:
+                payload["validation_error_count"] = validation_error_count
+                payload["validation_errors"] = list(validation_errors)
+            return _canonical(payload)
 
-        def append(status, cache_status, summary, error_code=None):
+        def append(status, cache_status, summary, error_code=None,
+                   validation_errors=(), validation_error_count=0):
             try:
-                self.store.append(event(status, cache_status, summary, error_code))
+                self.store.append(event(status, cache_status, summary, error_code,
+                                        validation_errors, validation_error_count))
             except Exception:
                 raise RecordingError("LOG_WRITE_FAILED", summary) from None
 
@@ -353,8 +364,11 @@ class RecordedLLMExecutor:
         try:
             _check_response(request, identity, executed.response, validator)
         except StructuredOutputError as exc:
-            append("error", "miss" if cacheable else "skip", executed.summary, exc.code)
-            raise RecordingError(exc.code, executed.summary) from None
+            append("error", "miss" if cacheable else "skip", executed.summary,
+                   exc.code, exc.validation_errors, exc.validation_error_count)
+            raise RecordingError(exc.code, executed.summary,
+                validation_errors=exc.validation_errors,
+                validation_error_count=exc.validation_error_count) from None
         except Exception:
             append("error", "miss" if cacheable else "skip", executed.summary, "VALIDATION_FAILED")
             raise RecordingError("VALIDATION_FAILED", executed.summary) from None

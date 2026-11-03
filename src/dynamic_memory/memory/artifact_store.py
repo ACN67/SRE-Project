@@ -12,20 +12,46 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dynamic_memory.contracts import (
     ConversationSample, DatasetBundle, MemoryArtifact, MemoryManifest, MemoryRecord,
-    SourceRef, memory_set_fingerprint,
+    SourceRef, ProductionProvenance, memory_set_fingerprint,
 )
 from dynamic_memory.contracts.memory_id import validate_memory_id
 from dynamic_memory.contracts import MemoryBuildResult
-from dynamic_memory.memory.extraction import MEMORY_DRAFT_PROMPT
+from dynamic_memory.data.repository import SourceRepository
+from dynamic_memory.memory.extraction import MEMORY_DRAFT_PROMPT, WindowExtractionResult
+from dynamic_memory.memory.normalization import merge_reviewed_memories, normalize_memories
+from dynamic_memory.memory.review_workflow import VerifiedReview, _fp as _review_fp
 from dynamic_memory.memory.windows import WindowPlanningError, plan_extraction_windows
 from dynamic_memory.pipeline.settings import ExtractionSettings, ModelsSettings
 
 _BUILD_ID = re.compile(r"build_[0-9a-f]{32}\Z")
 _POINTER = "current.json"
+_OFFICIAL_LOCOMO_SHA = "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+
+
+class WindowReview(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    extraction_window_id: str = Field(min_length=1)
+    source_refs_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    approved_fact_count: int = Field(ge=0)
+    excluded_fact_count: int = Field(default=0, ge=0)
+    decision: str = Field(pattern=r"^approved$")
+
+
+class ReviewAttestation(BaseModel):
+    """Caller-supplied independent review receipt; never inferred from model output."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    run_kind: str = Field(pattern=r"^(offline_test|real)$")
+    reviewer_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
+    execution_policy_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    reviewed_memory_set_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    review_log_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    review_authority_fingerprint: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    windows: tuple[WindowReview, ...] = Field(min_length=1)
 
 
 class ArtifactStoreError(ValueError):
@@ -99,8 +125,11 @@ class MemoryArtifactStore:
         return _fp(sample.model_dump(mode="json", warnings="error"))
 
     def _config_identity(self) -> str:
+        models = self.models_settings.model_dump(mode="json")
+        if not self.models_settings.extraction_omit_max_tokens:
+            models.pop("extraction_omit_max_tokens")  # Old Mock manifests remain readable.
         return _fp({"extraction": self.extraction_settings.model_dump(mode="json"),
-                    "models": self.models_settings.model_dump(mode="json"),
+                    "models": models,
                     "planner_prompt_reserve": self.reserved_prompt_tokens,
                     "draft_template_fingerprint": MEMORY_DRAFT_PROMPT.template_fingerprint})
 
@@ -126,14 +155,20 @@ class MemoryArtifactStore:
         return tuple(sorted(records, key=lambda item: item.memory_id))
 
     def publish(self, report: MemoryBuildResult) -> MemoryArtifact:
+        # Preserve the original offline-only writer. Production uses a distinct
+        # reviewed entry point with an independently supplied attestation.
+        if not self.allow_mock_publication or self.models_settings.default_backend != "mock":
+            _fail("ARTIFACT_INCOMPLETE")
+        return self._publish_checked(report, backend="mock", provenance=None, review_receipt=None)
+
+    def _publish_checked(self, report: MemoryBuildResult, *, backend: str,
+                         provenance: ProductionProvenance | None,
+                         review_receipt: bytes | None) -> MemoryArtifact:
         if not isinstance(report, MemoryBuildResult):
             _fail("ARTIFACT_CORRUPT")
         if report.build_status == "failed":
             _fail("MEMORY_BUILD_FAILED")
         if report.build_status != "complete" or report.partial_build:
-            _fail("ARTIFACT_INCOMPLETE")
-        # B-07's local result is an offline-only integration seam.
-        if not self.allow_mock_publication or self.models_settings.default_backend != "mock":
             _fail("ARTIFACT_INCOMPLETE")
         sample = self._sample(report.sample_id)
         try:
@@ -146,7 +181,8 @@ class MemoryArtifactStore:
         if (observed != expected or report.total_windows != len(windows)
                 or report.successful_windows != len(windows)
                 or any(item.status != "success" or item.error_code is not None
-                       or item.rejected_fact_count for item in report.window_diagnostics)):
+                       or (backend == "mock" and item.rejected_fact_count)
+                       for item in report.window_diagnostics)):
             _fail("ARTIFACT_INCOMPLETE")
         records = self._checked_records(report, sample)
         rows = [item.model_dump(mode="json", warnings="error") for item in records]
@@ -160,7 +196,8 @@ class MemoryArtifactStore:
             extraction_config_fingerprint=self._config_identity(),
             extractor_version=report.extractor_version,
             prompt_fingerprint=MEMORY_DRAFT_PROMPT.template_fingerprint,
-            backend="mock", resolved_model_id=None,
+            backend=backend, resolved_model_id="deepseek-flash" if backend == "deepseek" else None,
+            production_provenance=provenance,
             build_status="complete", partial_build=False,
             total_windows=report.total_windows, successful_windows=report.successful_windows,
             failed_windows=(), memory_count=len(records),
@@ -176,6 +213,8 @@ class MemoryArtifactStore:
         try:
             _write(staging / "memories.jsonl", jsonl)
             _write(staging / "memories.json", exported)
+            if review_receipt is not None:
+                _write(staging / "review_receipt.json", review_receipt)
             manifest_bytes = _json_bytes(manifest.model_dump(mode="json", warnings="error"))
             _write(staging / "manifest.json", manifest_bytes)
             artifact = self._load_build(staging, sample, allow_partial=False)
@@ -211,8 +250,38 @@ class MemoryArtifactStore:
                     or manifest.extraction_config_fingerprint != self._config_identity()
                     or manifest.prompt_fingerprint != MEMORY_DRAFT_PROMPT.template_fingerprint):
                 _fail("ARTIFACT_STALE")
-            if manifest.backend != "mock" or manifest.resolved_model_id is not None:
+            if manifest.backend != self._expected_backend():
                 _fail("ARTIFACT_STALE")
+            if manifest.backend == "mock" and (manifest.resolved_model_id is not None or
+                                               manifest.production_provenance is not None):
+                _fail("ARTIFACT_STALE")
+            if manifest.backend == "deepseek" and (manifest.resolved_model_id != "deepseek-flash" or
+                                                   manifest.production_provenance is None or
+                                                   manifest.production_provenance.thinking != "enabled" or
+                                                   manifest.production_provenance.reasoning_effort != "high"):
+                _fail("ARTIFACT_STALE")
+            if manifest.backend == "deepseek":
+                receipt_bytes = (directory / "review_receipt.json").read_bytes()
+                receipt = ReviewAttestation.model_validate_json(receipt_bytes)
+                provenance = manifest.production_provenance
+                if ("sha256:" + _sha(receipt_bytes) != provenance.review_fingerprint or
+                    receipt.run_kind != provenance.run_kind or
+                    receipt.reviewer_id != provenance.reviewer_id or
+                    receipt.execution_policy_fingerprint != provenance.execution_policy_fingerprint or
+                    receipt.review_authority_fingerprint != provenance.review_authority_fingerprint or
+                    receipt.reviewed_memory_set_fingerprint != manifest.memory_set_fingerprint or
+                    len(receipt.windows) != manifest.total_windows):
+                    _fail("ARTIFACT_CORRUPT")
+                planned = plan_extraction_windows(sample, self.extraction_settings,
+                                                   reserved_prompt_tokens=self.reserved_prompt_tokens)
+                if (_fp([{"id": w.extraction_window_id,
+                          "refs": [r.model_dump(mode="json") for r in w.source_refs]} for w in planned])
+                        != provenance.window_plan_fingerprint or
+                    tuple(item.extraction_window_id for item in receipt.windows)
+                        != tuple(item.extraction_window_id for item in planned) or
+                    any(item.source_refs_fingerprint != _fp([r.model_dump(mode="json") for r in window.source_refs])
+                        for item, window in zip(receipt.windows, planned))):
+                    _fail("ARTIFACT_STALE")
             if manifest.build_status == "failed":
                 _fail("MEMORY_BUILD_FAILED")
             if manifest.build_status != "complete" and not allow_partial:
@@ -235,7 +304,7 @@ class MemoryArtifactStore:
             return MemoryArtifact(manifest=manifest, memories=records)
         except ArtifactStoreError:
             raise
-        except (OSError, ValidationError, ValueError, TypeError, AttributeError, RecursionError, UnicodeError):
+        except (OSError, ValidationError, ValueError, TypeError, AttributeError, RecursionError, UnicodeError, WindowPlanningError):
             _fail("ARTIFACT_CORRUPT")
 
     def load(self, *, allow_partial: bool = False) -> MemoryArtifact:
@@ -267,3 +336,107 @@ class MemoryArtifactStore:
         artifact = self.load()
         artifact.require_complete_for_index()
         return list(artifact.memories)
+
+    def _expected_backend(self) -> str:
+        return "mock"
+
+
+class ReviewedMemoryArtifactStore(MemoryArtifactStore):
+    """Strict opt-in non-Mock writer/reader; legacy Mock path is unchanged."""
+
+    def _expected_backend(self) -> str:
+        return "deepseek"
+
+    def publish_reviewed(self, report: MemoryBuildResult,
+                         attestation: ReviewAttestation,
+                         *, verified_review: VerifiedReview | None = None) -> MemoryArtifact:
+        if not isinstance(report, MemoryBuildResult) or not isinstance(attestation, ReviewAttestation):
+            _fail("REVIEW_REQUIRED")
+        try:
+            receipt = ReviewAttestation.model_validate(attestation.model_dump(mode="python"))
+            models = self.models_settings
+            if (models.model_id != "deepseek-flash" or models.thinking != "enabled" or
+                models.reasoning_effort != "high" or models.max_retries != 0 or
+                models.max_concurrent_api_requests != 1 or models.api_enabled_by_default or
+                models.default_backend != "mock"):
+                _fail("ARTIFACT_STALE")
+            if report.build_status != "complete" or report.partial_build:
+                _fail("ARTIFACT_INCOMPLETE")
+            if receipt.reviewed_memory_set_fingerprint != memory_set_fingerprint(report.memories):
+                _fail("REVIEW_MISMATCH")
+            if len(receipt.windows) != report.total_windows:
+                _fail("REVIEW_MISMATCH")
+            for reviewed, diagnostic in zip(receipt.windows, report.window_diagnostics):
+                if (reviewed.extraction_window_id != diagnostic.extraction_window_id or
+                    reviewed.source_refs_fingerprint != _fp([r.model_dump(mode="json") for r in diagnostic.source_refs]) or
+                    reviewed.approved_fact_count != diagnostic.accepted_fact_count or
+                    reviewed.excluded_fact_count != diagnostic.rejected_fact_count or
+                    reviewed.decision != "approved"):
+                    _fail("REVIEW_MISMATCH")
+            if receipt.run_kind == "real":
+                if (self.bundle.snapshot_sha256 != _OFFICIAL_LOCOMO_SHA or
+                    self.bundle.split_by_sample_id.get(report.sample_id) != "main_dev" or
+                    receipt.reviewer_id == "offline-test"):
+                    _fail("REVIEW_MISMATCH")
+                if (type(verified_review) is not VerifiedReview or
+                    verified_review.authority.allowed_run_kind != "real" or
+                    verified_review.queue.sample_id != report.sample_id or
+                    verified_review.queue.run_fingerprint != verified_review.approval.run_fingerprint or
+                    receipt.reviewer_id != verified_review.approval.reviewer_id or
+                    receipt.review_log_fingerprint != verified_review.approval_fingerprint or
+                    receipt.review_authority_fingerprint != _review_fp(
+                        verified_review.authority.model_dump(mode="json")) or
+                    tuple(w.window_id for w in verified_review.queue.windows) !=
+                        tuple(d.extraction_window_id for d in report.window_diagnostics) or
+                    any(len(w.facts) != d.input_fact_count for w, d in zip(
+                        verified_review.queue.windows, report.window_diagnostics))):
+                    _fail("REVIEW_MISMATCH")
+                sample = self._sample(report.sample_id)
+                planned = plan_extraction_windows(sample, self.extraction_settings,
+                                                  reserved_prompt_tokens=self.reserved_prompt_tokens)
+                if len(planned) != len(verified_review.queue.windows):
+                    _fail("REVIEW_MISMATCH")
+                repository = SourceRepository(self.bundle)
+                rebuilt = []
+                for window, queued in zip(planned, verified_review.queue.windows):
+                    if (queued.window_id != window.extraction_window_id or
+                        queued.source_refs_fingerprint != _fp([r.model_dump(mode="json")
+                                                                for r in window.source_refs])):
+                        _fail("REVIEW_MISMATCH")
+                    allowed = {(r.session_id, r.dia_id) for r in window.source_refs}
+                    for fact in queued.facts:
+                        if (not {(r.session_id, r.dia_id) for r in fact.draft.source_refs}.issubset(allowed) or
+                            fact.cited_turns != tuple(repository.get_turn(report.sample_id, ref)
+                                                     for ref in sorted(fact.draft.source_refs,
+                                                        key=lambda item: (item.session_id, item.dia_id)))):
+                            _fail("REVIEW_MISMATCH")
+                    result = WindowExtractionResult(report.sample_id, window.extraction_window_id,
+                        tuple(item.draft for item in queued.facts),
+                        MEMORY_DRAFT_PROMPT.template_fingerprint, 0, "review")
+                    selected = verified_review.filter_for_window(window.extraction_window_id)(result)
+                    rebuilt.extend(normalize_memories(report.sample_id, [selected], repository,
+                        extractor_version=report.extractor_version,
+                        evidence_checker=verified_review.checker_for_window(window.extraction_window_id)))
+                if memory_set_fingerprint(merge_reviewed_memories(rebuilt)) != memory_set_fingerprint(report.memories):
+                    _fail("REVIEW_MISMATCH")
+            elif not report.sample_id.startswith("synthetic"):
+                _fail("REVIEW_MISMATCH")
+            sample = self._sample(report.sample_id)
+            windows = plan_extraction_windows(sample, self.extraction_settings,
+                                               reserved_prompt_tokens=self.reserved_prompt_tokens)
+            plan_fp = _fp([{"id": w.extraction_window_id,
+                            "refs": [r.model_dump(mode="json") for r in w.source_refs]} for w in windows])
+            provenance = ProductionProvenance(
+                run_kind=receipt.run_kind, thinking="enabled", reasoning_effort="high",
+                execution_policy_fingerprint=receipt.execution_policy_fingerprint,
+                window_plan_fingerprint=plan_fp,
+                review_fingerprint=_fp(receipt.model_dump(mode="json")),
+                reviewer_id=receipt.reviewer_id, review_status="approved",
+                review_authority_fingerprint=receipt.review_authority_fingerprint,
+            )
+        except ArtifactStoreError:
+            raise
+        except (ValidationError, ValueError, TypeError, AttributeError, WindowPlanningError):
+            _fail("REVIEW_MISMATCH")
+        return self._publish_checked(report, backend="deepseek", provenance=provenance,
+                                     review_receipt=_json_bytes(receipt.model_dump(mode="json")))

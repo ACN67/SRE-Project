@@ -51,7 +51,9 @@ def make_request(task="qa", *, model_id=MODEL, thinking="disabled"):
         messages=(LLMMessage(role="system", content="Return JSON for synthetic tests."), LLMMessage(role="user", content="Synthetic only")),
         task=task,
         output_mode="text" if task == "qa" else "json",
-        settings=GenerationSettings(max_input_tokens=max_input, max_output_tokens=max_output, temperature=config.temperature, thinking=thinking),
+        settings=GenerationSettings(max_input_tokens=max_input, max_output_tokens=max(512, max_output) if thinking == "enabled" else max_output,
+                                    temperature=config.temperature, thinking=thinking,
+                                    reasoning_effort="high" if thinking == "enabled" else None),
         model_id=model_id,
     )
 
@@ -122,7 +124,7 @@ def test_model_and_credential_fail_before_any_request(monkeypatch):
         adapter.generate(make_request(model_id=None))
     with pytest.raises(DeepSeekAdapterError, match="MODEL_MISMATCH"):
         DeepSeekLLMAdapter(api_enabled=True, client=fake, model_id="other-synthetic-model").generate(make_request())
-    with pytest.raises(DeepSeekAdapterError, match="UNSUPPORTED_THINKING"):
+    with pytest.raises(DeepSeekAdapterError, match="UNSUPPORTED_MODEL"):
         adapter.generate(make_request(thinking="enabled"))
     assert fake.completions.calls == []
     no_client = DeepSeekLLMAdapter(api_enabled=True, model_id=MODEL)
@@ -182,6 +184,14 @@ def test_bad_responses_are_failures(result, code):
     with pytest.raises(DeepSeekAdapterError) as error:
         DeepSeekLLMAdapter(api_enabled=True, client=client).generate(call)
     assert error.value.code == code
+    assert len(client.completions.calls) == 1
+
+
+def test_json_whitespace_response_is_rejected_even_when_finish_is_stop():
+    client = FakeClient(reply(content="  \n  ", finish_reason="stop"))
+    with pytest.raises(DeepSeekAdapterError) as caught:
+        DeepSeekLLMAdapter(api_enabled=True, client=client).generate(make_request("memory_extraction"))
+    assert caught.value.code == "EMPTY_JSON"
     assert len(client.completions.calls) == 1
 
 

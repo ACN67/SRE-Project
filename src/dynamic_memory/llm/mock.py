@@ -22,9 +22,10 @@ def request_fingerprint(request: LLMRequest) -> str:
     if not isinstance(request, LLMRequest):
         raise TypeError("request must be an LLMRequest")
     validated = LLMRequest.model_validate(request.model_dump(mode="python"))
-    canonical = json.dumps(
-        validated.model_dump(mode="json"), ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
+    payload = validated.model_dump(mode="json")
+    if not validated.settings.omit_max_tokens:
+        payload["settings"].pop("omit_max_tokens")  # Preserve old Mock/preset keys.
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

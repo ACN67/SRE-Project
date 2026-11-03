@@ -27,9 +27,11 @@ class ModelsSettings(SettingsModel):
     provider_under_consideration: str
     model_id: str | None
     thinking: Literal["disabled", "enabled"]
+    reasoning_effort: Literal["low", "high", "max"] | None = None
     temperature: float = Field(ge=0, le=2)
     extraction_max_input_tokens: PositiveInt
     extraction_max_output_tokens: PositiveInt
+    extraction_omit_max_tokens: bool = False
     reasoning_max_input_tokens: PositiveInt
     reasoning_max_output_tokens: PositiveInt
     qa_max_input_tokens: PositiveInt
@@ -42,6 +44,22 @@ class ModelsSettings(SettingsModel):
     def offline_default(self) -> ModelsSettings:
         if self.default_backend != "mock" or self.api_enabled_by_default:
             raise ValueError("A-01 requires default_backend=mock and api_enabled_by_default=false")
+        if self.thinking == "disabled" and self.reasoning_effort is not None:
+            raise ValueError("thinking and reasoning_effort conflict")
+        if self.extraction_omit_max_tokens and (
+            self.model_id != "deepseek-flash" or self.thinking != "enabled" or
+            self.reasoning_effort != "high" or
+            self.extraction_max_output_tokens != 65536 or
+            self.extraction_max_input_tokens > 934464
+        ):
+            raise ValueError("High extraction default needs Flash, 64K output and context reserve")
+        if self.reasoning_effort == "high" and any(
+            not 512 <= value <= 4096 for value in (
+                self.reasoning_max_output_tokens, self.qa_max_output_tokens,
+                *(() if self.extraction_omit_max_tokens else (self.extraction_max_output_tokens,)),
+            )
+        ):
+            raise ValueError("thinking pilot output budgets must be 512..4096")
         return self
 
 
@@ -171,10 +189,12 @@ def _read_config(path: Path, schema: type[SettingsModel]) -> SettingsModel:
         raise SettingsError(f"{path.name}: {details}") from None
 
 
-def load_settings(config_dir: str | Path | None = None) -> AppSettings:
+def load_settings(config_dir: str | Path | None = None, *, models_profile: str | Path | None = None) -> AppSettings:
     """Read and validate six YAML files without relying on the process cwd."""
     directory = Path(config_dir) if config_dir is not None else Path(__file__).resolve().parents[3] / "configs"
     sections = {name: _read_config(directory / f"{name}.yaml", schema) for name, schema in _FILES.items()}
+    if models_profile is not None:
+        sections["models"] = _read_config(Path(models_profile), ModelsSettings)
     try:
         return AppSettings.model_validate(sections)
     except ValidationError as exc:

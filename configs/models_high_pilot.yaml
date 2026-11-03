@@ -1,0 +1,18 @@
+# Explicit opt-in profile for bounded DeepSeek-V4.1-Flash High pilot runs.
+default_backend: mock
+api_enabled_by_default: false
+provider_under_consideration: DeepSeek
+model_id: deepseek-flash
+thinking: enabled
+reasoning_effort: high
+temperature: 0  # Internal contract only; omitted from thinking-mode API request.
+extraction_max_input_tokens: 934464  # 1M context minus the default 64K generation reserve.
+extraction_max_output_tokens: 65536  # Budget ceiling; never sent as max_tokens.
+extraction_omit_max_tokens: true
+reasoning_max_input_tokens: 8192
+reasoning_max_output_tokens: 2048
+qa_max_input_tokens: 32768
+qa_max_output_tokens: 2048
+request_timeout_seconds: 90
+max_retries: 0
+max_concurrent_api_requests: 1

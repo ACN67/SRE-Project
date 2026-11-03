@@ -12,6 +12,9 @@ from dynamic_memory.data.repository import SourceRepository, SourceRepositoryErr
 from dynamic_memory.llm import CallIdentity, RecordedLLMExecutor
 from dynamic_memory.llm.execution import TokenEstimator
 from dynamic_memory.memory.extraction import WindowExtractionError, extract_window
+from dynamic_memory.memory.checkpoints import (
+    CheckpointError, WindowCheckpointStore, call_identity_fingerprint,
+)
 from dynamic_memory.memory.normalization import (
     EvidenceChecker, MemoryNormalizationError, merge_reviewed_memories, normalize_memories,
 )
@@ -36,6 +39,9 @@ class MemoryBuilder:
         extractor_version: str, evidence_checker: EvidenceChecker | None = None,
         token_estimator: TokenEstimator | None = None,
         reserved_prompt_tokens: int = 1800,
+        checkpoint_store: WindowCheckpointStore | None = None,
+        window_evidence_checker: Callable[[str], EvidenceChecker] | None = None,
+        window_fact_filter: Callable[[str], Callable] | None = None,
     ) -> None:
         self.repository = repository
         self.executor = executor
@@ -46,6 +52,9 @@ class MemoryBuilder:
         self.evidence_checker = evidence_checker
         self.token_estimator = token_estimator
         self.reserved_prompt_tokens = reserved_prompt_tokens
+        self.checkpoint_store = checkpoint_store
+        self.window_evidence_checker = window_evidence_checker
+        self.window_fact_filter = window_fact_filter
 
     def build_memories(self, sample: ConversationSample) -> list[MemoryRecord]:
         report = self.build_memories_with_report(sample)
@@ -76,7 +85,9 @@ class MemoryBuilder:
                     or not isinstance(self.extraction_settings, ExtractionSettings)
                     or not isinstance(self.extractor_version, str) or not self.extractor_version.strip()):
                 raise ValueError("INVALID_DEPENDENCY")
-            if self.extraction_settings.window_max_input_tokens != self.models_settings.extraction_max_input_tokens:
+            if (self.extraction_settings.window_max_input_tokens != self.models_settings.extraction_max_input_tokens
+                    and (not self.models_settings.extraction_omit_max_tokens or
+                         self.extraction_settings.window_max_input_tokens > self.models_settings.extraction_max_input_tokens)):
                 raise ValueError("WINDOW_BUDGET_MISMATCH")
             windows = plan_extraction_windows(checked, self.extraction_settings,
                                               reserved_prompt_tokens=self.reserved_prompt_tokens)
@@ -93,18 +104,35 @@ class MemoryBuilder:
             refs = window.source_refs
             try:
                 identity = self.identity_factory(window)
-                result = extract_window(window, self.executor, identity, self.models_settings,
-                                        token_estimator=self.token_estimator)
+                call_fp = call_identity_fingerprint(identity) if self.checkpoint_store is not None else None
+                result = self.checkpoint_store.load(window, call_fp) if self.checkpoint_store is not None else None
+                if result is None:
+                    if self.checkpoint_store is not None:
+                        self.checkpoint_store.claim_new_attempt(window, call_fp)
+                    result = extract_window(window, self.executor, identity, self.models_settings,
+                                            token_estimator=self.token_estimator)
+                    if self.checkpoint_store is not None:
+                        self.checkpoint_store.save(window, result, call_fp)
             except WindowExtractionError as exc:
+                failure(window.extraction_window_id, refs, "extraction", exc.code)
+                continue
+            except CheckpointError as exc:
                 failure(window.extraction_window_id, refs, "extraction", exc.code)
                 continue
             except Exception:
                 failure(window.extraction_window_id, refs, "extraction", "EXECUTION_DEPENDENCY_FAILED")
                 continue
             try:
-                memories = normalize_memories(sample_id, [result], self.repository,
+                input_count = len(result.facts)
+                selected = (self.window_fact_filter(window.extraction_window_id)(result)
+                            if self.window_fact_filter is not None else result)
+                if not isinstance(selected, type(result)) or len(selected.facts) > input_count:
+                    raise ValueError("invalid review selection")
+                memories = normalize_memories(sample_id, [selected], self.repository,
                                               extractor_version=self.extractor_version,
-                                              evidence_checker=self.evidence_checker)
+                                              evidence_checker=(self.window_evidence_checker(window.extraction_window_id)
+                                                                if self.window_evidence_checker is not None
+                                                                else self.evidence_checker))
             except MemoryNormalizationError as exc:
                 failure(window.extraction_window_id, refs, "review", exc.code,
                         len(result.facts), exc.reason_code)
@@ -114,7 +142,8 @@ class MemoryBuilder:
                 continue
             reviewed.extend(memories)
             diagnostics.append(WindowDiagnostic(window.extraction_window_id, refs, "success", None, None,
-                                                len(result.facts), len(result.facts), 0, len(memories), "review"))
+                                                input_count, len(selected.facts),
+                                                input_count - len(selected.facts), len(memories), "review"))
 
         try:
             merged = merge_reviewed_memories(reviewed)

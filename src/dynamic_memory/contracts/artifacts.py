@@ -11,7 +11,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .memory_id import validate_memory_id
 from .models import ContractModel, MemoryRecord, SCHEMA_VERSION
@@ -41,6 +41,21 @@ class FailedWindow(ContractModel):
     error_code: str = Field(min_length=1)
 
 
+class ProductionProvenance(BaseModel):
+    """Explicit reviewed publication identity, separate from legacy Mock builds."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    run_kind: Literal["offline_test", "real"]
+    thinking: Literal["enabled"]
+    reasoning_effort: Literal["high"]
+    execution_policy_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    window_plan_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    review_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    reviewer_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
+    review_status: Literal["approved"]
+    review_authority_fingerprint: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+
+
 class MemoryManifest(ContractModel):
     """Format v1; the business DTO schema remains 2.1."""
     model_config = ConfigDict(frozen=True)
@@ -66,6 +81,7 @@ class MemoryManifest(ContractModel):
     memories_jsonl_sha256: str
     memories_json_sha256: str | None = None
     memory_set_fingerprint: str
+    production_provenance: ProductionProvenance | None = None
 
     @model_validator(mode="after")
     def consistent_manifest(self):
@@ -101,7 +117,10 @@ class MemoryManifest(ContractModel):
     @property
     def source_manifest_fingerprint(self) -> str:
         """Deterministic manifest identity: includes build, versions, bytes and state."""
-        return _json_fingerprint(self.model_dump(mode="json"))
+        payload = self.model_dump(mode="json")
+        if self.production_provenance is None:
+            payload.pop("production_provenance")  # preserve legacy Mock identity
+        return _json_fingerprint(payload)
 
 
 class MemoryArtifact(ContractModel):

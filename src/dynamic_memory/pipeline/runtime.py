@@ -215,12 +215,19 @@ def create_runtime(
         recorder = RecordedLLMExecutor(guarded, store=store, cache_enabled=cache_enabled)
     except (ValueError, TypeError):
         raise RuntimeConfigurationError("INVALID_POLICY") from None
+    config_payload = snapshot.model_dump(mode="json")
+    if not snapshot.models.extraction_omit_max_tokens:
+        config_payload["models"].pop("extraction_omit_max_tokens")
     return LLMRuntime(
         settings=snapshot, backend=selected, model_id=resolved, adapter=adapter,
         guarded=guarded, recorder=recorder,
-        config_fingerprint=_hash(snapshot.model_dump(mode="json")),
+        config_fingerprint=_hash(config_payload),
         execution_policy_fingerprint=_hash({
-            "version": "a09-v1", "backend": selected, "model_id": resolved,
+            "version": ("deepseek-chat-completions-v3-default64k" if snapshot.models.extraction_omit_max_tokens
+                        else "deepseek-chat-completions-v2"),
+            "backend": selected, "model_id": resolved,
+            "thinking": snapshot.models.thinking,
+            "reasoning_effort": snapshot.models.reasoning_effort,
             "api_enabled": api_enabled, "request_timeout_seconds": snapshot.models.request_timeout_seconds,
             "max_retries": snapshot.models.max_retries,
             "max_concurrent_api_requests": snapshot.models.max_concurrent_api_requests,

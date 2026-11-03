@@ -34,6 +34,20 @@ class GenerationSettings(LLMModel):
     max_output_tokens: PositiveInt
     temperature: float = Field(ge=0, le=2)
     thinking: Literal["disabled", "enabled"]
+    reasoning_effort: Literal["low", "high", "max"] | None = None
+    omit_max_tokens: bool = False
+
+    @model_validator(mode="after")
+    def coherent_thinking(self) -> GenerationSettings:
+        if self.thinking == "disabled" and self.reasoning_effort is not None:
+            raise ValueError("thinking and reasoning_effort conflict")
+        if self.omit_max_tokens:
+            if (self.thinking != "enabled" or self.reasoning_effort != "high"
+                    or self.max_output_tokens != 65536):
+                raise ValueError("provider default output requires High and a 64K reserve")
+        elif self.reasoning_effort == "high" and not 512 <= self.max_output_tokens <= 4096:
+            raise ValueError("thinking pilot output budget must be 512..4096")
+        return self
 
 
 class LLMRequest(LLMModel):
@@ -52,12 +66,26 @@ class LLMRequest(LLMModel):
         required_mode = "text" if self.task == "qa" else "json"
         if self.output_mode != required_mode:
             raise ValueError(f"{self.task} requires output_mode={required_mode}")
+        if self.settings.omit_max_tokens and (self.task != "memory_extraction" or self.model_id != "deepseek-flash"):
+            raise ValueError("provider default output is only available for DeepSeek extraction")
         return self
 
 
 class TokenUsage(LLMModel):
     prompt_tokens: int = Field(ge=0)
     completion_tokens: int = Field(ge=0)
+    reasoning_tokens: int | None = Field(default=None, ge=0)
+    prompt_cache_hit_tokens: int | None = Field(default=None, ge=0)
+    prompt_cache_miss_tokens: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def reasoning_within_completion(self) -> TokenUsage:
+        if self.reasoning_tokens is not None and self.reasoning_tokens > self.completion_tokens:
+            raise ValueError("reasoning tokens exceed completion tokens")
+        if (self.prompt_cache_hit_tokens is not None and self.prompt_cache_miss_tokens is not None and
+                self.prompt_cache_hit_tokens + self.prompt_cache_miss_tokens != self.prompt_tokens):
+            raise ValueError("cache token breakdown differs from prompt total")
+        return self
 
 
 class LLMResponse(LLMModel):
