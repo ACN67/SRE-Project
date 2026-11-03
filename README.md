@@ -9,7 +9,7 @@
 - 预测先落盘并校验的非 D 诊断运行；Dynamic 默认不可用，保留 D 的公共注入合同。
 - 正式 YAML 中 `null` 仍表示尚未冻结，不会被离线 profile 覆盖成虚构的生产值。
 
-真实 DeepSeek 抽取、生产证据审核、真实 Embedding、D 动态状态推理和正式 LoCoMo 评分尚未验收。Mock 输出不能作为正式实验结果。完整离线运行步骤见 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。
+真实 DeepSeek 抽取、生产证据审核、真实 Embedding、D 动态状态推理和正式 LoCoMo 评分尚未验收。Mock 输出不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结 `main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。已完成的正式 [SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md) 分别记录需求正文和实证边界。
 
 ## 分工
 
@@ -58,7 +58,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke
 ```
 
-离线集成测试均为 synthetic，Mock 答案始终标明合成性质，不代表正式准确率。`tests/integration/test_offline_system.py` 从合成原始对话真实调用 B 的 Builder 和 C 的 IndexManager。
+离线集成测试均为 synthetic，Mock 答案始终标明合成性质，不代表正式准确率。`tests/integration/test_offline_system.py` 从合成原始对话真实调用 B 的 Builder 和 C 的 IndexManager；`test_abce_long_history.py` 验证 20 条合成 Memory 的 Top-8、历史扩展、12 条预算以及 A/评测/Web 消费。
 
 ## 配置读取
 

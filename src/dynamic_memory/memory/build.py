@@ -1,18 +1,13 @@
-"""B-07: fail-closed orchestration of the B-04/05/06 memory pipeline.
-
-The v2.2 build DTO is not yet present in shared contracts; these immutable B-local
-results mirror its specified fields until the shared owner publishes it.
-"""
+"""B-07: fail-closed orchestration of the B-04/05/06 memory pipeline."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Literal
 
 from pydantic import ValidationError
 
-from dynamic_memory.contracts import ConversationSample, MemoryRecord, SourceRef
+from dynamic_memory.contracts import (ConversationSample, MemoryRecord, SourceRef,
+                                      MemoryBuildResult, WindowDiagnostic)
 from dynamic_memory.data.repository import SourceRepository, SourceRepositoryError
 from dynamic_memory.llm import CallIdentity, RecordedLLMExecutor
 from dynamic_memory.llm.execution import TokenEstimator
@@ -22,45 +17,6 @@ from dynamic_memory.memory.normalization import (
 )
 from dynamic_memory.memory.windows import ExtractionWindow, WindowPlanningError, plan_extraction_windows
 from dynamic_memory.pipeline.settings import ExtractionSettings, ModelsSettings
-
-
-@dataclass(frozen=True, slots=True)
-class WindowDiagnostic:
-    extraction_window_id: str
-    source_refs: tuple[SourceRef, ...]
-    status: Literal["success", "failed"]
-    error_code: str | None
-    reason_code: str | None
-    input_fact_count: int
-    accepted_fact_count: int
-    rejected_fact_count: int
-    output_memory_count: int
-    stage: Literal["planning", "extraction", "review", "finalization"]
-
-
-@dataclass(frozen=True, slots=True)
-class MemoryBuildResult:
-    sample_id: str
-    memories: tuple[MemoryRecord, ...]
-    build_status: Literal["complete", "partial", "failed"]
-    partial_build: bool
-    total_windows: int
-    successful_windows: int
-    window_diagnostics: tuple[WindowDiagnostic, ...]
-    extractor_version: str
-
-    def __post_init__(self) -> None:
-        if self.total_windows != len(self.window_diagnostics):
-            raise ValueError("window diagnostic count mismatch")
-        successes = sum(d.status == "success" for d in self.window_diagnostics)
-        if self.successful_windows != successes:
-            raise ValueError("successful window count mismatch")
-        failures = self.total_windows - successes
-        expected = "complete" if not failures else "partial" if successes else "failed"
-        if self.build_status != expected or self.partial_build != bool(failures):
-            raise ValueError("build status mismatch")
-        if self.build_status == "failed" and self.memories:
-            raise ValueError("failed build cannot contain memories")
 
 
 class MemoryBuildError(ValueError):

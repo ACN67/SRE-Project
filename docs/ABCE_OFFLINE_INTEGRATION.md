@@ -20,9 +20,9 @@ $evalResults = Join-Path $env:TEMP 'sre-abce-eval-new-run'
 .\.venv\Scripts\python.exe scripts/run_web.py
 ```
 
-`prepare` 只接受新的状态目录：如果源文件、发布指针或索引已经存在，它会拒绝覆盖；重复演练请选新的目录，不删除旧结果。状态目录须是仓库外的绝对路径。`check` 应对 `synthetic-0`、`synthetic-1` 各打印 `complete; full_text=answered; vector_rag=answered; synthetic`。Web 默认监听 `127.0.0.1:8501`；首页显示 Synthetic 警告，问答工作台只提供 Full Text / Vector RAG。要看独立 Demo，显式设 `SRE_INTEGRATION_PROFILE=demo` 并移除 `DYNAMIC_MEMORY_WEB_FACTORY`；没有配置不能自动进入 Demo。
+`prepare` 只接受新的状态目录：如果源文件、发布指针或索引已经存在，它会拒绝覆盖；重复演练请选新的目录，不删除旧结果。状态目录须是仓库外的绝对路径。默认按冻结的 `main_dev` 问题清单准备全部四个样本；`check` 应对 `synthetic-0`～`synthetic-3` 各打印 `complete; full_text=answered; vector_rag=answered; synthetic`。Web 默认监听 `127.0.0.1:8501`；首页显示 Synthetic 警告，问答工作台只提供 Full Text / Vector RAG。要看独立 Demo，显式设 `SRE_INTEGRATION_PROFILE=demo` 并移除 `DYNAMIC_MEMORY_WEB_FACTORY`；没有配置不能自动进入 Demo。
 
-`evaluate` 在 OS 临时目录内的新结果目录保存 `full_text.predictions.json`、`vector_rag.predictions.json`、`pure_vector_topk.predictions.json` 及 `non_d_summary.json`。摘要还包含 `question_count`、每个方法的 `answer_status_counts`（answered/no_evidence/time_uncertain/unresolved_conflict/error，包含零值）及 `error_code_counts`；统计从落盘后经过 SHA 校验的预测重新读取，不能把保存成功误认为问答成功。纯向量方法调用 C 的原始 Top-K，不把历史扩展候选当消融；没有 D，不生成三路正式比较。由于默认只为两个样本构建 Memory 和索引，main_dev 中其余两个样本的 Vector RAG 预测为明确错误，Full Text 仍可读其原始来源。预测必须先保存并用 SHA 回读校验，才允许独立评分路径读取**显式授权的** Gold；上述命令不读 Gold。
+`evaluate` 在 OS 临时目录内的新结果目录保存 `full_text.predictions.json`、`vector_rag.predictions.json`、`pure_vector_topk.predictions.json`、`candidate_comparison.json` 及 `non_d_summary.json`。摘要包含 `question_count`、每个方法的 `answer_status_counts`（answered/no_evidence/time_uncertain/unresolved_conflict/error，包含零值）及 `error_code_counts`；统计从落盘后经过 SHA 校验的预测重新读取，不能把保存成功误认为问答成功。候选对照文件记录原始 Top-K、历史扩展、最终候选、实际使用 ID 与未进入上下文的候选；完整扩展预算排除 ID 可由 C 的 `RetrievalSnapshot` 在集成测试中核查。纯向量方法经 A 的起始/末尾 B/C 版本门槛调用 C 原始 Top-K，不把历史扩展候选当消融；没有 D，不生成三路正式比较。默认四个 `main_dev` 样本均已准备，因此正常运行不应有 `BUILD_NOT_FOUND`；人为删除一个索引时保留该题 `INDEX_NOT_FOUND` 和完整分母。预测必须先保存并用 SHA 回读校验，才允许独立评分路径读取**显式授权的** Gold；上述命令不读 Gold。
 
 ## 版本、资源与故障边界
 

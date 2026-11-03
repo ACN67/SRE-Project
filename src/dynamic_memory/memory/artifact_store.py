@@ -19,7 +19,7 @@ from dynamic_memory.contracts import (
     SourceRef, memory_set_fingerprint,
 )
 from dynamic_memory.contracts.memory_id import validate_memory_id
-from dynamic_memory.memory.build import MemoryBuildResult
+from dynamic_memory.contracts import MemoryBuildResult
 from dynamic_memory.memory.extraction import MEMORY_DRAFT_PROMPT
 from dynamic_memory.memory.windows import WindowPlanningError, plan_extraction_windows
 from dynamic_memory.pipeline.settings import ExtractionSettings, ModelsSettings

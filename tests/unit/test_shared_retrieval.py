@@ -80,3 +80,23 @@ def test_raw_port_excludes_history_and_preserves_main_snapshot():
     assert [item.memory_id for item in pure.items] == [item.memory_id for item in main.items[:8]]
     assert shared.retrieve(request, analysis, index) == main
     assert encoder.query_calls == before + 1
+
+
+def test_same_retriever_identity_new_index_content_invalidates_cache():
+    from dynamic_memory.retrieval.index import RetrievalIndex
+    encoder, index, request, analysis, retriever = setup()
+    assert len(index.memory_ids) >= 2
+    document = index._document()
+    first = document.model_copy(update={"vectors": ((1.0, 0.0), (-1.0, 0.0))})
+    second = document.model_copy(update={"vectors": ((-1.0, 0.0), (1.0, 0.0))})
+    old_index = RetrievalIndex(first.model_dump_json(), index._artifact_json)
+    new_index = RetrievalIndex(second.model_dump_json(), index._artifact_json)
+    assert old_index.retriever_fingerprint == new_index.retriever_fingerprint
+    assert old_index.index_fingerprint != new_index.index_fingerprint
+    shared = SharedRetrieval(retriever)
+    old = shared.retrieve(request, analysis, old_index)
+    fresh = retriever.retrieve(request, analysis, new_index)
+    actual = shared.retrieve(request, analysis, new_index)
+    assert actual == fresh and actual != old
+    assert shared.retrieve(request, analysis, new_index) == fresh
+    assert len(shared._entries) == 2

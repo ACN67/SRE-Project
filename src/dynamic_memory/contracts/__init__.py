@@ -5,3 +5,4 @@ from .artifacts import FailedWindow, MemoryManifest, MemoryArtifact, memory_set_
 from .data import ConversationSession, ConversationSample, DatasetBundle
 from .validation import validate_resolution_against_candidates, validate_response_context
 from .service_status import BuildStatus, DatasetState, MemoryState
+from .build import MemoryBuildResult, WindowDiagnostic

@@ -167,7 +167,12 @@ class DynamicMemoryService:
                 raise ValueError
             _public_fields_only(raw)
             status = BuildStatus.model_validate(raw.model_dump(mode="python"), strict=True)
-        except Exception:
+        except Exception as exc:
+            # The port may be unable to return a BuildStatus when its current
+            # pointer is corrupt and no trusted build ID exists. Preserve that
+            # diagnostic without inventing an ID or accepting a malformed DTO.
+            if getattr(exc, "code", None) in ("ARTIFACT_CORRUPT", "ARTIFACT_STALE"):
+                raise ServiceError(exc.code) from None
             raise ServiceError("BUILD_STATUS_INVALID") from None
         if status.dataset_state != state:
             raise ServiceError("BUILD_STATUS_INVALID")
@@ -298,7 +303,7 @@ class DynamicMemoryService:
         return QueryResponse.model_validate_json(result.model_dump_json())
 
     def run_query(self, request: QueryRequest, method: str = "dynamic") -> QueryResponse:
-        if method not in ("full_text", "vector_rag", "dynamic"):
+        if method not in ("full_text", "vector_rag", "dynamic", "pure_vector_topk"):
             raise ServiceError("INVALID_METHOD")
         if type(request) is not QueryRequest:
             raise ServiceError("QUERY_REQUEST_INVALID")
@@ -312,7 +317,8 @@ class DynamicMemoryService:
         try:
             prepared = self._query_orchestrator.prepare_query(checked)
             if prepared.must_early_stop:
-                response = self._query_orchestrator.run_prepared(prepared, method)
+                response = (self._query_orchestrator.run_pure_vector_prepared(prepared).response
+                    if method == "pure_vector_topk" else self._query_orchestrator.run_prepared(prepared, method))
                 return self._checked_response(checked, method, response, None, early_stop=True)
         except Exception:
             return self._error(checked, method, "QUERY_EXECUTION_FAILED")
@@ -337,7 +343,8 @@ class DynamicMemoryService:
             except ServiceError as exc:
                 return self._error(checked, method, exc.code)
         try:
-            response = self._query_orchestrator.run_prepared(prepared, method)
+            response = (self._query_orchestrator.run_pure_vector_prepared(prepared).response
+                if method == "pure_vector_topk" else self._query_orchestrator.run_prepared(prepared, method))
             if artifact is not None:
                 current_status, current_artifact = self._status_and_artifact(checked.sample_id)
                 if (current_artifact is None or current_status.build_id != artifact.manifest.build_id or

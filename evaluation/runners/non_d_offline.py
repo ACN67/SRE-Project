@@ -36,19 +36,17 @@ def run_non_d_offline(manifest: QuestionManifest, service: DynamicMemoryService,
     receipts = {}
     status_counts = {}
     error_code_counts = {}
+    checked_by_method = {}
     for method in METHODS:
         responses: list[QueryResponse] = []
         for record in manifest.records:
             request = record.to_query_request()
-            if method == "pure_vector_topk":
-                prepared = orchestrator.prepare_query(request)
-                response = orchestrator.run_pure_vector_prepared(prepared).response
-            else:
-                response = service.run_query(request, method)
+            response = service.run_query(request, method)
             responses.append(response)
         path = directory / f"{method}.predictions.json"
         receipt = save_predictions(path, manifest, responses, method)
         checked = verify_predictions(path, manifest, receipt)
+        checked_by_method[method] = checked
         receipts[method] = receipt
         # Count the independently reopened, SHA-verified predictions, not
         # unchecked in-memory responses. All statuses, including zeroes,
@@ -66,6 +64,29 @@ def run_non_d_offline(manifest: QuestionManifest, service: DynamicMemoryService,
                       row.answer_result.error.code == code for row in checked)
             for code in codes
         }
+    comparisons = []
+    for index, record in enumerate(manifest.records):
+        vector = checked_by_method["vector_rag"][index]
+        pure = checked_by_method["pure_vector_topk"][index]
+        vector_items = vector.retrieved.items if vector.retrieved is not None else []
+        pure_items = pure.retrieved.items if pure.retrieved is not None else []
+        final_ids = [item.memory_id for item in vector_items]
+        comparisons.append({
+            "query_id": record.query_id, "sample_id": record.sample_id,
+            "initial_topk_ids": [item.memory_id for item in pure_items],
+            "expanded_ids": [item.memory_id for item in vector_items
+                             if item.origin == "history_expansion"],
+            "final_candidate_ids": final_ids,
+            "candidate_origins": [item.origin for item in vector_items],
+            "vector_used_memory_ids": vector.answer_result.used_memory_ids,
+            "pure_used_memory_ids": pure.answer_result.used_memory_ids,
+            "vector_context_excluded_ids": [mid for mid in final_ids
+                                            if mid not in vector.answer_result.used_memory_ids],
+            "vector_status": vector.answer_result.status,
+            "pure_status": pure.answer_result.status,
+        })
+    (directory / "candidate_comparison.json").write_text(
+        json.dumps(comparisons, sort_keys=True), encoding="utf-8")
     summary = {"execution_kind": "offline_synthetic_non_d", "snapshot_sha256": manifest.snapshot_sha256,
                "methods": list(METHODS), "question_count": len(manifest.records),
                "prediction_sha256": {method: receipt.file_sha256

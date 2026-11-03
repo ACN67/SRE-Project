@@ -24,9 +24,13 @@ def main() -> int:
     args = parser.parse_args()
     root = state_root(args.state)
     if args.action == "prepare":
+        from evaluation.question_manifest import load_question_manifest
         prepare_source(root)
-        builds = prepare_artifacts(root)
-        indexes = prepare_indexes(root)
+        manifest = load_question_manifest(root / "synthetic_locomo.json", root / "split.yaml",
+                                          selected_splits=("main_dev",))
+        sample_ids = tuple(dict.fromkeys(record.sample_id for record in manifest.records))
+        builds = prepare_artifacts(root, sample_ids)
+        indexes = prepare_indexes(root, sample_ids)
         print(json.dumps({"profile": "offline_synthetic", "builds": builds,
                           "indexes": indexes}, sort_keys=True))
         return 0
@@ -42,7 +46,7 @@ def main() -> int:
                                      Path(args.results))
         print(json.dumps({k: v.file_sha256 for k, v in receipts.items()}, sort_keys=True))
         return 0
-    for sample in ("synthetic-0", "synthetic-1"):
+    for sample in ("synthetic-0", "synthetic-1", "synthetic-2", "synthetic-3"):
         status = service.get_build_status(sample)
         if status.memory_state != "complete":
             raise RuntimeError("offline build is not complete")

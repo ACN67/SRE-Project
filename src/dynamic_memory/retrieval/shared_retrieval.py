@@ -34,7 +34,7 @@ class SharedRetrieval:
             key = fingerprint({"request": request.model_dump(mode="json"),
                                "analysis": analysis.model_dump(mode="json"),
                                "analysis_version": QUERY_ANALYSIS_VERSION,
-                               "index": document.retriever_fingerprint})
+                               "index": index.index_fingerprint})
             if key not in self._entries:
                 self._entries[key] = self._retriever.retrieve_with_trace(request, analysis, index)
                 if len(self._entries) > self._max_entries:
