@@ -5,12 +5,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import msvcrt
 import os
 import tempfile
 import time
-import winreg
 from pathlib import Path
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
+
+try:
+    import winreg
+except ImportError:
+    winreg = None
 
 from dynamic_memory.llm.deepseek import DeepSeekLLMAdapter
 from dynamic_memory.llm.execution import GuardedLLMAdapter, LLMExecutionError
@@ -28,12 +36,31 @@ def read_key() -> str | None:
     value = os.environ.get("DEEPSEEK_API_KEY")
     if value and value.strip():
         return value
+    if winreg is None:
+        return None
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as handle:
             value, _ = winreg.QueryValueEx(handle, "DEEPSEEK_API_KEY")
     except OSError:
         return None
     return value if isinstance(value, str) and value.strip() else None
+
+
+def lock_file(handle) -> None:
+    """Take a nonblocking exclusive lock on Windows or POSIX."""
+    if msvcrt is not None:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        return
+    import fcntl
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def unlock_file(handle) -> None:
+    if msvcrt is not None:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+    import fcntl
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def attempts_used() -> int:
@@ -59,7 +86,7 @@ def claim_attempt() -> int:
             lock.flush()
         lock.seek(0)
         try:
-            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            lock_file(lock)
         except OSError:
             raise RuntimeError("BUDGET_BUSY") from None
         try:
@@ -74,7 +101,7 @@ def claim_attempt() -> int:
             return used + 1
         finally:
             lock.seek(0)
-            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            unlock_file(lock)
 
 
 def make_request(kind: str) -> LLMRequest:

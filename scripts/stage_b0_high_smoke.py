@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import msvcrt
 import os
 import tempfile
 import time
@@ -15,7 +14,7 @@ from dynamic_memory.llm.deepseek import DeepSeekLLMAdapter
 from dynamic_memory.llm.execution import GuardedLLMAdapter, LLMExecutionError
 from dynamic_memory.llm.protocol import GenerationSettings, LLMMessage, LLMRequest
 from dynamic_memory.pipeline.settings import load_settings
-from scripts.stage_a_deepseek_smoke import read_key
+from scripts.stage_a_deepseek_smoke import lock_file, read_key, unlock_file
 
 EVIDENCE = Path(tempfile.gettempdir()) / "SRE_HIGH_BC_PREP_20261103_241dccfee3b3"
 LEDGER = EVIDENCE / "high_api_attempts.json"
@@ -127,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             lock.flush()
         lock.seek(0)
         try:
-            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            lock_file(lock)
         except OSError:
             print(json.dumps({"status": "CONCURRENT_RUN_REJECTED", "network_calls": 0}))
             return 2
@@ -148,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if len(results) == 2 and all(row["valid"] for row in results) else 2
         finally:
             lock.seek(0)
-            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            unlock_file(lock)
 
 
 if __name__ == "__main__":

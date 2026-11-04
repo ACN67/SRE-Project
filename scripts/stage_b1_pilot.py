@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import msvcrt
 import os
 import subprocess
 import tempfile
@@ -21,7 +20,7 @@ from dynamic_memory.memory.strict_evidence import strict_evidence_checker
 from dynamic_memory.memory.windows import plan_extraction_windows
 from dynamic_memory.pipeline.runtime import create_runtime
 from dynamic_memory.pipeline.settings import load_settings
-from scripts.stage_a_deepseek_smoke import read_key
+from scripts.stage_a_deepseek_smoke import lock_file, read_key, unlock_file
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = Path(tempfile.gettempdir()) / "SRE_STAGE_B_20261103_d3978804c53c"
@@ -134,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
             lock.flush()
         lock.seek(0)
         try:
-            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            lock_file(lock)
         except OSError:
             print(json.dumps({"status": "CONCURRENT_RUN_REJECTED", "network_calls": 0}))
             return 2
@@ -202,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if status in ("PILOT_REVIEWED", "PILOT_ZERO_FACTS") else 2
         finally:
             lock.seek(0)
-            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            unlock_file(lock)
 
 
 if __name__ == "__main__":
