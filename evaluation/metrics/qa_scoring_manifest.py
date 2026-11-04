@@ -9,7 +9,9 @@ import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from evaluation.predictions import PredictionReceipt, verify_predictions
+from evaluation.predictions import (
+    PredictionReceipt, _publish_new_file, verify_predictions,
+)
 from evaluation.question_manifest import EvaluationInputError, QuestionManifest, _pairs
 
 from .answer_adapter import adapt_answer
@@ -46,7 +48,7 @@ def _publish_new(target: Path, raw: bytes) -> None:
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        os.link(temporary, target)
+        _publish_new_file(temporary, target)
     except FileExistsError:
         raise EvaluationInputError("QA_SCORING_PATH_IN_USE") from None
     except OSError:

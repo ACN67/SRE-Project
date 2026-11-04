@@ -47,6 +47,8 @@ def test_repository_defaults_and_pending_values():
     assert settings.evaluation.recall_at_k == [5, 10]
     assert settings.models.qa_max_input_tokens == 32768
     assert settings.models.qa_max_output_tokens == 256
+    assert settings.models.qa_omit_max_tokens is False
+    assert settings.models.reasoning_omit_max_tokens is False
     assert settings.models.request_timeout_seconds == 120
     assert settings.models.max_retries == 2
     assert settings.models.max_concurrent_api_requests == 2
@@ -121,6 +123,17 @@ def test_cross_field_budget_and_extra_key(config_dir):
 def test_shared_recall_budget(config_dir):
     change(config_dir, "evaluation", "recall_at_k", [5, 9])
     with pytest.raises(SettingsError, match="evaluation.yaml recall_at_k must match retrieval.yaml recall_at_k"):
+        load_settings(config_dir)
+
+
+def test_high_qa_default_output_requires_flash_high_and_64k_reserve(config_dir):
+    change(config_dir, "models", "model_id", "deepseek-flash")
+    change(config_dir, "models", "thinking", "enabled")
+    change(config_dir, "models", "reasoning_effort", "high")
+    change(config_dir, "models", "qa_omit_max_tokens", True)
+    assert load_settings(config_dir).models.qa_omit_max_tokens is True
+    change(config_dir, "models", "thinking", "disabled")
+    with pytest.raises(SettingsError, match="models.yaml.*thinking"):
         load_settings(config_dir)
 
 

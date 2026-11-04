@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError, replace
 import subprocess
 import sys
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -152,6 +153,35 @@ def test_custom_settings_and_explicit_model_override_are_preserved():
         assert call.model_id == "synthetic-config-model"
         assert build_prompt_request(rendered, config, model_id="synthetic-override").model_id == "synthetic-override"
     assert config.model_dump() == before
+
+
+def test_high_qa_request_omits_provider_max_tokens():
+    config = load_settings().models.model_copy(update={
+        "model_id": "deepseek-flash", "thinking": "enabled", "reasoning_effort": "high",
+        "qa_max_output_tokens": 2048, "qa_omit_max_tokens": True,
+    })
+    call = build_prompt_request(
+        render_prompt(QA_PROMPT, {"context": "synthetic context", "question": "Synthetic question?"}),
+        config,
+    )
+    assert call.settings.omit_max_tokens is True
+    assert call.settings.max_output_tokens == 65536
+
+
+def test_high_state_request_omits_provider_max_tokens():
+    config = load_settings(
+        models_profile=Path(__file__).resolve().parents[2]
+        / "configs/models_high_pilot.yaml"
+    ).models
+    call = build_prompt_request(
+        render_prompt(
+            STATE_REASONING_PROMPT,
+            {"question": "Synthetic question", "candidate_context": "Synthetic context"},
+        ),
+        config,
+    )
+    assert call.settings.omit_max_tokens is True
+    assert call.settings.max_output_tokens == 65536
 
 
 def test_three_qa_contexts_share_instructions_and_generation_settings():

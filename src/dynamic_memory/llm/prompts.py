@@ -173,6 +173,15 @@ def build_prompt_request(
         "qa": (settings.qa_max_input_tokens, settings.qa_max_output_tokens),
     }
     max_input, max_output = limits[rendered.template.task]
+    omit_max_tokens = (
+        (rendered.template.task == "memory_extraction" and settings.extraction_omit_max_tokens)
+        or (rendered.template.task == "state_reasoning" and settings.reasoning_omit_max_tokens)
+        or (rendered.template.task == "qa" and settings.qa_omit_max_tokens)
+    )
+    if omit_max_tokens:
+        # This is an internal guard reserve. The adapter omits max_tokens, so
+        # the provider's High-mode default remains authoritative.
+        max_output = 65536
     try:
         return LLMRequest(
             messages=rendered.messages, task=rendered.template.task,
@@ -181,8 +190,7 @@ def build_prompt_request(
                 max_input_tokens=max_input, max_output_tokens=max_output,
                 temperature=settings.temperature, thinking=settings.thinking,
                 reasoning_effort=settings.reasoning_effort,
-                omit_max_tokens=(rendered.template.task == "memory_extraction"
-                                 and settings.extraction_omit_max_tokens),
+                omit_max_tokens=omit_max_tokens,
             ),
             model_id=selected_model,
         )

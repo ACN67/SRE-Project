@@ -34,8 +34,10 @@ class ModelsSettings(SettingsModel):
     extraction_omit_max_tokens: bool = False
     reasoning_max_input_tokens: PositiveInt
     reasoning_max_output_tokens: PositiveInt
+    reasoning_omit_max_tokens: bool = False
     qa_max_input_tokens: PositiveInt
     qa_max_output_tokens: PositiveInt
+    qa_omit_max_tokens: bool = False
     request_timeout_seconds: PositiveInt
     max_retries: int = Field(ge=0)
     max_concurrent_api_requests: PositiveInt
@@ -53,9 +55,22 @@ class ModelsSettings(SettingsModel):
             self.extraction_max_input_tokens > 934464
         ):
             raise ValueError("High extraction default needs Flash, 64K output and context reserve")
+        if self.qa_omit_max_tokens and (
+            self.model_id != "deepseek-flash" or self.thinking != "enabled" or
+            self.reasoning_effort != "high"
+        ):
+            raise ValueError("High QA default needs Flash and High thinking")
+        if self.reasoning_omit_max_tokens and (
+            self.model_id != "deepseek-flash" or self.thinking != "enabled" or
+            self.reasoning_effort != "high" or
+            self.reasoning_max_output_tokens != 65536 or
+            self.reasoning_max_input_tokens > 934464
+        ):
+            raise ValueError("High reasoning default needs Flash, 64K output and context reserve")
         if self.reasoning_effort == "high" and any(
             not 512 <= value <= 4096 for value in (
-                self.reasoning_max_output_tokens, self.qa_max_output_tokens,
+                *(() if self.reasoning_omit_max_tokens else (self.reasoning_max_output_tokens,)),
+                *(() if self.qa_omit_max_tokens else (self.qa_max_output_tokens,)),
                 *(() if self.extraction_omit_max_tokens else (self.extraction_max_output_tokens,)),
             )
         ):

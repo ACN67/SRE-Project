@@ -2,6 +2,7 @@
 
 import json
 import hashlib
+import os
 from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
@@ -50,6 +51,26 @@ def test_save_verify_then_load_gold_by_unique_key(tmp_path):
     assert gold.records[0].category == 1 and gold.records[1].category == 5
     assert json.loads(gold.records[0].evidence_json) == ["SECRET_GOLD_EVIDENCE"]
     assert "SECRET_GOLD" not in path.read_text(encoding="utf-8")
+
+
+def test_verified_ordered_subset_can_load_only_its_gold_rows(tmp_path):
+    source, split, _ = synthetic_files(tmp_path)
+    full = load_question_manifest(source, split, selected_splits=("main_dev",))
+    subset = replace(full, records=full.records[:2])
+    path = tmp_path / "subset.predictions.json"
+    receipt = save_predictions(path, subset, predictions(subset), "full_text")
+    gold = load_gold_after_predictions(
+        source,
+        split,
+        path,
+        subset,
+        receipt,
+        annotation_source="synthetic_fixture",
+    )
+    assert tuple(record.query_id for record in gold.records) == tuple(
+        record.query_id for record in subset.records
+    )
+    assert len(gold.missing_keys) == 0
 
 
 def test_missing_receipt_file_hash_and_mismatched_identity_fail_before_gold(tmp_path):
@@ -186,14 +207,17 @@ def test_publish_race_cannot_overwrite_an_existing_prediction(tmp_path, monkeypa
     source, split, _ = synthetic_files(tmp_path)
     manifest = load_question_manifest(source, split, selected_splits=("main_dev",))
     target = tmp_path / "concurrent.predictions.json"
-    original_link = predictions_module.os.link
+    publisher_name = "rename" if os.name == "nt" else "link"
+    original_publish = getattr(predictions_module.os, publisher_name)
     winner_content = b"another completed writer"
 
     def simulate_concurrent_publisher(temp, final):
         Path(final).write_bytes(winner_content)
-        return original_link(temp, final)
+        return original_publish(temp, final)
 
-    monkeypatch.setattr(predictions_module.os, "link", simulate_concurrent_publisher)
+    monkeypatch.setattr(
+        predictions_module.os, publisher_name, simulate_concurrent_publisher
+    )
     fail("PREDICTION_PATH_IN_USE", save_predictions, target, manifest,
          predictions(manifest), "full_text")
     assert target.read_bytes() == winner_content

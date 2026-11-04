@@ -227,6 +227,28 @@ def test_known_source_build_and_index_errors_preserve_codes(code):
     assert result.retrieved is result.resolution is None
 
 
+@pytest.mark.parametrize("code", [
+    "INPUT_INVALID", "QUERY_ANALYSIS_MISMATCH", "CANDIDATES_INVALID",
+    "PROVENANCE_INVALID", "CUTOFF_INVALID", "INPUT_BUDGET_UNKNOWN",
+    "INPUT_BUDGET_EXCEEDED", "OUTPUT_BUDGET_EXCEEDED",
+    "INVALID_ESTIMATE", "RESPONSE_INCOMPLETE", "TIMEOUT",
+    "MODEL_OUTPUT_INVALID", "DIAGNOSTIC_FAILED", "DEPENDENCY_INVALID",
+])
+def test_d_resolution_error_codes_are_not_collapsed(code):
+    class KnownFailure(Exception):
+        pass
+
+    def broken(*_args):
+        error = KnownFailure()
+        error.code = code
+        raise error
+
+    result = QueryOrchestrator(**ports(resolver=broken)).run_query(query())
+    assert result.answer_result.status == "error"
+    assert result.answer_result.error.code == code
+    assert result.retrieved is result.resolution is None
+
+
 def test_bad_sample_and_full_text_ref_are_rejected():
     config = ports()
     config["get_sample"] = lambda _sid: source_repository().get_sample(SAMPLE).model_copy(update={"sample_id": "other"})

@@ -1,15 +1,16 @@
 # SRE-Project：智能体动态记忆管理系统
 
-课程项目依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2 开发。A/B/C/E 已有明确的离线合成集成入口；正式模型、真实数据及 D 的动态推理仍属后续阶段。
+课程项目依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2 开发。A/B/C/E 已有明确的离线合成集成入口；D 的模型驱动状态解析与证据约束问答端口也已接入生产组合根。正式模型质量、多样本数据及独立验收仍属后续阶段。
 
 ## 当前已实现
 
 - Python 3.11 / Pydantic v2 公共 DTO、B 的来源加载与严格 Memory 产物、C 的索引与检索、A 的统一服务/Full Text/Vector RAG、E 的 Web 消费者。
 - `offline_synthetic` 从合成原始对话经 B Builder、严格发布、C 索引到 A/E 的可重复入口；固定向量、Mock QA 和合成证据检查器有明确标记。
-- 预测先落盘并校验的非 D 诊断运行；Dynamic 默认不可用，保留 D 的公共注入合同。
+- 预测先落盘并校验的非 D 诊断运行；D 的 `StateResolver`、`DynamicAnswerer`、`DynamicServicePorts` 与生产工厂已接通，Dynamic 和 Vector RAG 使用同一有序 CandidateSet。
 - 正式 YAML 中 `null` 仍表示尚未冻结，不会被离线 profile 覆盖成虚构的生产值。
+- 事实审核支持保守离线规则及模型主导的 DeepSeek v3 正式发布路径；审核来源、弃权规则、覆盖率和独立质量验收边界见 [自动事实审核](docs/AUTO_REVIEW.md)及[语义审核](docs/SEMANTIC_REVIEW.md)。
 
-真实 DeepSeek 抽取、生产证据审核、真实 Embedding、D 动态状态推理和正式 LoCoMo 评分尚未验收。Mock 输出不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结 `main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。已完成的正式 [SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md) 分别记录需求正文和实证边界。
+`main_dev/conv-30` 已完成真实 DeepSeek 抽取、v3 语义审核、ReviewedMemoryArtifact 发布、BGE 索引、非 D 问答、开发集评分和真实 Web 只读验证，详见 [阶段 4 报告](docs/STAGE4_NON_D_READINESS.md)与[阶段 5 报告](docs/STAGE5_NON_D_FINAL.md)。`conv-26` 已完成 83 窗提取与语义审核、762 条正式 Memory 发布、真实 BGE 索引和 A/B/C/D/E 无网络生产装配验证，详见 [conv-26 报告](docs/STAGE6_CONV26.md)。其余 main_dev 样本、D 的真实状态判断质量、Dynamic 三路对照和正式独立 test 尚未验收。D 的接口与边界见 [D 交付说明](docs/D-delivery.md)。Mock 输出不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结 `main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。正式 [SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md) 分别记录需求正文和实证边界。
 
 ## 分工
 
@@ -77,6 +78,21 @@ C 的索引构建、保存与加载遵守 v2.2 `MemoryArtifact` 契约，详见 
 ```
 
 当前输出为 `mock 8`。缺失文件、格式或字段错误会抛出带文件名和字段名的 `SettingsError`。
+
+### 真实 conv-30 Web
+
+```powershell
+$env:DYNAMIC_MEMORY_WEB_FACTORY = 'dynamic_memory.integration.production:create_web_bindings'
+$env:SRE_PRODUCTION_ARTIFACT_ROOT = 'C:\path\to\semantic_v3_artifacts'
+$env:SRE_PRODUCTION_INDEX_PATH = 'C:\path\to\conv-30.json'
+$env:SRE_PRODUCTION_MODEL_ROOT = 'C:\path\to\bge-small-en-v1.5'
+$env:SRE_PRODUCTION_MODEL_REVISION = '5c38ec7c405ec4b44b94cc5a9bb96e735b38267a'
+$env:SRE_PRODUCTION_SAMPLE_ID = 'conv-30'
+python scripts/run_web.py
+```
+
+生产工厂启动时只读加载已审核 Memory 和真实索引，不自动调用模型。用户提交
+Full Text、Vector RAG 或 Dynamic 问题后，才可能产生模型请求。
 
 ## 后续工作和安全边界
 

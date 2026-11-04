@@ -66,8 +66,11 @@ class LLMRequest(LLMModel):
         required_mode = "text" if self.task == "qa" else "json"
         if self.output_mode != required_mode:
             raise ValueError(f"{self.task} requires output_mode={required_mode}")
-        if self.settings.omit_max_tokens and (self.task != "memory_extraction" or self.model_id != "deepseek-flash"):
-            raise ValueError("provider default output is only available for DeepSeek extraction")
+        if self.settings.omit_max_tokens and (
+            self.task not in {"memory_extraction", "state_reasoning", "qa"}
+            or self.model_id != "deepseek-flash"
+        ):
+            raise ValueError("provider default output is only available for DeepSeek tasks")
         return self
 
 

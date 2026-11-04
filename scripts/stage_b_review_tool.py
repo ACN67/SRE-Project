@@ -1,4 +1,4 @@
-"""Human review helper: inspect a private queue and create only PENDING templates."""
+"""Inspect a private queue, verify review files, or run conservative automatic review."""
 
 from __future__ import annotations
 
@@ -17,6 +17,8 @@ def main() -> int:
     parser.add_argument("--queue", type=Path, required=True)
     parser.add_argument("--inspect", action="store_true")
     parser.add_argument("--pending-template", type=Path)
+    parser.add_argument("--auto-output-dir", type=Path,
+                        help="write machine-identified source-text decisions; never overwrites")
     parser.add_argument("--verify", action="store_true")
     parser.add_argument("--approval", type=Path)
     parser.add_argument("--authority", type=Path)
@@ -34,6 +36,22 @@ def main() -> int:
                 for w in queue.windows for f in w.facts),
             "automatically_unsupported": sum(f.automatic_status == "unsupported"
                 for w in queue.windows for f in w.facts)}
+        if args.auto_output_dir is not None:
+            if args.pending_template is not None or args.verify:
+                raise ReviewError("REVIEW_ACTION_INVALID")
+            from dynamic_memory.memory.auto_review import write_auto_review_files
+            approval_path, authority_path = write_auto_review_files(queue, args.auto_output_dir,
+                run_kind=args.run_kind)
+            verified = verify_review_files(queue, approval_path, authority_path,
+                run_kind=args.run_kind)
+            summary.update({"status": "AUTO_REVIEW_VERIFIED",
+                "reviewer_id": verified.approval.reviewer_id,
+                "approved_facts": sum(f.decision == "approved" for w in verified.approval.windows for f in w.facts),
+                "unclear_facts": sum(f.decision == "unclear" for w in verified.approval.windows for f in w.facts),
+                "approval_path": str(approval_path), "authority_path": str(authority_path),
+                "approval_fingerprint": verified.approval_fingerprint})
+            print(json.dumps(summary, ensure_ascii=False))
+            return 0
         if args.pending_template is not None:
             # This file deliberately cannot pass ReviewApproval validation until
             # an independent human supplies reviewer, time, decisions and reasons.

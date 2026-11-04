@@ -108,6 +108,28 @@ def _key(sha: str, sample_id: str, index: int, query_id: str) -> str:
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def make_question_record(*, snapshot_sha256: str, sample_id: str, original_qa_index: int,
+                         question: str, split: str, query_id: str | None = None) -> QuestionRecord:
+    """Create a Gold-free evaluation record from an already selected question."""
+    if (not isinstance(snapshot_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", snapshot_sha256)
+            or not isinstance(sample_id, str) or not _ID.fullmatch(sample_id)
+            or type(original_qa_index) is not int or original_qa_index < 0
+            or not isinstance(question, str) or not question.strip()
+            or split not in _GROUPS):
+        raise EvaluationInputError("QUESTION_RECORD_INVALID")
+    identifier = query_id or f"qa_{sample_id}_{original_qa_index}"
+    if not isinstance(identifier, str) or not _ID.fullmatch(identifier) or identifier.startswith("interactive_"):
+        raise EvaluationInputError("QUERY_ID_INVALID")
+    return QuestionRecord(
+        sample_id=sample_id,
+        query_id=identifier,
+        original_qa_index=original_qa_index,
+        question=question,
+        gold_record_key=_key(snapshot_sha256, sample_id, original_qa_index, identifier),
+        split=split,
+    )
+
+
 def _manifest_from_verified(info, document, split_by_id, selected_splits, official_id_field):
     if not selected_splits or len(set(selected_splits)) != len(selected_splits) or any(
         split not in _GROUPS for split in selected_splits
@@ -138,6 +160,38 @@ def _manifest_from_verified(info, document, split_by_id, selected_splits, offici
                 records.append(QuestionRecord(sample_id, query_id, index, qa["question"],
                                               key, split_by_id[sample_id]))
     return QuestionManifest(info.sha256, tuple(records), tuple(selected_splits), official_id_field)
+
+
+def verify_manifest_selection(manifest: QuestionManifest, info, document,
+                              split_by_id) -> QuestionManifest:
+    """Verify that a manifest is an ordered subset of one frozen split."""
+    if type(manifest) is not QuestionManifest:
+        raise EvaluationInputError("MANIFEST_INVALID")
+    full = _manifest_from_verified(
+        info, document, split_by_id, manifest.selected_splits,
+        manifest.official_id_field,
+    )
+    if (
+        full.snapshot_sha256 != manifest.snapshot_sha256
+        or full.selected_splits != manifest.selected_splits
+        or full.official_id_field != manifest.official_id_field
+        or not manifest.records
+    ):
+        raise EvaluationInputError("MANIFEST_MISMATCH")
+    by_id = {record.query_id: record for record in full.records}
+    selected = set()
+    for record in manifest.records:
+        expected = by_id.get(record.query_id)
+        if (
+            expected is None
+            or record.query_id in selected
+            or record != expected
+        ):
+            raise EvaluationInputError("MANIFEST_MISMATCH")
+        selected.add(record.query_id)
+    if tuple(record for record in full.records if record.query_id in selected) != manifest.records:
+        raise EvaluationInputError("MANIFEST_MISMATCH")
+    return manifest
 
 
 def load_question_manifest(snapshot_path: str | Path, split_path: str | Path, *,

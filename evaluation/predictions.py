@@ -41,6 +41,14 @@ def _target(path: str | Path) -> Path:
         raise EvaluationInputError("PREDICTION_PATH_INVALID") from None
 
 
+def _publish_new_file(temporary: Path, target: Path) -> None:
+    """Atomically create target without replacing an existing file."""
+    if os.name == "nt":
+        os.rename(temporary, target)
+    else:
+        os.link(temporary, target)
+
+
 def _reject_extra(value: object) -> None:
     if isinstance(value, BaseModel):
         if set(value.__dict__) != set(type(value).model_fields) or value.__pydantic_extra__:
@@ -115,8 +123,7 @@ def save_predictions(path: str | Path, manifest: QuestionManifest,
             stream.flush()
             os.fsync(stream.fileno())
         # Publish a fully fsynced file without replacing an existing target.
-        # Hard-link creation is atomic and fails if another writer wins the race.
-        os.link(temporary, target)
+        _publish_new_file(temporary, target)
     except FileExistsError:
         raise EvaluationInputError("PREDICTION_PATH_IN_USE") from None
     except OSError:

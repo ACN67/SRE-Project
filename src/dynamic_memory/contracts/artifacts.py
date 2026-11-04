@@ -54,6 +54,7 @@ class ProductionProvenance(BaseModel):
     reviewer_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
     review_status: Literal["approved"]
     review_authority_fingerprint: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    extraction_lineage_fingerprint: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
 
 
 class MemoryManifest(ContractModel):
@@ -120,6 +121,8 @@ class MemoryManifest(ContractModel):
         payload = self.model_dump(mode="json")
         if self.production_provenance is None:
             payload.pop("production_provenance")  # preserve legacy Mock identity
+        elif payload["production_provenance"].get("extraction_lineage_fingerprint") is None:
+            payload["production_provenance"].pop("extraction_lineage_fingerprint")
         return _json_fingerprint(payload)
 
 

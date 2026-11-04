@@ -102,7 +102,8 @@ def _check_evidence(
     draft: AtomicFactDraft, sources: tuple[SourceTurn, ...],
     checker: EvidenceChecker | None, window_id: str,
 ) -> None:
-    if checker is not None and getattr(checker, "_human_verified", False):
+    if checker is not None and (getattr(checker, "_trusted_verified", False)
+                                or getattr(checker, "_human_verified", False)):
         try:
             assessment = checker(draft, sources)
         except Exception:

@@ -161,7 +161,8 @@ class GuardedLLMAdapter:
             fail("INVALID_REQUEST")
         prefix = {"memory_extraction": "extraction", "state_reasoning": "reasoning", "qa": "qa"}[request.task]
         allowed_input = getattr(self._settings, f"{prefix}_max_input_tokens")
-        allowed_output = getattr(self._settings, f"{prefix}_max_output_tokens")
+        allowed_output = (65536 if request.settings.omit_max_tokens else
+                          getattr(self._settings, f"{prefix}_max_output_tokens"))
         if request.settings.max_input_tokens > allowed_input or request.settings.max_output_tokens > allowed_output:
             fail("REQUEST_BUDGET_EXCEEDED")
         if self._estimator is not None:

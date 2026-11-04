@@ -8,9 +8,9 @@
 
 需要候选上下文的校验由 `validate_resolution_against_candidates` 执行；需要完整 Memory 和原始轮次索引的引用校验由 `validate_response_context` 执行。结构与 ID 校验不能证明语义事实受原文支持，后续成员须人工抽查。Gold 不在业务 DTO 中。
 
-当前 A/B/C/E 已有显式 `offline_synthetic` 的 Builder 严格发布、索引、统一服务、非 D 评测与 Web 工厂，且通过合成集成回归。D 的真实状态解析未接入；正式模型、Embedding、证据审核、真实数据和 Gold 尚未联调。既有 DeepSeek Adapter 是可配置基础设施，不表示正式生产链已验收。
+当前 A/B/C/D/E 已有显式 `offline_synthetic` 的 Builder 严格发布、索引、统一服务、D 状态解析、证据约束问答与 Web 工厂，并已通过合成集成回归。生产组合根使用同一 `LLMRuntime` 接入 D；真实状态判断质量、正式 Embedding、证据审核、真实数据与 Gold 联调仍需继续验收。
 
-当前**技术规范为 `TECHNICAL_SPEC.md` v2.2，业务 DTO 的 Schema 仍为 2.1**。IC-001 数据容器、IC-002 公共构建报告 `contracts.build`、IC-003 Mock 严格产物发布/回读、IC-012 只读状态及 A/E 统一服务已在合成模式实现并有回归。生产级 B 证据审核、真实 C Embedding 和正式 D 仍需后续工作。
+当前**技术规范为 `TECHNICAL_SPEC.md` v2.2，业务 DTO 的 Schema 仍为 2.1**。IC-001 数据容器、IC-002 公共构建报告 `contracts.build`、IC-003 Mock 严格产物发布/回读、IC-012 只读状态及 A/D/E 统一服务已实现并有回归。生产级 B 证据审核、真实 C Embedding 和 D 的真实语义质量仍需后续工作。
 
 **IC-001：** `contracts.data` 唯一定义并由 `dynamic_memory.contracts` 导出 `ConversationSession(session_id, turns: list[SourceTurn])`、`ConversationSample(schema_version="2.1", sample_id, source_order_1_based, sessions)`、`DatasetBundle(schema_version="2.1", snapshot_sha256, samples, split_by_sample_id)`。`source_order_1_based` 从 1 开始，仅记录原文件位置，不能替代 `sample_id`。会话、轮次和样本列表保留传入顺序；同一样本的 session ID、同一 session 的 dia ID、Bundle 的 sample ID 各自唯一，轮次的 sample/session ID 必须与父对象匹配。不同 session 可复用 dia ID，完整来源键仍为 `(sample_id, session_id, dia_id)`。划分值限定为 `main_dev/extra_dev/test`，映射键必须恰好等于 Bundle 的 sample ID 集合；快照字段为 64 位小写 SHA-256 十六进制摘要。规范未规定最小会话/轮次/样本数量，因此公共容器允许空列表与对应的空划分映射；正式数据是否满足冻结配置，由 B 的 loader 另行严格核验。
 
@@ -19,6 +19,8 @@
 **G-01：** A 的 `GuardedLLMAdapter` 对 JSON 模式空白 Provider 内容统一分类为 `EMPTY_JSON`，与超时/网络/限流共享最多三次 Provider 尝试；`{}`、非空无效 JSON、截断和业务 Schema 失败直接失败。B/D 不叠加重试，失败不写入成功缓存。
 
 **G-02：** 公共 `contracts.artifacts` 提供 `MemoryManifest` / `MemoryArtifact` / `memory_set_fingerprint`；`contracts.build` 唯一定义 `MemoryBuildResult` / `WindowDiagnostic`，B 旧导入路径为同一类型的兼容别名。正式索引签名为 `build_index(artifact: MemoryArtifact, settings: RetrievalSettings)`。B 严格 loader 核验磁盘哈希、来源与发布指针；公共对象的结构校验本身不代表磁盘已验证。C 索引拒绝 partial，并核对来源、Encoder、检索参数和完整索引内容指纹；裸 Memory 列表只用于内部编码。
+
+跨运行合并发布时，`ReviewAttestation` 与 `ProductionProvenance` 的可选 `extraction_lineage_fingerprint` 指向随产物保存的 `extraction_lineage.json` 字节 SHA256。该清单逐窗保存原运行、检查点、授权及 Prompt 指纹；严格 loader 回读其哈希、样本、数据快照与窗口来源。单次运行旧产物可省略此字段，其既有来源清单指纹保持不变。
 
 
 ## IC-012：统一只读服务状态（A-18）

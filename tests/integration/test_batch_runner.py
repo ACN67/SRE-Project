@@ -14,6 +14,7 @@ from dynamic_memory.memory.batch_budget import BatchApproval, BudgetError, load_
 from dynamic_memory.memory.batch_budget import BatchBudgetLedger
 from dynamic_memory.memory.checkpoints import CheckpointError, WindowCheckpointStore
 from dynamic_memory.memory.review_workflow import ReviewError, ReviewQueue
+from dynamic_memory.memory.auto_review import write_auto_review_files
 from dynamic_memory.retrieval import EncoderIdentity
 from scripts.stage_b_repair_runner import _budget_root, prepare_plan, run_plan
 from tests.integration.test_review_workflow import files
@@ -76,6 +77,24 @@ def test_63_fake_pause_resume_manual_review_publish_and_index(tmp_path):
     published = run_plan(plan, state_dir=state, approval=approval,
         approval_fingerprint=digest, allow_new_calls=False, review_file=review_file,
         authority_file=authority_file, index_encoder=FixedEncoder())
+    assert published["status"] == "PUBLISHED" and published["memory_count"] == 63
+    assert published["network_calls"] == 0 and sdk.calls == 63
+    assert (state / "indexes/synthetic-0.json").exists()
+
+
+def test_automatic_review_replays_and_publishes_without_new_calls(tmp_path):
+    plan, sdk, approval, digest = approved_plan(tmp_path)
+    state = tmp_path / "state"
+    pending = run_plan(plan, state_dir=state, approval=approval,
+        approval_fingerprint=digest, allow_new_calls=True)
+    assert pending["status"] == "PENDING_REVIEW" and sdk.calls == 63
+    queue = ReviewQueue.model_validate_json((state / "private_review/queue.json").read_bytes())
+    review_file, authority_file = write_auto_review_files(queue, tmp_path / "machine-review",
+        run_kind="offline_test")
+    published = run_plan(plan, state_dir=state, approval=approval,
+        approval_fingerprint=digest, allow_new_calls=False,
+        review_file=review_file, authority_file=authority_file,
+        index_encoder=FixedEncoder())
     assert published["status"] == "PUBLISHED" and published["memory_count"] == 63
     assert published["network_calls"] == 0 and sdk.calls == 63
     assert (state / "indexes/synthetic-0.json").exists()

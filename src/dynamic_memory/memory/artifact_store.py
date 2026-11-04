@@ -30,6 +30,19 @@ from dynamic_memory.pipeline.settings import ExtractionSettings, ModelsSettings
 _BUILD_ID = re.compile(r"build_[0-9a-f]{32}\Z")
 _POINTER = "current.json"
 _OFFICIAL_LOCOMO_SHA = "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+_EXTRACTION_MODEL_FIELDS = (
+    "default_backend", "api_enabled_by_default", "model_id", "thinking",
+    "reasoning_effort", "temperature", "extraction_max_input_tokens",
+    "extraction_max_output_tokens", "extraction_omit_max_tokens",
+    "request_timeout_seconds", "max_retries", "max_concurrent_api_requests",
+)
+_LEGACY_DOWNSTREAM_MODEL_DEFAULTS = {
+    "provider_under_consideration": "DeepSeek",
+    "reasoning_max_input_tokens": 8192,
+    "reasoning_max_output_tokens": 2048,
+    "qa_max_input_tokens": 32768,
+    "qa_max_output_tokens": 2048,
+}
 
 
 class WindowReview(BaseModel):
@@ -51,6 +64,7 @@ class ReviewAttestation(BaseModel):
     reviewed_memory_set_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     review_log_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     review_authority_fingerprint: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    extraction_lineage_fingerprint: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
     windows: tuple[WindowReview, ...] = Field(min_length=1)
 
 
@@ -124,14 +138,34 @@ class MemoryArtifactStore:
     def _source_identity(self, sample: ConversationSample) -> str:
         return _fp(sample.model_dump(mode="json", warnings="error"))
 
-    def _config_identity(self) -> str:
+    def _config_payload(self) -> dict:
         models = self.models_settings.model_dump(mode="json")
-        if not self.models_settings.extraction_omit_max_tokens:
-            models.pop("extraction_omit_max_tokens")  # Old Mock manifests remain readable.
+        return {
+            "format_version": 2,
+            "extraction": self.extraction_settings.model_dump(mode="json"),
+            "models": {name: models[name] for name in _EXTRACTION_MODEL_FIELDS},
+            "planner_prompt_reserve": self.reserved_prompt_tokens,
+            "draft_template_fingerprint": MEMORY_DRAFT_PROMPT.template_fingerprint,
+        }
+
+    def _config_identity(self) -> str:
+        return _fp(self._config_payload())
+
+    def _legacy_config_identity(self) -> str:
+        models = self.models_settings.model_dump(mode="json")
+        legacy = {
+            name: models[name]
+            for name in _EXTRACTION_MODEL_FIELDS
+            if name != "extraction_omit_max_tokens" or self.models_settings.extraction_omit_max_tokens
+        }
+        legacy.update(_LEGACY_DOWNSTREAM_MODEL_DEFAULTS)
         return _fp({"extraction": self.extraction_settings.model_dump(mode="json"),
-                    "models": models,
+                    "models": legacy,
                     "planner_prompt_reserve": self.reserved_prompt_tokens,
                     "draft_template_fingerprint": MEMORY_DRAFT_PROMPT.template_fingerprint})
+
+    def _config_identities(self) -> frozenset[str]:
+        return frozenset({self._config_identity(), self._legacy_config_identity()})
 
     def _checked_records(self, report: MemoryBuildResult, sample: ConversationSample) -> tuple[MemoryRecord, ...]:
         sources = {(session.session_id, turn.dia_id) for session in sample.sessions for turn in session.turns}
@@ -159,11 +193,13 @@ class MemoryArtifactStore:
         # reviewed entry point with an independently supplied attestation.
         if not self.allow_mock_publication or self.models_settings.default_backend != "mock":
             _fail("ARTIFACT_INCOMPLETE")
-        return self._publish_checked(report, backend="mock", provenance=None, review_receipt=None)
+        return self._publish_checked(report, backend="mock", provenance=None,
+                                     review_receipt=None, lineage_receipt=None)
 
     def _publish_checked(self, report: MemoryBuildResult, *, backend: str,
                          provenance: ProductionProvenance | None,
-                         review_receipt: bytes | None) -> MemoryArtifact:
+                         review_receipt: bytes | None,
+                         lineage_receipt: bytes | None) -> MemoryArtifact:
         if not isinstance(report, MemoryBuildResult):
             _fail("ARTIFACT_CORRUPT")
         if report.build_status == "failed":
@@ -215,6 +251,8 @@ class MemoryArtifactStore:
             _write(staging / "memories.json", exported)
             if review_receipt is not None:
                 _write(staging / "review_receipt.json", review_receipt)
+            if lineage_receipt is not None:
+                _write(staging / "extraction_lineage.json", lineage_receipt)
             manifest_bytes = _json_bytes(manifest.model_dump(mode="json", warnings="error"))
             _write(staging / "manifest.json", manifest_bytes)
             artifact = self._load_build(staging, sample, allow_partial=False)
@@ -247,7 +285,7 @@ class MemoryArtifactStore:
                 _fail("ARTIFACT_STALE")
             if (manifest.dataset_snapshot_sha256 != self.bundle.snapshot_sha256
                     or manifest.source_turns_fingerprint != self._source_identity(sample)
-                    or manifest.extraction_config_fingerprint != self._config_identity()
+                    or manifest.extraction_config_fingerprint not in self._config_identities()
                     or manifest.prompt_fingerprint != MEMORY_DRAFT_PROMPT.template_fingerprint):
                 _fail("ARTIFACT_STALE")
             if manifest.backend != self._expected_backend():
@@ -269,6 +307,7 @@ class MemoryArtifactStore:
                     receipt.reviewer_id != provenance.reviewer_id or
                     receipt.execution_policy_fingerprint != provenance.execution_policy_fingerprint or
                     receipt.review_authority_fingerprint != provenance.review_authority_fingerprint or
+                    receipt.extraction_lineage_fingerprint != provenance.extraction_lineage_fingerprint or
                     receipt.reviewed_memory_set_fingerprint != manifest.memory_set_fingerprint or
                     len(receipt.windows) != manifest.total_windows):
                     _fail("ARTIFACT_CORRUPT")
@@ -282,6 +321,19 @@ class MemoryArtifactStore:
                     any(item.source_refs_fingerprint != _fp([r.model_dump(mode="json") for r in window.source_refs])
                         for item, window in zip(receipt.windows, planned))):
                     _fail("ARTIFACT_STALE")
+                if provenance.extraction_lineage_fingerprint is not None:
+                    lineage_bytes = (directory / "extraction_lineage.json").read_bytes()
+                    lineage = json.loads(lineage_bytes)
+                    body = lineage["body"]
+                    if ("sha256:" + _sha(lineage_bytes) != provenance.extraction_lineage_fingerprint or
+                            lineage["digest"] != _fp(body) or
+                            body["sample_id"] != sample.sample_id or
+                            body["dataset_sha256"] != self.bundle.snapshot_sha256 or
+                            len(body["windows"]) != len(planned) or
+                            any(item["window_id"] != window.extraction_window_id or
+                                item["source_refs_fingerprint"] != _fp([ref.model_dump(mode="json") for ref in window.source_refs])
+                                for item, window in zip(body["windows"], planned))):
+                        _fail("ARTIFACT_CORRUPT")
             if manifest.build_status == "failed":
                 _fail("MEMORY_BUILD_FAILED")
             if manifest.build_status != "complete" and not allow_partial:
@@ -304,7 +356,7 @@ class MemoryArtifactStore:
             return MemoryArtifact(manifest=manifest, memories=records)
         except ArtifactStoreError:
             raise
-        except (OSError, ValidationError, ValueError, TypeError, AttributeError, RecursionError, UnicodeError, WindowPlanningError):
+        except (OSError, ValidationError, ValueError, TypeError, AttributeError, KeyError, RecursionError, UnicodeError, WindowPlanningError):
             _fail("ARTIFACT_CORRUPT")
 
     def load(self, *, allow_partial: bool = False) -> MemoryArtifact:
@@ -349,11 +401,15 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
 
     def publish_reviewed(self, report: MemoryBuildResult,
                          attestation: ReviewAttestation,
-                         *, verified_review: VerifiedReview | None = None) -> MemoryArtifact:
+                         *, verified_review: VerifiedReview | None = None,
+                         lineage_receipt: bytes | None = None) -> MemoryArtifact:
         if not isinstance(report, MemoryBuildResult) or not isinstance(attestation, ReviewAttestation):
             _fail("REVIEW_REQUIRED")
         try:
             receipt = ReviewAttestation.model_validate(attestation.model_dump(mode="python"))
+            if (receipt.extraction_lineage_fingerprint !=
+                    ("sha256:" + _sha(lineage_receipt) if lineage_receipt is not None else None)):
+                _fail("REVIEW_MISMATCH")
             models = self.models_settings
             if (models.model_id != "deepseek-flash" or models.thinking != "enabled" or
                 models.reasoning_effort != "high" or models.max_retries != 0 or
@@ -391,6 +447,24 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
                     any(len(w.facts) != d.input_fact_count for w, d in zip(
                         verified_review.queue.windows, report.window_diagnostics))):
                     _fail("REVIEW_MISMATCH")
+                # Raw v2 model decisions have known false approvals. Only the
+                # separately versioned, replayable v3 guard policy may publish.
+                if verified_review.authority.semantic_receipts_sha256 is not None:
+                    from dynamic_memory.memory.semantic_review import SEMANTIC_REVIEWER_ID
+                    if verified_review.approval.reviewer_id != SEMANTIC_REVIEWER_ID:
+                        _fail("SEMANTIC_REVIEW_QUALITY_PENDING")
+                if lineage_receipt is not None:
+                    lineage = json.loads(lineage_receipt)
+                    body = lineage["body"]
+                    if (lineage["digest"] != _fp(body) or
+                            verified_review.queue.run_fingerprint != _fp(lineage) or
+                            body["sample_id"] != report.sample_id or
+                            body["dataset_sha256"] != self.bundle.snapshot_sha256 or
+                            len(body["windows"]) != len(verified_review.queue.windows) or
+                            any(item["window_id"] != window.window_id or
+                                item["source_refs_fingerprint"] != window.source_refs_fingerprint
+                                for item, window in zip(body["windows"], verified_review.queue.windows))):
+                        _fail("REVIEW_MISMATCH")
                 sample = self._sample(report.sample_id)
                 planned = plan_extraction_windows(sample, self.extraction_settings,
                                                   reserved_prompt_tokens=self.reserved_prompt_tokens)
@@ -433,10 +507,12 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
                 review_fingerprint=_fp(receipt.model_dump(mode="json")),
                 reviewer_id=receipt.reviewer_id, review_status="approved",
                 review_authority_fingerprint=receipt.review_authority_fingerprint,
+                extraction_lineage_fingerprint=receipt.extraction_lineage_fingerprint,
             )
         except ArtifactStoreError:
             raise
-        except (ValidationError, ValueError, TypeError, AttributeError, WindowPlanningError):
+        except (ValidationError, ValueError, TypeError, AttributeError, KeyError, WindowPlanningError):
             _fail("REVIEW_MISMATCH")
         return self._publish_checked(report, backend="deepseek", provenance=provenance,
-                                     review_receipt=_json_bytes(receipt.model_dump(mode="json")))
+                                     review_receipt=_json_bytes(receipt.model_dump(mode="json")),
+                                     lineage_receipt=lineage_receipt)

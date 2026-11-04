@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from dynamic_memory.llm import MEMORY_EXTRACTION_PROMPT
+from dynamic_memory.llm import MEMORY_EXTRACTION_PROMPT, QA_PROMPT
 from dynamic_memory.llm.deepseek import DeepSeekAdapterError, DeepSeekLLMAdapter
 from dynamic_memory.llm.execution import GuardedLLMAdapter, LLMExecutionError
 from dynamic_memory.llm.protocol import GenerationSettings, LLMMessage, LLMRequest
@@ -44,13 +44,14 @@ def reply(content='{"ok":true}', *, finish="stop", model=MODEL,
     )
 
 
-def request(*, thinking="enabled", effort="high", mode="json", tokens=2048):
+def request(*, thinking="enabled", effort="high", mode="json", tokens=2048, omit=False):
     return LLMRequest(
         messages=(LLMMessage(role="user", content='Return json: {"ok":true}.'),),
         task="memory_extraction" if mode == "json" else "qa", output_mode=mode,
         model_id=MODEL,
         settings=GenerationSettings(max_input_tokens=200, max_output_tokens=tokens,
-                                    temperature=0, thinking=thinking, reasoning_effort=effort),
+                                    temperature=0, thinking=thinking, reasoning_effort=effort,
+                                    omit_max_tokens=omit),
     )
 
 
@@ -67,6 +68,21 @@ def test_high_exact_outbound_and_reasoning_is_not_persisted():
     assert result.raw_output == '{"ok":true}'
     assert result.usage.reasoning_tokens == 20
     assert "private chain" not in repr(result) and "private chain" not in str(result.model_dump())
+
+
+def test_high_qa_can_use_provider_default_output():
+    client = FakeClient(reply(content="OK"))
+    result = DeepSeekLLMAdapter(api_enabled=True, client=client, model_id=MODEL).generate(
+        request(mode="text", tokens=65536, omit=True)
+    )
+    assert result.raw_output == "OK"
+    assert client.calls == [{
+        "model": MODEL,
+        "messages": [{"role": "user", "content": 'Return json: {"ok":true}.'}],
+        "stream": False,
+        "extra_body": {"thinking": {"type": "enabled"}},
+        "reasoning_effort": "high",
+    }]
 
 
 def test_disabled_outbound_compatibility():
@@ -150,6 +166,11 @@ def test_runtime_profile_and_cache_keys_separate_modes():
     assert low_call.request.settings.reasoning_effort is None
     assert high_call.request.settings.max_output_tokens == 65536
     assert high_call.request.settings.omit_max_tokens
+    high_qa = high.make_request(
+        QA_PROMPT, {"context": "synthetic only", "question": "Synthetic question?"}
+    )
+    assert high_qa.request.settings.omit_max_tokens
+    assert high_qa.request.settings.max_output_tokens == 65536
     assert high.config_fingerprint != disabled.config_fingerprint
     assert high.execution_policy_fingerprint != disabled.execution_policy_fingerprint
     digest = "sha256:" + sha256(b"synthetic").hexdigest()

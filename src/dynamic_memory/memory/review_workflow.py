@@ -103,6 +103,12 @@ class TrustedReviewAuthority(_Frozen):
     authority_version: str = Field(min_length=1)
     allowed_run_kind: Literal["real", "offline_test"]
     expires_at: datetime
+    semantic_receipts_sha256: str | None = Field(default=None, pattern=_FP)
+
+    def model_dump(self, *args, **kwargs):
+        # Legacy authority fingerprints did not include this optional field.
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
 
 
 class VerifiedReview:
@@ -139,13 +145,19 @@ class VerifiedReview:
         return select
 
     def checker_for_window(self, window_id: str):
+        from dynamic_memory.memory.auto_review import AUTO_REVIEWER_ID
+        from dynamic_memory.memory.semantic_review import SEMANTIC_REVIEWER_ID, SEMANTIC_REVIEWER_ID_V2
+        automatic = self.approval.reviewer_id == AUTO_REVIEWER_ID
+        semantic = self.approval.reviewer_id in {SEMANTIC_REVIEWER_ID, SEMANTIC_REVIEWER_ID_V2}
         def check(draft: AtomicFactDraft, sources: tuple[SourceTurn, ...]) -> EvidenceAssessment:
             key = (window_id, _fp(draft.model_dump(mode="json")),
                    _fp([source.model_dump(mode="json") for source in sources]))
             if key in self._approved:
-                return EvidenceAssessment("supported", "HUMAN_APPROVED")
+                return EvidenceAssessment("supported", "AUTO_EXTRACTIVE_APPROVED" if automatic else
+                                          "LLM_SEMANTIC_APPROVED" if semantic else "HUMAN_APPROVED")
             return EvidenceAssessment("unclear", "REVIEW_NOT_APPROVED")
-        check._human_verified = True
+        check._trusted_verified = True
+        check._human_verified = not (automatic or semantic)
         return check
 
 
@@ -218,6 +230,35 @@ def verify_review_files(queue: ReviewQueue, approval_path: Path,
             authority.authority_version != approval.authority_version or
             len(approval.windows) != len(queue.windows)):
             raise ValueError("identity")
+        from dynamic_memory.memory.auto_review import (
+            AUTO_AUTHORITY_VERSION, AUTO_REVIEWER_ID, assess_auto_fact,
+        )
+        from dynamic_memory.memory.semantic_review import (
+            SEMANTIC_AUTHORITY_VERSION, SEMANTIC_AUTHORITY_VERSION_V2,
+            SEMANTIC_REVIEWER_ID, SEMANTIC_REVIEWER_ID_V2,
+            verify_semantic_receipts,
+        )
+        is_auto = approval.reviewer_id == AUTO_REVIEWER_ID
+        is_semantic = approval.reviewer_id in {SEMANTIC_REVIEWER_ID, SEMANTIC_REVIEWER_ID_V2}
+        if is_auto != (approval.authority_version == AUTO_AUTHORITY_VERSION):
+            raise ValueError("review method")
+        if (approval.authority_version in {SEMANTIC_AUTHORITY_VERSION, SEMANTIC_AUTHORITY_VERSION_V2}) != is_semantic:
+            raise ValueError("semantic review method")
+        if is_semantic and approval.authority_version != (
+                SEMANTIC_AUTHORITY_VERSION if approval.reviewer_id == SEMANTIC_REVIEWER_ID
+                else SEMANTIC_AUTHORITY_VERSION_V2):
+            raise ValueError("semantic review version")
+        if is_semantic:
+            if authority.semantic_receipts_sha256 is None:
+                raise ValueError("missing semantic receipts")
+            receipt_path = authority_path.parent / "semantic_receipts.json"
+            receipt_bytes = receipt_path.read_bytes()
+            if "sha256:" + hashlib.sha256(receipt_bytes).hexdigest() != authority.semantic_receipts_sha256:
+                raise ValueError("semantic receipt hash")
+            verify_semantic_receipts(queue, approval, receipt_bytes,
+                guarded=approval.reviewer_id == SEMANTIC_REVIEWER_ID)
+        elif authority.semantic_receipts_sha256 is not None:
+            raise ValueError("unexpected semantic receipts")
         for expected, reviewed in zip(queue.windows, approval.windows):
             if (reviewed.window_id != expected.window_id or
                 reviewed.source_refs_fingerprint != expected.source_refs_fingerprint or
@@ -225,6 +266,11 @@ def verify_review_files(queue: ReviewQueue, approval_path: Path,
                 len(reviewed.facts) != len(expected.facts)):
                 raise ValueError("window")
             for fact, decision in zip(expected.facts, reviewed.facts):
+                if is_auto:
+                    assessed = assess_auto_fact(fact)
+                    if (decision.decision != ("approved" if assessed.status == "supported" else "unclear")
+                            or decision.reason_code != assessed.reason_code):
+                        raise ValueError("automatic decision mismatch")
                 if (decision.draft_fingerprint != fact.draft_fingerprint or
                     decision.evidence_fingerprint != fact.evidence_fingerprint or
                     (decision.decision == "approved" and (

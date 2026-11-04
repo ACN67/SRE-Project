@@ -6,7 +6,9 @@ import pytest
 import yaml
 
 from dynamic_memory.data.snapshot import freeze_split_config, inspect_snapshot
-from evaluation.question_manifest import EvaluationInputError, load_question_manifest
+from evaluation.question_manifest import (
+    EvaluationInputError, load_question_manifest, make_question_record,
+)
 
 
 def synthetic_files(tmp_path):
@@ -61,6 +63,21 @@ def test_fallback_identity_original_position_and_business_whitelist(tmp_path):
     assert set(request.model_dump()) == {"schema_version", "query_id", "sample_id", "question", "as_of"}
     assert "SECRET_GOLD" not in repr(manifest) + request.model_dump_json()
     assert load_question_manifest(source, split, selected_splits=("test",)).records[0].sample_id == "synthetic-8"
+
+
+def test_gold_free_question_record_matches_manifest_identity(tmp_path):
+    source, split, _ = synthetic_files(tmp_path)
+    manifest = load_question_manifest(source, split, selected_splits=("main_dev",))
+    expected = manifest.records[0]
+    actual = make_question_record(
+        snapshot_sha256=manifest.snapshot_sha256,
+        sample_id=expected.sample_id,
+        original_qa_index=expected.original_qa_index,
+        question=expected.question,
+        split=expected.split,
+    )
+    assert actual == expected
+    assert "SECRET_GOLD" not in repr(actual)
 
 
 def test_explicit_verified_official_id_and_collisions(tmp_path):

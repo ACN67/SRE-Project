@@ -1,0 +1,62 @@
+{
+  "request": {
+    "schema_version": "2.1",
+    "query_id": "synthetic-d-q",
+    "sample_id": "synthetic-d",
+    "question": "Where does Sam work now?",
+    "as_of": null
+  },
+  "analysis": {
+    "schema_version": "2.1",
+    "query_id": "synthetic-d-q",
+    "sample_id": "synthetic-d",
+    "query_intent": "current_state",
+    "entity_hints": [],
+    "attribute_hints": [],
+    "time_mode": "latest_known",
+    "resolved_as_of": null,
+    "time_issue": null
+  },
+  "candidates": [
+    {
+      "schema_version": "2.1",
+      "memory_id": "mem_1b5fdab671c62182da9b",
+      "sample_id": "synthetic-d",
+      "content": "Synthetic: Sam works at A.",
+      "entity": "Sam",
+      "attribute": "job",
+      "value": "A",
+      "fact_kind": "state",
+      "assertion_type": "fact",
+      "polarity": "positive",
+      "recorded_at": null,
+      "event_time": null,
+      "source_refs": [{"session_id": "s1", "dia_id": "d1"}],
+      "extractor_version": "synthetic-d-v1"
+    },
+    {
+      "schema_version": "2.1",
+      "memory_id": "mem_96c84a3ab8383eaa1126",
+      "sample_id": "synthetic-d",
+      "content": "Synthetic: Sam works at B.",
+      "entity": "Sam",
+      "attribute": "job",
+      "value": "B",
+      "fact_kind": "state",
+      "assertion_type": "fact",
+      "polarity": "positive",
+      "recorded_at": null,
+      "event_time": null,
+      "source_refs": [{"session_id": "s2", "dia_id": "d1"}],
+      "extractor_version": "synthetic-d-v1"
+    }
+  ],
+  "conversation_cutoff": null,
+  "provenance": {
+    "data_fingerprint": "sha256:721738292bc35a0375df084b5b926eea684b2dd9c708f973398bfc8aafb4fd35",
+    "query_analysis_version": "synthetic-analysis-v1",
+    "git_sha": "0000000000000000000000000000000000000000",
+    "run_kind": "development",
+    "retriever_fingerprint": "sha256:d2bc9a361a19932eebd1e45b3444f45c7e89927c20b87282ffe06feeb636f94e"
+  }
+}

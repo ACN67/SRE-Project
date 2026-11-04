@@ -9,7 +9,8 @@ from typing import Literal
 
 from .predictions import PredictionReceipt, verify_predictions
 from .question_manifest import (
-    EvaluationInputError, QuestionManifest, _manifest_from_verified, _verified_source,
+    EvaluationInputError, QuestionManifest, _verified_source,
+    verify_manifest_selection,
 )
 
 AnnotationSource = Literal["course_gold", "team_annotated", "synthetic_fixture"]
@@ -42,10 +43,7 @@ def load_gold_after_predictions(snapshot_path: str | Path, split_path: str | Pat
         raise EvaluationInputError("ANNOTATION_SOURCE_INVALID")
     verify_predictions(prediction_path, manifest, receipt)
     info, document, split_by_id = _verified_source(snapshot_path, split_path)
-    current = _manifest_from_verified(info, document, split_by_id,
-                                      manifest.selected_splits, manifest.official_id_field)
-    if current != manifest:
-        raise EvaluationInputError("MANIFEST_MISMATCH")
+    verify_manifest_selection(manifest, info, document, split_by_id)
     positions = {item["sample_id"]: item for item in document}
     records = []
     missing = []

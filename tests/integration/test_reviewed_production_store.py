@@ -108,6 +108,15 @@ def test_63_fake_windows_publish_and_c_handoff(tmp_path):
     assert artifact.manifest.backend == "deepseek"
     assert artifact.manifest.production_provenance.run_kind == "offline_test"
     assert ports.load("synthetic-0") == artifact
+    downstream = ReviewedMemoryArtifactStore(
+        store.root, bundle, settings.extraction,
+        settings.models.model_copy(update={
+            "qa_max_input_tokens": 16384,
+            "qa_max_output_tokens": 512,
+            "qa_omit_max_tokens": False,
+        }),
+    )
+    assert downstream.load() == artifact
     assert ports.verified("synthetic-0").artifact == artifact
     artifact.require_complete_for_index()
     assert len(store.import_memories()) == 63
@@ -146,6 +155,32 @@ def test_tampered_review_receipt_fails_readback(tmp_path):
     artifact = store.publish_reviewed(report, receipt)
     review_file = store.root / "builds" / artifact.manifest.build_id / "review_receipt.json"
     review_file.write_text("{}", encoding="utf-8")
+    with pytest.raises(ArtifactStoreError, match="ARTIFACT_CORRUPT"):
+        store.load()
+
+
+def test_lineage_receipt_is_required_and_tampering_fails_readback(tmp_path):
+    from dynamic_memory.memory.review_workflow import _fp
+    from dynamic_memory.memory.windows import plan_extraction_windows
+    bundle, settings, report, receipt = fixture_63()
+    sample = SourceRepository(bundle).get_sample("synthetic-0")
+    windows = plan_extraction_windows(sample, settings.extraction, reserved_prompt_tokens=1800)
+    body = {"sample_id": sample.sample_id, "dataset_sha256": bundle.snapshot_sha256,
+        "windows": [{"window_id": w.extraction_window_id,
+                     "source_refs_fingerprint": _fp([r.model_dump(mode="json") for r in w.source_refs])}
+                    for w in windows]}
+    lineage = {"body": body, "digest": _fp(body)}
+    payload = (json.dumps(lineage, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    receipt = receipt.model_copy(update={
+        "extraction_lineage_fingerprint": "sha256:" + hashlib.sha256(payload).hexdigest()})
+    store = ReviewedMemoryArtifactStore(tmp_path / "artifacts", bundle,
+        settings.extraction, settings.models)
+    with pytest.raises(ArtifactStoreError, match="REVIEW_MISMATCH"):
+        store.publish_reviewed(report, receipt)
+    artifact = store.publish_reviewed(report, receipt, lineage_receipt=payload)
+    assert store.load().manifest.build_id == artifact.manifest.build_id
+    path = store.root / "builds" / artifact.manifest.build_id / "extraction_lineage.json"
+    path.write_bytes(payload + b" ")
     with pytest.raises(ArtifactStoreError, match="ARTIFACT_CORRUPT"):
         store.load()
 

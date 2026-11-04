@@ -18,7 +18,10 @@ from pathlib import Path
 
 from dynamic_memory.contracts import AnswerResult, ErrorInfo, QueryResponse
 from dynamic_memory.pipeline.query_runner import QueryOrchestrator
-from evaluation.predictions import PredictionReceipt, _check_rows, save_predictions, verify_predictions
+from evaluation.predictions import (
+    PredictionReceipt, _check_rows, _publish_new_file, save_predictions,
+    verify_predictions,
+)
 from evaluation.question_manifest import EvaluationInputError, QuestionManifest
 
 METHODS = ("full_text", "vector_rag", "dynamic")
@@ -169,7 +172,7 @@ def _publish_new(path: Path, raw: bytes) -> None:
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        os.link(temporary, path)
+        _publish_new_file(temporary, path)
     except FileExistsError:
         raise EvaluationInputError("RUN_FILE_EXISTS") from None
     except OSError:

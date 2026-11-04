@@ -3,6 +3,7 @@
 import hashlib
 import json
 import math
+import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
@@ -210,7 +211,8 @@ def test_scoring_interrupted_publish_fails_closed(tmp_path, monkeypatch, stage):
     report = evaluate_saved_qa(prediction, manifest, receipt, source, split,
                                annotation_source="synthetic_fixture")
     path = tmp_path / "qa_scoring_manifest.json"
-    original = scoring.os.link
+    publisher_name = "rename" if os.name == "nt" else "link"
+    original = getattr(scoring.os, publisher_name)
     calls = 0
     def interrupted(source_path, destination):
         nonlocal calls
@@ -218,7 +220,7 @@ def test_scoring_interrupted_publish_fails_closed(tmp_path, monkeypatch, stage):
         if calls == stage:
             raise OSError("SECRET_GOLD interruption")
         return original(source_path, destination)
-    monkeypatch.setattr(scoring.os, "link", interrupted)
+    monkeypatch.setattr(scoring.os, publisher_name, interrupted)
     with pytest.raises(EvaluationInputError, match="QA_SCORING_SAVE_FAILED") as error:
         save_qa_scoring_manifest(path, prediction, manifest, receipt, report,
                                  annotation_source="synthetic_fixture")
