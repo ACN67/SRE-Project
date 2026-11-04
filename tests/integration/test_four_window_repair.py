@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -11,7 +12,13 @@ from dynamic_memory.memory.batch_budget import BatchApproval, BudgetError, load_
 from dynamic_memory.memory.extraction import AtomicFactDraftBatch, MEMORY_DRAFT_PROMPT, WindowExtractionResult
 from scripts.stage_b_repair_runner import prepare_plan
 
+REAL_DATA = Path(__file__).resolve().parents[2] / "data/raw/locomo10.json"
+requires_real_data = pytest.mark.skipif(
+    not REAL_DATA.is_file(),
+    reason="official LoCoMo raw data is intentionally Git-ignored",
+)
 
+@requires_real_data
 def test_repair_plan_is_exactly_four_failed_original_windows():
     plan = prepare_plan(mode="repair4")
     assert len(plan.windows) == 63
@@ -22,6 +29,7 @@ def test_repair_plan_is_exactly_four_failed_original_windows():
     assert plan.settings.models.extraction_omit_max_tokens is True
 
 
+@requires_real_data
 def test_four_window_approval_requires_exact_scope_and_budget(tmp_path):
     plan = prepare_plan(mode="repair4")
     now = datetime.now(timezone.utc)
@@ -81,6 +89,7 @@ def test_unknown_fact_kind_rejected_and_genuine_zero_fact_batch_valid():
     assert AtomicFactDraftBatch.model_validate({"facts": []}).facts == []
 
 
+@requires_real_data
 def test_cross_run_merge_has_63_unique_origin_entries_and_rejects_missing(monkeypatch, tmp_path):
     plan = prepare_plan(mode="repair4")
     old_root = tmp_path / "old"

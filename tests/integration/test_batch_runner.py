@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,12 @@ from dynamic_memory.retrieval import EncoderIdentity
 from scripts.stage_b_repair_runner import _budget_root, prepare_plan, run_plan
 from tests.integration.test_review_workflow import files
 from tests.integration.test_reviewed_production_store import FakeSDK, fixture_63
+
+REAL_DATA = Path(__file__).resolve().parents[2] / "data/raw/locomo10.json"
+requires_real_data = pytest.mark.skipif(
+    not REAL_DATA.is_file(),
+    reason="official LoCoMo raw data is intentionally Git-ignored",
+)
 
 
 class FixedEncoder:
@@ -326,6 +333,7 @@ def test_corrupt_checkpoint_and_review_queue_stop_without_new_call(tmp_path):
     assert sdk.calls == 68
 
 
+@requires_real_data
 def test_real_budget_location_is_independent_of_mutable_state_directory(tmp_path, monkeypatch):
     plan = prepare_plan(mode="batch")  # frozen real data, planning only; zero HTTP
     approval = BatchApproval(authorization_id="test-only-fixed-budget-id",
