@@ -1,0 +1,38 @@
+D 部分待提交文件
+
+目标仓库：https://github.com/ACN67/SRE-Project.git
+建议目标：个人 D 分支，通过 PR 合并 main。
+
+本文件夹仅包含本次新增/修改的 17 个文件，保留原仓库相对路径。
+README.md、configs/reasoning.yaml、docs/SRS_ABCE_TRACE.md 属于共享文件；若远端已有更新，请合并改动，避免整文件覆盖。
+
+推荐在真实 Git 仓库根目录运行：
+git apply --check /path/to/D-changes.patch
+git apply /path/to/D-changes.patch
+
+也可按相对路径手动复制，已有共享文件先合并。D-changes.patch 与本提交说明不必提交到仓库。
+
+测试：D 新增 59 项通过；加公共合同共 158 项通过。完整回归 1153 项通过，19 项既有失败与原始副本一致。详见 docs/D-validation.md。
+验证原始日志在完整项目包中，本精简文件夹不包含日志。未调用真实模型，未验证真实数据语义质量。
+
+连接检查：GitHub 连接器访问成功，当前账号有 pull/push 权限；终端 Git 因 github.com DNS 解析失败而失败。
+没有提交、推送或创建远端分支。
+
+文件清单：
+README.md
+configs/reasoning.yaml
+docs/D-delivery.md
+docs/D-validation.md
+docs/SRS_ABCE_TRACE.md
+docs/validation/run_tests.py
+examples/dynamic_request.synthetic.json
+scripts/run_dynamic.py
+src/dynamic_memory/qa/__init__.py
+src/dynamic_memory/qa/dynamic.py
+src/dynamic_memory/reasoning/__init__.py
+src/dynamic_memory/reasoning/common.py
+src/dynamic_memory/reasoning/resolver.py
+src/dynamic_memory/reasoning/service_ports.py
+src/dynamic_memory/reasoning/smoke.py
+tests/dynamic/test_dynamic.py
+tests/dynamic/test_service_integration.py
