@@ -6,6 +6,7 @@ after the user explicitly submits a query in the Web application.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 import os
 import subprocess
 from pathlib import Path
@@ -38,42 +39,112 @@ class ProductionConfigurationError(ValueError):
 
 
 class ProductionWebService:
-    """Expose only the one sample published in the configured artifact root."""
+    """Expose only the ordered samples configured for this production session."""
 
-    def __init__(self, service: DynamicMemoryService, sample_id: str = "conv-30") -> None:
+    def __init__(
+        self,
+        service: DynamicMemoryService,
+        sample_ids: str | Sequence[str] = "conv-30",
+    ) -> None:
         self._service = service
-        self._sample_id = sample_id
+        values = (sample_ids,) if isinstance(sample_ids, str) else tuple(sample_ids)
+        if (
+            not values
+            or any(type(value) is not str or not value.strip() for value in values)
+            or len(set(values)) != len(values)
+        ):
+            raise ProductionConfigurationError("SAMPLE_CONFIGURATION_INVALID")
+        self._sample_ids = values
+
+    def _require_sample(self, sample_id: str) -> None:
+        if sample_id not in self._sample_ids:
+            raise ProductionConfigurationError("SAMPLE_NOT_EXPOSED")
 
     def list_samples(self) -> list[str]:
-        return [self._sample_id]
+        return list(self._sample_ids)
 
     def list_memories(self, sample_id: str):
+        self._require_sample(sample_id)
         return self._service.list_memories(sample_id)
 
     def get_memory(self, sample_id: str, memory_id: str):
+        self._require_sample(sample_id)
         return self._service.get_memory(sample_id, memory_id)
 
     def get_turn(self, sample_id: str, ref):
+        self._require_sample(sample_id)
         return self._service.get_turn(sample_id, ref)
 
     def get_build_status(self, sample_id: str):
+        self._require_sample(sample_id)
         return self._service.get_build_status(sample_id)
 
     def get_query_state(self, sample_id: str) -> str:
+        self._require_sample(sample_id)
         return self._service.get_query_state(sample_id)
 
     def run_query(self, request, method: str = "dynamic"):
+        self._require_sample(request.sample_id)
         return self._service.run_query(request, method)
 
 
-def _path(name: str) -> Path:
+def _environment_path(name: str) -> Path | None:
     raw = os.environ.get(name, "").strip()
     if not raw:
-        raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_REQUIRED")
+        return None
     path = Path(raw).expanduser()
     if not path.is_absolute():
         raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_REQUIRED")
     return path.resolve()
+
+
+def _path(name: str) -> Path:
+    value = _environment_path(name)
+    if value is None:
+        raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_REQUIRED")
+    return value
+
+
+def _configured_samples() -> tuple[str, ...]:
+    raw = os.environ.get("SRE_PRODUCTION_SAMPLE_IDS", "").strip()
+    if raw:
+        values = tuple(value.strip() for value in raw.split(",") if value.strip())
+    else:
+        value = os.environ.get("SRE_PRODUCTION_SAMPLE_ID", "").strip()
+        values = (value or "conv-30",)
+    if not values or len(set(values)) != len(values):
+        raise ProductionConfigurationError("SAMPLE_CONFIGURATION_INVALID")
+    return values
+
+
+def _configured_index_paths(sample_ids: Sequence[str]) -> dict[str, Path]:
+    root = _environment_path("SRE_PRODUCTION_INDEX_ROOT")
+    single = _environment_path("SRE_PRODUCTION_INDEX_PATH")
+    if root is not None and single is not None:
+        raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_CONFLICT")
+    if root is not None:
+        return {sample_id: root / f"{sample_id}.json" for sample_id in sample_ids}
+    if single is not None:
+        if len(sample_ids) != 1:
+            raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_REQUIRED")
+        return {sample_ids[0]: single}
+    raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_REQUIRED")
+
+
+def _configured_splits() -> tuple[str, ...]:
+    raw = os.environ.get("SRE_PRODUCTION_ALLOWED_SPLITS", "").strip()
+    values = (
+        tuple(value.strip() for value in raw.split(",") if value.strip())
+        if raw
+        else ("main_dev",)
+    )
+    if (
+        not values
+        or len(set(values)) != len(values)
+        or any(value not in ("main_dev", "extra_dev", "test") for value in values)
+    ):
+        raise ProductionConfigurationError("SPLIT_CONFIGURATION_INVALID")
+    return values
 
 
 def _api_key() -> str | None:
@@ -119,18 +190,71 @@ def create_system(
     settings: AppSettings | None = None,
     runtime: LLMRuntime | None = None,
 ) -> DynamicMemoryService:
-    """Compose B's verified artifact, C's index and the shared A/D ports."""
+    """Compose one verified sample while preserving the legacy entry point."""
+    return create_multi_sample_system(
+        artifact_root=artifact_root,
+        index_paths={sample_id: index_path},
+        model_root=model_root,
+        model_revision=model_revision,
+        sample_ids=(sample_id,),
+        allowed_splits=("main_dev",),
+        settings=settings,
+        runtime=runtime,
+    )
+
+
+def create_multi_sample_system(
+    *,
+    artifact_root: Path,
+    index_paths: Mapping[str, Path],
+    model_root: Path,
+    model_revision: str,
+    sample_ids: Sequence[str] | None = None,
+    allowed_splits: Sequence[str] = ("main_dev",),
+    settings: AppSettings | None = None,
+    runtime: LLMRuntime | None = None,
+) -> DynamicMemoryService:
+    """Compose verified artifacts, per-sample indexes and the shared A/D ports."""
+    configured = tuple(sample_ids or tuple(index_paths))
+    if (
+        not configured
+        or any(type(sample_id) is not str or not sample_id for sample_id in configured)
+        or len(set(configured)) != len(configured)
+        or set(configured) != set(index_paths)
+    ):
+        raise ProductionConfigurationError("SAMPLE_CONFIGURATION_INVALID")
+    split_values = tuple(allowed_splits)
+    if (
+        not split_values
+        or len(set(split_values)) != len(split_values)
+        or any(value not in ("main_dev", "extra_dev", "test") for value in split_values)
+    ):
+        raise ProductionConfigurationError("SPLIT_CONFIGURATION_INVALID")
+    paths_by_sample = {
+        sample_id: Path(index_paths[sample_id]).expanduser().resolve()
+        for sample_id in configured
+    }
     settings = settings or load_settings(
         models_profile=Path(__file__).resolve().parents[3] / "configs/models_high_pilot.yaml"
     )
     raw = Path(__file__).resolve().parents[3] / "data/raw/locomo10.json"
     split = Path(__file__).resolve().parents[3] / "configs/data_split.yaml"
     bundle = load_conversations(str(raw), str(split))
-    if bundle.split_by_sample_id.get(sample_id) != "main_dev":
+    if any(
+        bundle.split_by_sample_id.get(sample_id) not in split_values
+        for sample_id in configured
+    ):
         raise ProductionConfigurationError("SPLIT_MISMATCH")
     repository = SourceRepository(bundle)
-    artifacts = ArtifactPorts(artifact_root, bundle, settings, production=True)
-    artifacts.load(sample_id)
+    artifacts = ArtifactPorts(
+        artifact_root,
+        bundle,
+        settings,
+        production=True,
+        allowed_splits=split_values,
+    )
+    for sample_id in configured:
+        artifacts.load(sample_id)
 
     encoder = LocalIndexEncoder(EmbeddingConfig(
         str(model_root),
@@ -176,7 +300,7 @@ def create_system(
         encoder=encoder,
         settings=retrieval,
         load_artifact=artifacts.load,
-        index_path=lambda _sample_id: index_path,
+        index_path=paths_by_sample.__getitem__,
         readiness_factory=IndexReadiness,
         runtime=runtime,
         provenance_factory=lambda artifact: VectorAnswerProvenance(
@@ -189,9 +313,12 @@ def create_system(
         plain_text=True,
         synthetic_test_mode=False,
     )
+
     def provenance_for_sample(requested_sample: str):
         artifact = artifacts.load(requested_sample)
-        index = IndexManager(encoder).load_index(index_path, artifact, retrieval)
+        index = IndexManager(encoder).load_index(
+            paths_by_sample[requested_sample], artifact, retrieval
+        )
         return DynamicProvenance(
             "sha256:" + artifact.manifest.dataset_snapshot_sha256,
             QUERY_ANALYSIS_VERSION,
@@ -243,19 +370,23 @@ def create_web_bindings() -> WebBindings:
     revision = os.environ.get("SRE_PRODUCTION_MODEL_REVISION", "").strip()
     if not revision:
         raise ProductionConfigurationError("PRODUCTION_CONFIGURATION_REQUIRED")
-    sample_id = (
-        os.environ.get("SRE_PRODUCTION_SAMPLE_ID", "").strip() or "conv-30"
-    )
-    service = create_system(
+    sample_ids = _configured_samples()
+    service = create_multi_sample_system(
         artifact_root=_path("SRE_PRODUCTION_ARTIFACT_ROOT"),
-        index_path=_path("SRE_PRODUCTION_INDEX_PATH"),
+        index_paths=_configured_index_paths(sample_ids),
         model_root=_path("SRE_PRODUCTION_MODEL_ROOT"),
         model_revision=revision,
-        sample_id=sample_id,
+        sample_ids=sample_ids,
+        allowed_splits=_configured_splits(),
+    )
+    sample_label = (
+        sample_ids[0]
+        if len(sample_ids) == 1
+        else f"{len(sample_ids)} 个样本"
     )
     return WebBindings(
-        service=ProductionWebService(service, sample_id),
-        label=f"SRE-Project · {sample_id} · DeepSeek V4.1 Flash",
+        service=ProductionWebService(service, sample_ids),
+        label=f"SRE-Project · {sample_label} · DeepSeek V4.1 Flash",
         synthetic=False,
         dynamic_available=True,
     )

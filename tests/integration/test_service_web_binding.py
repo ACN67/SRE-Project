@@ -22,12 +22,12 @@ def test_existing_web_bindings_accepts_one_synthetic_service():
     assert web.list_memories(SAMPLE)[0].content != "changed in web"
 
 
-def test_production_web_service_exposes_only_the_published_sample():
+def test_production_web_service_exposes_only_the_configured_samples():
     api = service()
-    wrapped = ProductionWebService(api)
-    assert wrapped.list_samples() == ["conv-30"]
+    wrapped = ProductionWebService(api, (SAMPLE, "conv-26"))
+    assert wrapped.list_samples() == [SAMPLE, "conv-26"]
     web = WebBindings(service=wrapped, synthetic=False, dynamic_available=True)
-    assert web.list_samples() == ["conv-30"]
+    assert web.list_samples() == [SAMPLE, "conv-26"]
     assert web.dynamic_available is True
     assert web.supports("run_query")
     assert web.list_memories(SAMPLE) == [memory()]

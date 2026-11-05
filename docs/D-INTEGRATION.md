@@ -57,13 +57,14 @@
   - Vector RAG 与 Dynamic 的 11 个有序候选一致。
   - Dynamic 生成 11 个决策和 11 个有效 ID。
   - 真实 HTTP 调用为 0。
-- 生产 Web 可通过 `SRE_PRODUCTION_SAMPLE_ID` 选择四个已发布
-  `main_dev` 样本。
+- 生产 Web 可通过 `SRE_PRODUCTION_SAMPLE_IDS` 在一个实例中按配置顺序展示
+  四个已发布 `main_dev` 样本；每个样本绑定独立 Artifact 和索引。
 
-## 尚未验证
+## 后续验证
 
-- 真实 DeepSeek 的 D 状态判断质量。
-- 真实样本上的关系、决策、有效集合和时态指标。
-- Dynamic 与 Full Text、Vector RAG 的正式三路对照。
+- 独立测试对话上的真实 DeepSeek D 状态判断。
+- 独立测试对话上的关系、决策、有效集合和时态指标。
+- Dynamic 与 Full Text、Vector RAG 的正式测试集三路对照。
 
-因此当前状态是：**D 已接入生产组合与 Web，真实 D 质量验收待后续执行。**
+`main_dev` 上的生产组合、Web、真实三路问答及团队复核状态指标已经完成；独立
+测试仍待后续执行。

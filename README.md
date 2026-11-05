@@ -16,10 +16,9 @@
 Dynamic 综合得分分别为 0.733758、0.601955、0.580745，配置身份和完整结果见
 [main_dev 最终实验报告](docs/STAGE6_MAIN_DEV_FINAL.md)。历史单样本报告见
 [conv-26](docs/STAGE6_CONV26.md)、[固定四题诊断](docs/STAGE6_DEV_THREE_METHOD.md)
-和 [conv-41/42](docs/STAGE6_CONV41_CONV42.md)。课程官方动态状态 Gold 仍未
-下发；团队已在 11 道真实开发题上完成 ACN67 标注复核，整题状态更新准确率为
-0.727273。正式独立 test 尚未验收；证据召回与隐式事实覆盖仍需下一轮兼容性
-改进。D 的接口与边界见
+和 [conv-41/42](docs/STAGE6_CONV41_CONV42.md)。团队已在 11 道真实开发题上
+完成 ACN67 标注复核，整题状态更新准确率为 0.727273。正式独立 test 尚未
+验收；证据召回与隐式事实覆盖仍需下一轮兼容性改进。D 的接口与边界见
 [D 交付说明](docs/D-delivery.md)。Mock 输出
 不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结
 `main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见
@@ -94,20 +93,24 @@ C 的索引构建、保存与加载遵守 v2.2 `MemoryArtifact` 契约，详见 
 
 当前输出为 `mock 8`。缺失文件、格式或字段错误会抛出带文件名和字段名的 `SettingsError`。
 
-### 真实 conv-30 Web
+### 真实多样本 Web
 
 ```powershell
 $env:DYNAMIC_MEMORY_WEB_FACTORY = 'dynamic_memory.integration.production:create_web_bindings'
 $env:SRE_PRODUCTION_ARTIFACT_ROOT = 'C:\path\to\semantic_v3_artifacts'
-$env:SRE_PRODUCTION_INDEX_PATH = 'C:\path\to\conv-30.json'
+$env:SRE_PRODUCTION_INDEX_ROOT = 'C:\path\to\semantic_v3_indexes'
 $env:SRE_PRODUCTION_MODEL_ROOT = 'C:\path\to\bge-small-en-v1.5'
 $env:SRE_PRODUCTION_MODEL_REVISION = '5c38ec7c405ec4b44b94cc5a9bb96e735b38267a'
-$env:SRE_PRODUCTION_SAMPLE_ID = 'conv-30'
+$env:SRE_PRODUCTION_SAMPLE_IDS = 'conv-26,conv-30,conv-41,conv-42'
+$env:SRE_PRODUCTION_ALLOWED_SPLITS = 'main_dev'
 python scripts/run_web.py
 ```
 
-生产工厂启动时只读加载已审核 Memory 和真实索引，不自动调用模型。用户提交
-Full Text、Vector RAG 或 Dynamic 问题后，才可能产生模型请求。
+生产工厂启动时按 `SRE_PRODUCTION_SAMPLE_IDS` 的顺序装配每个样本的已审核
+Memory 和真实索引，Web 可在同一实例中切换这些样本。启动过程只读，不自动
+调用模型；用户提交 Full Text、Vector RAG 或 Dynamic 问题后，才可能产生
+模型请求。旧的 `SRE_PRODUCTION_INDEX_PATH` 与 `SRE_PRODUCTION_SAMPLE_ID`
+组合仍可用于单样本启动。
 
 ## 后续工作和安全边界
 

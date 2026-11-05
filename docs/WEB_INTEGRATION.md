@@ -95,4 +95,26 @@ B/C 的实际端口已通过临时 A+B+C+E 合成链路检查。可执行 `pytho
 `MemoryRecord` 列表直接序列化为 JSON 数组；文件名包含样本 ID，内容保持
 Schema 2.1、稳定字段排序和 UTF-8，不触发检索、模型或外部 API。
 
+## 2026-11-05 多样本生产启动
+
+生产工厂支持在同一 Web 实例中按配置顺序展示多个已发布样本。配置示例：
+
+```powershell
+$env:DYNAMIC_MEMORY_WEB_FACTORY = 'dynamic_memory.integration.production:create_web_bindings'
+$env:SRE_PRODUCTION_ARTIFACT_ROOT = 'C:\path\to\semantic_v3_artifacts'
+$env:SRE_PRODUCTION_INDEX_ROOT = 'C:\path\to\semantic_v3_indexes'
+$env:SRE_PRODUCTION_MODEL_ROOT = 'C:\path\to\bge-small-en-v1.5'
+$env:SRE_PRODUCTION_MODEL_REVISION = '5c38ec7c405ec4b44b94cc5a9bb96e735b38267a'
+$env:SRE_PRODUCTION_SAMPLE_IDS = 'conv-26,conv-30,conv-41,conv-42'
+$env:SRE_PRODUCTION_ALLOWED_SPLITS = 'main_dev'
+python scripts/run_web.py
+```
+
+每个样本分别绑定自己的严格发布 Artifact 和索引；查询、构建状态、来源回查及
+缓存身份仍使用请求中的 `sample_id`。生产包装器只允许访问
+`SRE_PRODUCTION_SAMPLE_IDS` 中列出的样本。`SRE_PRODUCTION_INDEX_ROOT`
+下的索引文件名必须为 `<sample_id>.json`。旧单样本配置
+`SRE_PRODUCTION_INDEX_PATH` + `SRE_PRODUCTION_SAMPLE_ID` 保持兼容，且不能与
+新索引根目录配置同时使用。
+
 卡片列表底部提供“上一页 / 当前页与总页数 / 下一页”，与顶部页码下拉框共用 page 状态。首页禁用上一页、末页禁用下一页；筛选后回到第一页，返回详情前的列表仍保留当前页。按钮只调整本地展示页码，不调用问答或构建。
