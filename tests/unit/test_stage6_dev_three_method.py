@@ -25,12 +25,12 @@ def test_budget_excludes_deterministic_state_resolution_calls():
         "max_new_http_attempts": 12,
         "qa_calls": 12,
         "state_reasoning_calls": 0,
-        "qa_input_tokens_per_call": 32768,
+        "qa_input_tokens_per_call": 200000,
         "state_reasoning_input_tokens_per_call": 934464,
         "provider_default_output_tokens_per_call": 65536,
-        "worst_case_usd_per_qa_call": "0.0884736",
+        "worst_case_usd_per_qa_call": "0.1386432",
         "worst_case_usd_per_reasoning_call": "0.3589824",
-        "worst_case_usd_total": "1.0616832",
+        "worst_case_usd_total": "1.6637184",
         "retry_attempts": 0,
     }
 
