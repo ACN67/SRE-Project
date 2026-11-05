@@ -124,6 +124,26 @@ def test_63_fake_windows_publish_and_c_handoff(tmp_path):
     assert not (store.root / "current.json").read_text().find("private fake thought") >= 0
 
 
+def test_reviewed_store_requires_an_explicit_supported_split(tmp_path):
+    bundle, settings, _, _ = fixture_63()
+    with pytest.raises(ArtifactStoreError, match="ARTIFACT_CORRUPT"):
+        ReviewedMemoryArtifactStore(
+            tmp_path / "invalid",
+            bundle,
+            settings.extraction,
+            settings.models,
+            allowed_splits=(),
+        )
+    store = ReviewedMemoryArtifactStore(
+        tmp_path / "valid",
+        bundle,
+        settings.extraction,
+        settings.models,
+        allowed_splits=("test",),
+    )
+    assert store.allowed_splits == frozenset({"test"})
+
+
 def test_partial_or_bad_review_never_switches_pointer(tmp_path):
     bundle, settings, report, receipt = fixture_63()
     store = ReviewedMemoryArtifactStore(tmp_path / "artifacts", bundle,

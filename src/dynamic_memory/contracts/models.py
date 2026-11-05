@@ -41,7 +41,10 @@ class SourceTurn(ContractModel):
 
 
 def render_visible_turn(turn: SourceTurn) -> str:
-    return turn.text + (f" [image_caption: {turn.image_caption}]" if turn.image_caption else "")
+    return (
+        turn.text
+        + (f" [image_caption: {turn.image_caption}]" if turn.image_caption else "")
+    )
 
 
 class TimeSpan(ContractModel):

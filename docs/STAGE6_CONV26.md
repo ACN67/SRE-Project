@@ -93,10 +93,24 @@ state accuracy or answer quality.
 - D wiring summary:
   `results/stageD_conv26_wiring01/summary.json`
 
+## Fixed-question three-method verification
+
+The fixed four-question development pilot now includes Full Text, Vector RAG,
+and Dynamic. Predictions were verified by SHA before the Gold fields were
+opened.
+
+- Dynamic LoCoMo composite: `0.133114`
+- Vector RAG composite: `0.127778`
+- Full Text composite: `0.000000`
+- Vector and Dynamic Evidence Recall@5/@10: `1.00 / 1.00`
+- Dynamic decisions across four questions: 45
+- Real Web Dynamic query and original-source navigation: passed
+
+See [Stage 6 development three-method run](STAGE6_DEV_THREE_METHOD.md).
+
 ## Pending
 
-- Real paid Dynamic state reasoning and QA for `conv-26`.
-- Fixed-question Full Text / Vector RAG / Dynamic comparison.
-- QA Gold scoring after predictions are frozen.
-- Dynamic relation, decision, and effective-set metrics.
+- Dynamic relation, decision, and effective-set metrics against independent
+  state Gold.
+- Full main_dev question set rather than the four-question diagnostic subset.
 - Independent test data and final system acceptance.

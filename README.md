@@ -10,7 +10,22 @@
 - 正式 YAML 中 `null` 仍表示尚未冻结，不会被离线 profile 覆盖成虚构的生产值。
 - 事实审核支持保守离线规则及模型主导的 DeepSeek v3 正式发布路径；审核来源、弃权规则、覆盖率和独立质量验收边界见 [自动事实审核](docs/AUTO_REVIEW.md)及[语义审核](docs/SEMANTIC_REVIEW.md)。
 
-`main_dev/conv-30` 已完成真实 DeepSeek 抽取、v3 语义审核、ReviewedMemoryArtifact 发布、BGE 索引、非 D 问答、开发集评分和真实 Web 只读验证，详见 [阶段 4 报告](docs/STAGE4_NON_D_READINESS.md)与[阶段 5 报告](docs/STAGE5_NON_D_FINAL.md)。`conv-26` 已完成 83 窗提取与语义审核、762 条正式 Memory 发布、真实 BGE 索引和 A/B/C/D/E 无网络生产装配验证，详见 [conv-26 报告](docs/STAGE6_CONV26.md)。其余 main_dev 样本、D 的真实状态判断质量、Dynamic 三路对照和正式独立 test 尚未验收。D 的接口与边界见 [D 交付说明](docs/D-delivery.md)。Mock 输出不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结 `main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。正式 [SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md) 分别记录需求正文和实证边界。
+`main_dev` 四段对话现均已完成真实 DeepSeek 抽取、v3 语义审核、严格 Memory
+发布、BGE 索引、A/B/C/D/E 生产装配、100 题分层验证和全部 757 题三路问答。
+所有预测均在读取 Gold 前落盘并完成 SHA 校验。最终 Full Text、Vector RAG、
+Dynamic 综合得分分别为 0.733758、0.601955、0.580745，配置身份和完整结果见
+[main_dev 最终实验报告](docs/STAGE6_MAIN_DEV_FINAL.md)。历史单样本报告见
+[conv-26](docs/STAGE6_CONV26.md)、[固定四题诊断](docs/STAGE6_DEV_THREE_METHOD.md)
+和 [conv-41/42](docs/STAGE6_CONV41_CONV42.md)。课程官方动态状态 Gold 仍未
+下发；团队已在 11 道真实开发题上完成 ACN67 标注复核，整题状态更新准确率为
+0.727273。正式独立 test 尚未验收；证据召回与隐式事实覆盖仍需下一轮兼容性
+改进。D 的接口与边界见
+[D 交付说明](docs/D-delivery.md)。Mock 输出
+不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结
+`main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见
+[A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。正式
+[SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md)
+分别记录需求正文和实证边界。
 
 ## 分工
 

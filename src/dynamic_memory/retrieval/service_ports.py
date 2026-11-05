@@ -4,6 +4,7 @@ from contextvars import ContextVar
 
 from dynamic_memory.contracts import ConversationSample
 from dynamic_memory.pipeline.settings import RetrievalSettings
+from dynamic_memory.llm.prompts import QA_PROMPT
 from .index import IndexManager, RetrievalIndexError, _artifact_snapshot, fingerprint
 from .shared_retrieval import SharedRetrieval
 from .vector_retrieval import VectorRetriever, _snapshot
@@ -20,7 +21,9 @@ class RetrievalServicePorts:
 
     def __init__(self, *, encoder, settings, load_artifact, index_path,
                  readiness_factory, runtime, provenance_factory,
-                 on_diagnostic=None, synthetic_test_mode=False, max_entries=128):
+                 on_diagnostic=None, synthetic_test_mode=False, max_entries=128,
+                 source_repository=None, source_metadata_lookup=None, question_transform=None,
+                 prompt_template=QA_PROMPT, plain_text=False, max_context_memories=12):
         if not all(callable(port) for port in (load_artifact, index_path, readiness_factory, provenance_factory)):
             raise ValueError("service factories and loaders must be callable")
         self._settings = _snapshot(settings, RetrievalSettings, "INDEX_CONFIGURATION_INVALID")
@@ -30,6 +33,12 @@ class RetrievalServicePorts:
         self._readiness_factory = readiness_factory
         self._runtime, self._provenance_factory = runtime, provenance_factory
         self._on_diagnostic, self._synthetic = on_diagnostic, synthetic_test_mode
+        self._source_repository = source_repository
+        self._source_metadata_lookup = source_metadata_lookup
+        self._question_transform = question_transform
+        self._prompt_template = prompt_template
+        self._plain_text = plain_text
+        self._max_context_memories = max_context_memories
         self._active = ContextVar("c_retrieval_query", default=None)
 
     def _source(self, sample_id):
@@ -104,6 +113,17 @@ class RetrievalServicePorts:
         artifact, current = self._load(request.sample_id)
         if current != selected:
             raise RetrievalIndexError("INDEX_STALE")
-        answerer = VectorAnswerer(self._runtime, self._provenance_factory(artifact), selected,
-                                 on_diagnostic=self._on_diagnostic, synthetic_test_mode=self._synthetic)
+        answerer = VectorAnswerer(
+            self._runtime,
+            self._provenance_factory(artifact),
+            selected,
+            on_diagnostic=self._on_diagnostic,
+            synthetic_test_mode=self._synthetic,
+            source_repository=self._source_repository,
+            source_metadata_lookup=self._source_metadata_lookup,
+            question_transform=self._question_transform,
+            prompt_template=self._prompt_template,
+            plain_text=self._plain_text,
+            max_context_memories=self._max_context_memories,
+        )
         return answerer(request, analysis, candidates)

@@ -14,7 +14,10 @@ from dynamic_memory.contracts import (
 from dynamic_memory.contracts.memory_id import compute_memory_id
 from dynamic_memory.data import SourceRepository
 from dynamic_memory.pipeline.query_conditions import QueryPreparationError
-from dynamic_memory.pipeline.query_runner import QueryOrchestrator
+from dynamic_memory.pipeline.query_runner import (
+    QueryOrchestrator,
+    requires_state_reasoning,
+)
 
 
 SAMPLE = "synthetic_sample"
@@ -40,6 +43,28 @@ def memory():
 def query(*, as_of=None):
     return QueryRequest(query_id="synthetic_q1", sample_id=SAMPLE,
                         question="Synthetic private question SECRET_GOLD?", as_of=as_of)
+
+
+def test_temporal_connector_alone_does_not_force_state_reasoning():
+    request = query().model_copy(
+        update={
+            "question": (
+                "What plans does Jon have after receiving advice at the "
+                "networking event?"
+            )
+        }
+    )
+    generic = QueryAnalysis(
+        query_id=request.query_id,
+        sample_id=request.sample_id,
+        query_intent="general_fact",
+        time_mode="unknown",
+    )
+    historical = generic.model_copy(
+        update={"query_intent": "historical_state", "time_mode": "latest_known"}
+    )
+    assert requires_state_reasoning(request, generic) is False
+    assert requires_state_reasoning(request, historical) is True
 
 
 def analysis(request):
@@ -106,6 +131,62 @@ def test_default_dynamic_calls_one_analyzer_and_c_then_d_in_order():
     assert log == ["analyze", "get_sample", "verified_index", "retrieve", "load_candidates", "resolve", "dynamic_answer"]
     assert_valid_response(result, "dynamic")
     assert result.retrieved.items[0].memory_id == result.resolution.effective_memory_ids[0]
+
+
+def test_dynamic_ordinary_question_uses_local_all_retain_without_state_resolver():
+    log = []
+    config = ports(event_log=log)
+    record = memory()
+
+    def ordinary(req):
+        log.append("analyze")
+        return QueryAnalysis(query_id=req.query_id, sample_id=req.sample_id,
+                             query_intent="general_fact", time_mode="latest_known")
+
+    config["analyze_query"] = ordinary
+    runner = QueryOrchestrator(**config)
+    prepared = runner.prepare_query(QueryRequest(
+        query_id="synthetic_q1", sample_id=SAMPLE,
+        question="What synthetic preference does the speaker mention?"))
+    result = runner.run_prepared(prepared, "dynamic")
+    assert log == [
+        "analyze", "get_sample", "verified_index", "retrieve",
+        "load_candidates", "dynamic_answer",
+    ]
+    assert result.resolution is not None
+    assert result.resolution.effective_memory_ids == [record.memory_id]
+    assert [decision.action for decision in result.resolution.decisions] == ["RETAIN"]
+
+
+@pytest.mark.parametrize(
+    "question,intent,time_mode",
+    [
+        ("Is the speaker still planning the synthetic trip?", "current_state", "latest_known"),
+        ("What synthetic plan did the speaker cancel?", "general_fact", "latest_known"),
+        ("What was the synthetic plan as of 2024-01-01?", "event_fact", "as_of"),
+    ],
+)
+def test_dynamic_state_questions_keep_resolver(question, intent, time_mode):
+    log = []
+    config = ports(event_log=log)
+
+    def stateful(req):
+        log.append("analyze")
+        return QueryAnalysis(
+            query_id=req.query_id,
+            sample_id=req.sample_id,
+            query_intent=intent,
+            time_mode=time_mode,
+            resolved_as_of=date(2024, 1, 1) if time_mode == "as_of" else None,
+        )
+
+    config["analyze_query"] = stateful
+    runner = QueryOrchestrator(**config)
+    prepared = runner.prepare_query(QueryRequest(
+        query_id="synthetic_q1", sample_id=SAMPLE, question=question,
+        as_of=date(2024, 1, 1) if time_mode == "as_of" else None))
+    runner.run_prepared(prepared, "dynamic")
+    assert "resolve" in log
 
 
 def test_full_text_uses_only_source_sample_and_can_run_without_memory_ports():

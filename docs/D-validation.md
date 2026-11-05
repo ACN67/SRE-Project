@@ -11,7 +11,7 @@
 - 测试使用显式 synthetic adapter，不发起付费 API 调用，不读取 Gold。
 - `tests/dynamic`：59 passed。
 - `tests/dynamic tests/contract`：158 passed。
-- 完整仓库回归：1329 passed（包含 D、合同、集成和 Web）。
+- 完整仓库回归：1332 passed（包含 D、合同、集成和 Web）。
 - `python -m compileall -q src tests scripts`：通过。
 - 真实 conv-30 的已发布 Memory 与 BGE 索引通过无网络 D 装配冒烟：
   Vector RAG 与 Dynamic 使用相同 8 个有序候选，8 个决策，0 次真实 HTTP。

@@ -1,0 +1,2859 @@
+{
+  "annotation_source": "team_annotated",
+  "annotator": "ACN67",
+  "created_at": "2026-11-05T03:31:32.721753+00:00",
+  "data_fingerprint": "sha256:79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "format_version": 1,
+  "items": [
+    {
+      "attribute": "currently_reading",
+      "entity": "Jon",
+      "gold_item_id": "gold_1c79f12bffd23b7ab74c",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_1c79f12bffd23b7ab74c"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D12:6",
+          "session_id": "session_12"
+        }
+      ],
+      "value": "The Lean Startup"
+    },
+    {
+      "attribute": "experience",
+      "entity": "Jon",
+      "gold_item_id": "gold_af8fac44360dc3177c5a",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_af8fac44360dc3177c5a"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:11",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "facing new challenges"
+    },
+    {
+      "attribute": "thinking about",
+      "entity": "Jon",
+      "gold_item_id": "gold_55dfd9fb150cc6caf0bc",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_55dfd9fb150cc6caf0bc"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D12:8",
+          "session_id": "session_12"
+        }
+      ],
+      "value": "building a focused and efficient business"
+    },
+    {
+      "attribute": "hectic",
+      "entity": "Jon",
+      "gold_item_id": "gold_dfef868b8531a1ee48de",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_dfef868b8531a1ee48de"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:1",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "lately"
+    },
+    {
+      "attribute": "life",
+      "entity": "Jon",
+      "gold_item_id": "gold_97f637114769837c71fd",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_97f637114769837c71fd"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:11",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "living his dreams"
+    },
+    {
+      "attribute": "networking_activity",
+      "entity": "Jon",
+      "gold_item_id": "gold_12e5f71c949a76fd03c3",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_12e5f71c949a76fd03c3"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D18:6",
+          "session_id": "session_18"
+        }
+      ],
+      "value": "networking lately"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Jon",
+      "gold_item_id": "gold_5fefbf7a4ca3429f818d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_5fefbf7a4ca3429f818d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D18:6",
+          "session_id": "session_18"
+        }
+      ],
+      "value": "networking lately"
+    },
+    {
+      "attribute": "goal",
+      "entity": "Jon",
+      "gold_item_id": "gold_0f3f6625d162c1419289",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_0f3f6625d162c1419289"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D4:17",
+          "session_id": "session_4"
+        }
+      ],
+      "value": "pursuing his dreams"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Jon",
+      "gold_item_id": "gold_29008982b7b1a8e6a090",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_29008982b7b1a8e6a090"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D12:14",
+          "session_id": "session_12"
+        }
+      ],
+      "value": "searching for investors"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Jon",
+      "gold_item_id": "gold_7604612fb34451882944",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_7604612fb34451882944"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D18:2",
+          "session_id": "session_18"
+        }
+      ],
+      "value": "looking for investors"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Jon",
+      "gold_item_id": "gold_4abd27e91a842150a06a",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_4abd27e91a842150a06a"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D2:10",
+          "session_id": "session_2"
+        }
+      ],
+      "value": "looking for the right place and getting everything ready"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Jon",
+      "gold_item_id": "gold_22f4fd18241bd4460a91",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_22f4fd18241bd4460a91"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D3:1",
+          "session_id": "session_3"
+        }
+      ],
+      "value": "following passion for dance"
+    },
+    {
+      "attribute": "working on",
+      "entity": "Jon",
+      "gold_item_id": "gold_88ab59154bb483c30f25",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_88ab59154bb483c30f25"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:1",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "a venture"
+    },
+    {
+      "attribute": "business intention",
+      "entity": "Jon",
+      "gold_item_id": "gold_0e56fdfb0623f720bd64",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_0e56fdfb0623f720bd64"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D17:4",
+          "session_id": "session_17"
+        }
+      ],
+      "value": "make this work"
+    },
+    {
+      "attribute": "business plan",
+      "entity": "Jon",
+      "gold_item_id": "gold_d43e8c063f70bbfdb7b7",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_d43e8c063f70bbfdb7b7"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D4:3",
+          "session_id": "session_4"
+        }
+      ],
+      "value": "make his business happen"
+    },
+    {
+      "attribute": "current_work",
+      "entity": "Jon",
+      "gold_item_id": "gold_4a0f5947cd3e787bf8e1",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_4a0f5947cd3e787bf8e1"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D19:1",
+          "session_id": "session_19"
+        }
+      ],
+      "value": "business plans"
+    },
+    {
+      "attribute": "determination",
+      "entity": "Jon",
+      "gold_item_id": "gold_fed0a153410cbefa329f",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_fed0a153410cbefa329f"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D2:10",
+          "session_id": "session_2"
+        }
+      ],
+      "value": "to make it work"
+    },
+    {
+      "attribute": "determination",
+      "entity": "Jon",
+      "gold_item_id": "gold_85adadcefc9297cda34d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_85adadcefc9297cda34d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D18:4",
+          "session_id": "session_18"
+        }
+      ],
+      "value": "to make his business work"
+    },
+    {
+      "attribute": "business",
+      "entity": "Jon",
+      "gold_item_id": "gold_a41873fe4ad414240f04",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a41873fe4ad414240f04"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:11",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "starting own business"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Jon",
+      "gold_item_id": "gold_85b9796b36cdd49e350d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_85b9796b36cdd49e350d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:11",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "make his business succeed"
+    },
+    {
+      "attribute": "working on",
+      "entity": "Jon",
+      "gold_item_id": "gold_39f2c09a8571f19bc7a8",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_39f2c09a8571f19bc7a8"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D15:1",
+          "session_id": "session_15"
+        }
+      ],
+      "value": "his business"
+    },
+    {
+      "attribute": "business plan",
+      "entity": "Jon",
+      "gold_item_id": "gold_61742247d21d3dfe1588",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_61742247d21d3dfe1588"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D1:2",
+          "session_id": "session_1"
+        }
+      ],
+      "value": "start own business"
+    },
+    {
+      "attribute": "determination",
+      "entity": "Jon",
+      "gold_item_id": "gold_7f739d06f808d228ad09",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_7f739d06f808d228ad09"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D5:10",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "make his dancing business work"
+    },
+    {
+      "attribute": "determination",
+      "entity": "Jon",
+      "gold_item_id": "gold_f0df162054820302152e",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f0df162054820302152e"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D5:10",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "make the dancing business work"
+    },
+    {
+      "attribute": "having tough times",
+      "entity": "Gina",
+      "gold_item_id": "gold_e1b118b7d13d68479301",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_e1b118b7d13d68479301"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:2",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "lately"
+    },
+    {
+      "attribute": "emotion",
+      "entity": "Gina",
+      "gold_item_id": "gold_09fa5c36fecac7527e43",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_09fa5c36fecac7527e43"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D3:2",
+          "session_id": "session_3"
+        }
+      ],
+      "value": "over the moon"
+    },
+    {
+      "attribute": "passionate about",
+      "entity": "Gina",
+      "gold_item_id": "gold_911d2ad9517a5a6fccc5",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_911d2ad9517a5a6fccc5"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:8",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "fashion trends and finding unique pieces"
+    },
+    {
+      "attribute": "determination",
+      "entity": "Gina",
+      "gold_item_id": "gold_0f9b0c5e99db44779a3c",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_0f9b0c5e99db44779a3c"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:13",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "determined"
+    },
+    {
+      "attribute": "occupation",
+      "entity": "Gina",
+      "gold_item_id": "gold_a85563052bf4fbaa273d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a85563052bf4fbaa273d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D14:8",
+          "session_id": "session_14"
+        }
+      ],
+      "value": "entrepreneur"
+    },
+    {
+      "attribute": "fashion editor recognition",
+      "entity": "Gina",
+      "gold_item_id": "gold_65a4337b8cd1be8a218d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_65a4337b8cd1be8a218d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D17:1",
+          "session_id": "session_17"
+        }
+      ],
+      "value": "noticed by fashion editors"
+    },
+    {
+      "attribute": "has_online_store",
+      "entity": "Gina",
+      "gold_item_id": "gold_98ac505239d62e4fa842",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_98ac505239d62e4fa842"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D5:5",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "online store"
+    },
+    {
+      "attribute": "passion",
+      "entity": "Gina",
+      "gold_item_id": "gold_128c403aae420ce39c88",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_128c403aae420ce39c88"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:8",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "fashion trends"
+    },
+    {
+      "attribute": "emotion",
+      "entity": "Gina",
+      "gold_item_id": "gold_2bfe8db4521a5a801017",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_2bfe8db4521a5a801017"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D15:12",
+          "session_id": "session_15"
+        }
+      ],
+      "value": "excited"
+    },
+    {
+      "attribute": "emotion",
+      "entity": "Gina",
+      "gold_item_id": "gold_6a0e2024b20beb7160e3",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_6a0e2024b20beb7160e3"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D8:14",
+          "session_id": "session_8"
+        }
+      ],
+      "value": "proud of Jon's progress"
+    },
+    {
+      "attribute": "emotion",
+      "entity": "Gina",
+      "gold_item_id": "gold_b83011f39fd6745b0bb3",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_b83011f39fd6745b0bb3"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D19:8",
+          "session_id": "session_19"
+        }
+      ],
+      "value": "happy that her words motivate Jon"
+    },
+    {
+      "attribute": "passion",
+      "entity": "Gina",
+      "gold_item_id": "gold_a69a2d5e3498c521c625",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a69a2d5e3498c521c625"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:8",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "finding unique pieces"
+    },
+    {
+      "attribute": "employment_status",
+      "entity": "Gina",
+      "gold_item_id": "gold_44cdd415f433acf295fb",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_44cdd415f433acf295fb"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D14:8",
+          "session_id": "session_14"
+        }
+      ],
+      "value": "lost job"
+    },
+    {
+      "attribute": "job",
+      "entity": "Gina",
+      "gold_item_id": "gold_7da5c2ef6bf8df3ce538",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_7da5c2ef6bf8df3ce538"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D10:4",
+          "session_id": "session_10"
+        }
+      ],
+      "value": "lost job"
+    },
+    {
+      "attribute": "employment status",
+      "entity": "Gina",
+      "gold_item_id": "gold_7da78ab31d4179e80fa4",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_7da78ab31d4179e80fa4"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D14:8",
+          "session_id": "session_14"
+        }
+      ],
+      "value": "lost her job"
+    },
+    {
+      "attribute": "business status",
+      "entity": "Gina",
+      "gold_item_id": "gold_fd7657ca7f6ec64caa05",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_fd7657ca7f6ec64caa05"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D8:4",
+          "session_id": "session_8"
+        }
+      ],
+      "value": "started"
+    },
+    {
+      "attribute": "business",
+      "entity": "Gina",
+      "gold_item_id": "gold_cc20990518c9abbbbfab",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_cc20990518c9abbbbfab"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D6:12",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "running own business"
+    },
+    {
+      "attribute": "business_experience",
+      "entity": "Gina",
+      "gold_item_id": "gold_6d66c77283da980f25f0",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_6d66c77283da980f25f0"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D18:5",
+          "session_id": "session_18"
+        }
+      ],
+      "value": "tough times"
+    },
+    {
+      "attribute": "business experience",
+      "entity": "Gina",
+      "gold_item_id": "gold_a9ed72fb73c649e94934",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a9ed72fb73c649e94934"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D18:5",
+          "session_id": "session_18"
+        }
+      ],
+      "value": "has had tough times"
+    },
+    {
+      "attribute": "has plans",
+      "entity": "Gina",
+      "gold_item_id": "gold_5436fadcd57ddf8f0088",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_5436fadcd57ddf8f0088"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D8:12",
+          "session_id": "session_8"
+        }
+      ],
+      "value": "a few plans"
+    },
+    {
+      "attribute": "employment status",
+      "entity": "Gina",
+      "gold_item_id": "gold_682ea6eff8729ba65fe0",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_682ea6eff8729ba65fe0"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D1:3",
+          "session_id": "session_1"
+        }
+      ],
+      "value": "lost job at Door Dash"
+    },
+    {
+      "attribute": "business",
+      "entity": "Gina",
+      "gold_item_id": "gold_9320c143f5033da68376",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_9320c143f5033da68376"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D14:8",
+          "session_id": "session_14"
+        }
+      ],
+      "value": "online clothing store"
+    },
+    {
+      "attribute": "business",
+      "entity": "Gina",
+      "gold_item_id": "gold_00774211b73ffdb3f3ce",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_00774211b73ffdb3f3ce"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D7:2",
+          "session_id": "session_7"
+        }
+      ],
+      "value": "online clothing store"
+    },
+    {
+      "attribute": "business",
+      "entity": "Gina",
+      "gold_item_id": "gold_66470c2b7bb7c6f1cf16",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_66470c2b7bb7c6f1cf16"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-30",
+      "source_refs": [
+        {
+          "dia_id": "D10:2",
+          "session_id": "session_10"
+        }
+      ],
+      "value": "online clothing store"
+    },
+    {
+      "attribute": "current activity",
+      "entity": "Maria",
+      "gold_item_id": "gold_f3e6561f6dcb0b2524e8",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f3e6561f6dcb0b2524e8"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D16:2",
+          "session_id": "session_16"
+        }
+      ],
+      "value": "preparing for shelter fundraiser next week"
+    },
+    {
+      "attribute": "plans",
+      "entity": "Maria",
+      "gold_item_id": "gold_eda2e41798adb5735884",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_eda2e41798adb5735884"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D25:8",
+          "session_id": "session_25"
+        }
+      ],
+      "value": "to volunteer at shelters next month"
+    },
+    {
+      "attribute": "scheduled time",
+      "entity": "Maria's fundraiser",
+      "gold_item_id": "gold_67d6219800159a265a1a",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_67d6219800159a265a1a"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D16:2",
+          "session_id": "session_16"
+        }
+      ],
+      "value": "next week"
+    },
+    {
+      "attribute": "volunteered at",
+      "entity": "Maria",
+      "gold_item_id": "gold_aabfacc93752c07e212c",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_aabfacc93752c07e212c"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D20:7",
+          "session_id": "session_20"
+        }
+      ],
+      "value": "a shelter"
+    },
+    {
+      "attribute": "volunteered_at",
+      "entity": "Maria",
+      "gold_item_id": "gold_561a4521e589226b5807",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_561a4521e589226b5807"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D5:6",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "shelter event for kids"
+    },
+    {
+      "attribute": "volunteered",
+      "entity": "Maria",
+      "gold_item_id": "gold_9abef594d4f8f07d3061",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_9abef594d4f8f07d3061"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D5:6",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "at a shelter during an event for kids last week"
+    },
+    {
+      "attribute": "met",
+      "entity": "Maria",
+      "gold_item_id": "gold_9b34dc02ececeba76d71",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_9b34dc02ececeba76d71"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D20:9",
+          "session_id": "session_20"
+        }
+      ],
+      "value": "someone special at the shelter"
+    },
+    {
+      "attribute": "is planning",
+      "entity": "Maria",
+      "gold_item_id": "gold_58c127c57e277e1c6071",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_58c127c57e277e1c6071"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D15:18",
+          "session_id": "session_15"
+        }
+      ],
+      "value": "a ring-toss tournament for the homeless shelter's fundraiser later this month"
+    },
+    {
+      "attribute": "plans",
+      "entity": "Maria",
+      "gold_item_id": "gold_f16bb652f16df196d929",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f16bb652f16df196d929"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D25:8",
+          "session_id": "session_25"
+        }
+      ],
+      "value": "to explore more next month"
+    },
+    {
+      "attribute": "volunteered at",
+      "entity": "Maria",
+      "gold_item_id": "gold_edf97d6ac174defdfd76",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_edf97d6ac174defdfd76"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D32:14",
+          "session_id": "session_32"
+        }
+      ],
+      "value": "the shelter front desk"
+    },
+    {
+      "attribute": "volunteered_at",
+      "entity": "Maria",
+      "gold_item_id": "gold_86fd9bf1f6a97aec358d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_86fd9bf1f6a97aec358d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D29:1",
+          "session_id": "session_29"
+        }
+      ],
+      "value": "homeless shelter"
+    },
+    {
+      "attribute": "volunteered",
+      "entity": "Maria",
+      "gold_item_id": "gold_989d6bc5d3b965fbb3a5",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_989d6bc5d3b965fbb3a5"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-41",
+      "source_refs": [
+        {
+          "dia_id": "D26:13",
+          "session_id": "session_26"
+        }
+      ],
+      "value": "true"
+    },
+    {
+      "attribute": "contributed to",
+      "entity": "Joanna",
+      "gold_item_id": "gold_f6d95f9fc061e3a45a51",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f6d95f9fc061e3a45a51"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D25:2",
+          "session_id": "session_25"
+        }
+      ],
+      "value": "movie script"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Joanna",
+      "gold_item_id": "gold_5815d06383b342ffdb33",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_5815d06383b342ffdb33"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:6",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "writing another movie script"
+    },
+    {
+      "attribute": "writing",
+      "entity": "Joanna",
+      "gold_item_id": "gold_857471311540f75a2a6b",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_857471311540f75a2a6b"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:6",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "another movie script"
+    },
+    {
+      "attribute": "has",
+      "entity": "Joanna",
+      "gold_item_id": "gold_ad2c884542e3d661c77f",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_ad2c884542e3d661c77f"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D10:9",
+          "session_id": "session_10"
+        }
+      ],
+      "value": "a screenplay"
+    },
+    {
+      "attribute": "work duration on screenplay",
+      "entity": "Joanna",
+      "gold_item_id": "gold_dc8987be00c264cb18ea",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_dc8987be00c264cb18ea"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D2:3",
+          "session_id": "session_2"
+        }
+      ],
+      "value": "a while"
+    },
+    {
+      "attribute": "project",
+      "entity": "Joanna",
+      "gold_item_id": "gold_910865a14697bca9d4f5",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_910865a14697bca9d4f5"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D5:14",
+          "session_id": "session_5"
+        },
+        {
+          "dia_id": "D5:15",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "script"
+    },
+    {
+      "attribute": "created_plan_for",
+      "entity": "Joanna",
+      "gold_item_id": "gold_a1bab3fbd45a09747f94",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a1bab3fbd45a09747f94"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D28:8",
+          "session_id": "session_28"
+        }
+      ],
+      "value": "getting her script made into a movie"
+    },
+    {
+      "attribute": "effort on movie script",
+      "entity": "Joanna",
+      "gold_item_id": "gold_20d3efd7b4146c145814",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_20d3efd7b4146c145814"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:6",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "lots of hard work"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Joanna",
+      "gold_item_id": "gold_145bbb47f2fe70588f31",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_145bbb47f2fe70588f31"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D24:4",
+          "session_id": "session_24"
+        }
+      ],
+      "value": "writing"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Joanna",
+      "gold_item_id": "gold_abf525fb4405c4d1a0c1",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_abf525fb4405c4d1a0c1"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D5:3",
+          "session_id": "session_5"
+        }
+      ],
+      "value": "decompressing"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Joanna",
+      "gold_item_id": "gold_322d2a84ec956b2891e6",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_322d2a84ec956b2891e6"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D7:8",
+          "session_id": "session_7"
+        }
+      ],
+      "value": "writing consuming her"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Joanna",
+      "gold_item_id": "gold_3e1e6adc15df76d648ee",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_3e1e6adc15df76d648ee"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D24:2",
+          "session_id": "session_24"
+        }
+      ],
+      "value": "revising and perfecting a recipe"
+    },
+    {
+      "attribute": "upcoming_tournament",
+      "entity": "Nate",
+      "gold_item_id": "gold_db79604fafe23555d528",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_db79604fafe23555d528"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:4",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "gaming tournament next month"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_f0d70aa25e50af86d42d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f0d70aa25e50af86d42d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D6:7",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "participating in a video game tournament"
+    },
+    {
+      "attribute": "won",
+      "entity": "Nate",
+      "gold_item_id": "gold_18dafbf0362c705992a5",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_18dafbf0362c705992a5"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D14:8",
+          "session_id": "session_14"
+        },
+        {
+          "dia_id": "D14:9",
+          "session_id": "session_14"
+        }
+      ],
+      "value": "another regional video game tournament"
+    },
+    {
+      "attribute": "won",
+      "entity": "Nate",
+      "gold_item_id": "gold_a55f16d60868e5e0102a",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a55f16d60868e5e0102a"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D22:2",
+          "session_id": "session_22"
+        }
+      ],
+      "value": "a really big video game tournament"
+    },
+    {
+      "attribute": "gaming_tournament_count",
+      "entity": "Nate",
+      "gold_item_id": "gold_cf1cce42998f579b4796",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_cf1cce42998f579b4796"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:4",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "4th"
+    },
+    {
+      "attribute": "career",
+      "entity": "Nate",
+      "gold_item_id": "gold_a0fa74ed6089f7009eab",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a0fa74ed6089f7009eab"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D22:18",
+          "session_id": "session_22"
+        }
+      ],
+      "value": "gaming"
+    },
+    {
+      "attribute": "first video game tournament win",
+      "entity": "Nate",
+      "gold_item_id": "gold_d2ea055972464d00a6e8",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_d2ea055972464d00a6e8"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D1:3",
+          "session_id": "session_1"
+        }
+      ],
+      "value": "last week"
+    },
+    {
+      "attribute": "video game tournament wins",
+      "entity": "Nate",
+      "gold_item_id": "gold_5792833cf9c6f54835df",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_5792833cf9c6f54835df"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D17:1",
+          "session_id": "session_17"
+        }
+      ],
+      "value": "fourth"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_eb8a3e492ce8f7871c32",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_eb8a3e492ce8f7871c32"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D24:11",
+          "session_id": "session_24"
+        }
+      ],
+      "value": "practicing for his next video game tournament"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_cf95f023a77227dbd524",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_cf95f023a77227dbd524"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D28:13",
+          "session_id": "session_28"
+        }
+      ],
+      "value": "creating gaming content for YouTube"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_f5d004ccc594ad7a43fb",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f5d004ccc594ad7a43fb"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D28:1",
+          "session_id": "session_28"
+        }
+      ],
+      "value": "cooking"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_170107a2cc217eaeb67b",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_170107a2cc217eaeb67b"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D21:4",
+          "session_id": "session_21"
+        }
+      ],
+      "value": "taught vegan ice cream recipes on his cooking show"
+    },
+    {
+      "attribute": "currently playing",
+      "entity": "Nate",
+      "gold_item_id": "gold_2b036d4559b946c5832b",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_2b036d4559b946c5832b"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:23",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "Xeonoblade Chronicles"
+    },
+    {
+      "attribute": "passionate about gaming",
+      "entity": "Nate",
+      "gold_item_id": "gold_b337ac4089563a508012",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_b337ac4089563a508012"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D19:1",
+          "session_id": "session_19"
+        }
+      ],
+      "value": "true"
+    },
+    {
+      "attribute": "currently_playing",
+      "entity": "Nate",
+      "gold_item_id": "gold_e22a697a6cb7b3de4a79",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_e22a697a6cb7b3de4a79"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:23",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "Xeonoblade Chronicles"
+    },
+    {
+      "attribute": "usually plays",
+      "entity": "Nate",
+      "gold_item_id": "gold_446d757c38b0b0b7194e",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_446d757c38b0b0b7194e"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D10:6",
+          "session_id": "session_10"
+        }
+      ],
+      "value": "CS:GO"
+    },
+    {
+      "attribute": "activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_ca53a7aeb140e001dc44",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_ca53a7aeb140e001dc44"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D23:15",
+          "session_id": "session_23"
+        }
+      ],
+      "value": "chilling at home"
+    },
+    {
+      "attribute": "occupation",
+      "entity": "Joanna",
+      "gold_item_id": "gold_adba0e0157772383a596",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_adba0e0157772383a596"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D21:1",
+          "session_id": "session_21"
+        }
+      ],
+      "value": "writer"
+    },
+    {
+      "attribute": "working on",
+      "entity": "Joanna",
+      "gold_item_id": "gold_63af3839f2371dfa3c94",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_63af3839f2371dfa3c94"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D10:9",
+          "session_id": "session_10"
+        }
+      ],
+      "value": "some projects"
+    },
+    {
+      "attribute": "current_project",
+      "entity": "Joanna",
+      "gold_item_id": "gold_a8a1b4af19978f3af7b2",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a8a1b4af19978f3af7b2"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D28:12",
+          "session_id": "session_28"
+        }
+      ],
+      "value": "new project"
+    },
+    {
+      "attribute": "project work",
+      "entity": "Joanna",
+      "gold_item_id": "gold_ad2eb165748496d938fc",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_ad2eb165748496d938fc"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D1:2",
+          "session_id": "session_1"
+        }
+      ],
+      "value": "working on a project lately"
+    },
+    {
+      "attribute": "current_project",
+      "entity": "Joanna",
+      "gold_item_id": "gold_1bf29465aca5761a7ea8",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_1bf29465aca5761a7ea8"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:3",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "Finding Home"
+    },
+    {
+      "attribute": "working_on",
+      "entity": "Joanna",
+      "gold_item_id": "gold_376e27a112e5b8d7a45c",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_376e27a112e5b8d7a45c"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D26:11",
+          "session_id": "session_26"
+        }
+      ],
+      "value": "a project"
+    },
+    {
+      "attribute": "interest in writing",
+      "entity": "Joanna",
+      "gold_item_id": "gold_f48184b29a8294226a55",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_f48184b29a8294226a55"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:7",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "has a thing for writing"
+    },
+    {
+      "attribute": "working_on",
+      "entity": "Joanna",
+      "gold_item_id": "gold_41784938eb7c648aa8a1",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_41784938eb7c648aa8a1"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:2",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "something exciting"
+    },
+    {
+      "attribute": "planned activity",
+      "entity": "Nate",
+      "gold_item_id": "gold_a0b968908c2c26caf168",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a0b968908c2c26caf168"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D28:16",
+          "session_id": "session_28"
+        },
+        {
+          "dia_id": "D28:17",
+          "session_id": "session_28"
+        }
+      ],
+      "value": "making videos and connecting with people about gaming"
+    },
+    {
+      "attribute": "watches other people's videos",
+      "entity": "Nate",
+      "gold_item_id": "gold_01d0525451a4fc1ec5b9",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_01d0525451a4fc1ec5b9"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D28:18",
+          "session_id": "session_28"
+        },
+        {
+          "dia_id": "D28:19",
+          "session_id": "session_28"
+        }
+      ],
+      "value": "yes"
+    },
+    {
+      "attribute": "desire",
+      "entity": "Nate",
+      "gold_item_id": "gold_2cbe618e6d982af73331",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_2cbe618e6d982af73331"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D6:9",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "pursue writing"
+    },
+    {
+      "attribute": "preparing_for",
+      "entity": "Nate",
+      "gold_item_id": "gold_2de17e4444f391f32501",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_2de17e4444f391f32501"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D27:3",
+          "session_id": "session_27"
+        }
+      ],
+      "value": "other tournaments"
+    },
+    {
+      "attribute": "open_to",
+      "entity": "Joanna",
+      "gold_item_id": "gold_0bcbc659bd6e30b18980",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_0bcbc659bd6e30b18980"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:13",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "new book recommendations"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Joanna",
+      "gold_item_id": "gold_9a517d4ea64f7a737bca",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_9a517d4ea64f7a737bca"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D19:18",
+          "session_id": "session_19"
+        }
+      ],
+      "value": "check out the recommended series sometime"
+    },
+    {
+      "attribute": "planned_action",
+      "entity": "Joanna",
+      "gold_item_id": "gold_62acf9d5d240b36b17d9",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_62acf9d5d240b36b17d9"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:15",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "check out the series"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Joanna",
+      "gold_item_id": "gold_d9adb0207897d1af0fa0",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_d9adb0207897d1af0fa0"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:15",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "check out the series"
+    },
+    {
+      "attribute": "interest in games",
+      "entity": "Joanna",
+      "gold_item_id": "gold_92ae584da92770ffd238",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_92ae584da92770ffd238"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D1:8",
+          "session_id": "session_1"
+        }
+      ],
+      "value": "not into games"
+    },
+    {
+      "attribute": "could use",
+      "entity": "Joanna",
+      "gold_item_id": "gold_b8f9e3634ed7d9f71455",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_b8f9e3634ed7d9f71455"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D22:7",
+          "session_id": "session_22"
+        }
+      ],
+      "value": "some recommendations"
+    },
+    {
+      "attribute": "heard of",
+      "entity": "Joanna",
+      "gold_item_id": "gold_d66f2ba05c32ccef0f8d",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_d66f2ba05c32ccef0f8d"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:15",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "the series"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Joanna",
+      "gold_item_id": "gold_68823666dc1a0c448a98",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_68823666dc1a0c448a98"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D19:20",
+          "session_id": "session_19"
+        }
+      ],
+      "value": "add the recommended series to her list"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Joanna",
+      "gold_item_id": "gold_edd4a9acf0a81e1066ec",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_edd4a9acf0a81e1066ec"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D19:17",
+          "session_id": "session_19"
+        },
+        {
+          "dia_id": "D19:18",
+          "session_id": "session_19"
+        }
+      ],
+      "value": "check out Nate's recommended series sometime"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Joanna",
+      "gold_item_id": "gold_35d8a7c588a3423434df",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_35d8a7c588a3423434df"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D9:9",
+          "session_id": "session_9"
+        }
+      ],
+      "value": "keep writing"
+    },
+    {
+      "attribute": "plan",
+      "entity": "Joanna",
+      "gold_item_id": "gold_a6d5f702578e05b24f53",
+      "match_basis": "ACN67 manual review of the frozen Memory content and source turn against the query-scoped state annotation",
+      "match_status": "matched",
+      "matched_memory_ids": [
+        "mem_a6d5f702578e05b24f53"
+      ],
+      "review_note": "Matched by stable Memory ID and exact source references.",
+      "sample_id": "conv-42",
+      "source_refs": [
+        {
+          "dia_id": "D6:6",
+          "session_id": "session_6"
+        }
+      ],
+      "value": "keep Nate updated"
+    }
+  ],
+  "memory_fingerprints": {
+    "conv-30": "sha256:2674d020693bdc43dd9d59bf7661873d41dfcf0bd095656fc215a5155abadec9",
+    "conv-41": "sha256:8ea0d51519492bff2dcce2f710f63b0bfcb5f737bba4c583953d3d4cfba76373",
+    "conv-42": "sha256:de124429cca76ee46b2277b6010f15ab2df48c97374eec5d942ec381a0e52523"
+  },
+  "protocol": "main-dev-state-review-v1",
+  "queries": [
+    {
+      "decisions": [
+        {
+          "item_id": "gold_1c79f12bffd23b7ab74c",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_af8fac44360dc3177c5a",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_55dfd9fb150cc6caf0bc",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_dfef868b8531a1ee48de",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_97f637114769837c71fd",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_12e5f71c949a76fd03c3",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_5fefbf7a4ca3429f818d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_0f3f6625d162c1419289",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_29008982b7b1a8e6a090",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_7604612fb34451882944",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_4abd27e91a842150a06a",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_22f4fd18241bd4460a91",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_1c79f12bffd23b7ab74c"
+      ],
+      "query_id": "qa_conv-30_65",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What book is Jon currently reading?",
+      "sample_id": "conv-30"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_88ab59154bb483c30f25",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_0e56fdfb0623f720bd64",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_d43e8c063f70bbfdb7b7",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_4a0f5947cd3e787bf8e1",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_fed0a153410cbefa329f",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_85adadcefc9297cda34d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a41873fe4ad414240f04",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_85b9796b36cdd49e350d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_39f2c09a8571f19bc7a8",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_61742247d21d3dfe1588",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_7f739d06f808d228ad09",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_f0df162054820302152e",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_7f739d06f808d228ad09",
+        "gold_4a0f5947cd3e787bf8e1"
+      ],
+      "query_id": "qa_conv-30_70",
+      "relation_universe_closed": false,
+      "relations": [
+        {
+          "label": "UPDATE",
+          "new_item_id": "gold_a41873fe4ad414240f04",
+          "old_item_id": "gold_61742247d21d3dfe1588",
+          "scope_attribute": "business opening"
+        },
+        {
+          "label": "UPDATE",
+          "new_item_id": "gold_39f2c09a8571f19bc7a8",
+          "old_item_id": "gold_a41873fe4ad414240f04",
+          "scope_attribute": "current work"
+        },
+        {
+          "label": "UPDATE",
+          "new_item_id": "gold_4a0f5947cd3e787bf8e1",
+          "old_item_id": "gold_39f2c09a8571f19bc7a8",
+          "scope_attribute": "current work"
+        }
+      ],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What is Jon working on opening?",
+      "sample_id": "conv-30"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_e1b118b7d13d68479301",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_09fa5c36fecac7527e43",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_911d2ad9517a5a6fccc5",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_0f9b0c5e99db44779a3c",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a85563052bf4fbaa273d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_65a4337b8cd1be8a218d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_98ac505239d62e4fa842",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_128c403aae420ce39c88",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_2bfe8db4521a5a801017",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_6a0e2024b20beb7160e3",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_b83011f39fd6745b0bb3",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a69a2d5e3498c521c625",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [],
+      "query_id": "qa_conv-30_99",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What book is Gina currently reading?",
+      "sample_id": "conv-30"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_44cdd415f433acf295fb",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_7da5c2ef6bf8df3ce538",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_7da78ab31d4179e80fa4",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_fd7657ca7f6ec64caa05",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_cc20990518c9abbbbfab",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_6d66c77283da980f25f0",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a9ed72fb73c649e94934",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_5436fadcd57ddf8f0088",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_682ea6eff8729ba65fe0",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_9320c143f5033da68376",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_00774211b73ffdb3f3ce",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_66470c2b7bb7c6f1cf16",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [],
+      "query_id": "qa_conv-30_103",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What temporary job did Gina take to cover expenses?",
+      "sample_id": "conv-30"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_f3e6561f6dcb0b2524e8",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_eda2e41798adb5735884",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_67d6219800159a265a1a",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_aabfacc93752c07e212c",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_561a4521e589226b5807",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_9abef594d4f8f07d3061",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_9b34dc02ececeba76d71",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_58c127c57e277e1c6071",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f16bb652f16df196d929",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_edf97d6ac174defdfd76",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_86fd9bf1f6a97aec358d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_989d6bc5d3b965fbb3a5",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_f3e6561f6dcb0b2524e8",
+        "gold_67d6219800159a265a1a"
+      ],
+      "query_id": "qa_conv-41_101",
+      "relation_universe_closed": false,
+      "relations": [
+        {
+          "label": "UPDATE",
+          "new_item_id": "gold_f3e6561f6dcb0b2524e8",
+          "old_item_id": "gold_58c127c57e277e1c6071",
+          "scope_attribute": "Maria's shelter fundraiser preparation"
+        }
+      ],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What event is Maria getting ready for at the shelter on May 25, 2023?",
+      "sample_id": "conv-41"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_f6d95f9fc061e3a45a51",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_5815d06383b342ffdb33",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_857471311540f75a2a6b",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_ad2c884542e3d661c77f",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_dc8987be00c264cb18ea",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_910865a14697bca9d4f5",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_a1bab3fbd45a09747f94",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_20d3efd7b4146c145814",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_145bbb47f2fe70588f31",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_abf525fb4405c4d1a0c1",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_322d2a84ec956b2891e6",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_3e1e6adc15df76d648ee",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_f6d95f9fc061e3a45a51",
+        "gold_5815d06383b342ffdb33",
+        "gold_857471311540f75a2a6b",
+        "gold_a1bab3fbd45a09747f94",
+        "gold_ad2c884542e3d661c77f",
+        "gold_dc8987be00c264cb18ea",
+        "gold_910865a14697bca9d4f5",
+        "gold_20d3efd7b4146c145814"
+      ],
+      "query_id": "qa_conv-42_85",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What kind of job is Joanna beginning to preform the duties of because of her movie scripts?",
+      "sample_id": "conv-42"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_db79604fafe23555d528",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f0d70aa25e50af86d42d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_18dafbf0362c705992a5",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_a55f16d60868e5e0102a",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_cf1cce42998f579b4796",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a0fa74ed6089f7009eab",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_d2ea055972464d00a6e8",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_5792833cf9c6f54835df",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_eb8a3e492ce8f7871c32",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_cf95f023a77227dbd524",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f5d004ccc594ad7a43fb",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_170107a2cc217eaeb67b",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_d2ea055972464d00a6e8",
+        "gold_18dafbf0362c705992a5",
+        "gold_5792833cf9c6f54835df"
+      ],
+      "query_id": "qa_conv-42_136",
+      "relation_universe_closed": false,
+      "relations": [
+        {
+          "label": "UPDATE",
+          "new_item_id": "gold_18dafbf0362c705992a5",
+          "old_item_id": "gold_d2ea055972464d00a6e8",
+          "scope_attribute": "video game tournament wins"
+        },
+        {
+          "label": "UPDATE",
+          "new_item_id": "gold_5792833cf9c6f54835df",
+          "old_item_id": "gold_18dafbf0362c705992a5",
+          "scope_attribute": "video game tournament wins"
+        }
+      ],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. How many video game tournaments has Nate won by July 10, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_2b036d4559b946c5832b",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_a0fa74ed6089f7009eab",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_db79604fafe23555d528",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_b337ac4089563a508012",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_e22a697a6cb7b3de4a79",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_446d757c38b0b0b7194e",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f0d70aa25e50af86d42d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_cf95f023a77227dbd524",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_eb8a3e492ce8f7871c32",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f5d004ccc594ad7a43fb",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_ca53a7aeb140e001dc44",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_170107a2cc217eaeb67b",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_2b036d4559b946c5832b",
+        "gold_e22a697a6cb7b3de4a79"
+      ],
+      "query_id": "qa_conv-42_183",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What game is Nate currently playing and recommends to others on November 7, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_adba0e0157772383a596",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_63af3839f2371dfa3c94",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a8a1b4af19978f3af7b2",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_ad2eb165748496d938fc",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_dc8987be00c264cb18ea",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_1bf29465aca5761a7ea8",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_376e27a112e5b8d7a45c",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f48184b29a8294226a55",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_41784938eb7c648aa8a1",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_a8a1b4af19978f3af7b2"
+      ],
+      "query_id": "qa_conv-42_187",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What project is Joanna working on in her notebook on November 9, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_cf95f023a77227dbd524",
+          "label": "RETAIN"
+        },
+        {
+          "item_id": "gold_a0b968908c2c26caf168",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_2b036d4559b946c5832b",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a0fa74ed6089f7009eab",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_db79604fafe23555d528",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_01d0525451a4fc1ec5b9",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_2cbe618e6d982af73331",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_2de17e4444f391f32501",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_eb8a3e492ce8f7871c32",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f0d70aa25e50af86d42d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_f5d004ccc594ad7a43fb",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_170107a2cc217eaeb67b",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [
+        "gold_cf95f023a77227dbd524"
+      ],
+      "query_id": "qa_conv-42_188",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What is Nate creating for YouTube on 9 November, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "decisions": [
+        {
+          "item_id": "gold_0bcbc659bd6e30b18980",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_9a517d4ea64f7a737bca",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_62acf9d5d240b36b17d9",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_d9adb0207897d1af0fa0",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_92ae584da92770ffd238",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_b8f9e3634ed7d9f71455",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_adba0e0157772383a596",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_d66f2ba05c32ccef0f8d",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_68823666dc1a0c448a98",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_edd4a9acf0a81e1066ec",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_35d8a7c588a3423434df",
+          "label": "EXCLUDE"
+        },
+        {
+          "item_id": "gold_a6d5f702578e05b24f53",
+          "label": "EXCLUDE"
+        }
+      ],
+      "effective_item_ids": [],
+      "query_id": "qa_conv-42_249",
+      "relation_universe_closed": false,
+      "relations": [],
+      "review_note": "ACN67 reviewed the question, retrieved candidates, source turns and time scope. What game is Joanna currently playing and recommends to others on November 7, 2022?",
+      "sample_id": "conv-42"
+    }
+  ],
+  "reviewer": "ACN67"
+}

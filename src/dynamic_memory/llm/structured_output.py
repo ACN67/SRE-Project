@@ -85,14 +85,24 @@ def _finite_float(value: str) -> float:
     return parsed
 
 
-def validate_structured_output(request: LLMRequest, response: LLMResponse, schema: type[T]) -> T:
+def validate_structured_output(
+    request: LLMRequest,
+    response: LLMResponse,
+    schema: type[T],
+    *,
+    allow_missing_schema_version: bool = False,
+) -> T:
     """Validate an existing JSON completion against the caller's Pydantic schema.
 
     This checks structure only. Source existence, canonical Memory IDs and factual
     support need their own context-dependent checks in the business pipeline.
     """
 
-    if not isinstance(schema, type) or not issubclass(schema, BaseModel):
+    if (
+        not isinstance(schema, type)
+        or not issubclass(schema, BaseModel)
+        or type(allow_missing_schema_version) is not bool
+    ):
         raise StructuredOutputError("INVALID_ARGUMENT", "schema must be a Pydantic model class") from None
     if not isinstance(request, LLMRequest) or not isinstance(response, LLMResponse):
         raise StructuredOutputError("INVALID_ARGUMENT", "expected LLMRequest and LLMResponse") from None
@@ -125,6 +135,15 @@ def validate_structured_output(request: LLMRequest, response: LLMResponse, schem
         raise StructuredOutputError("JSON_INTEGRITY", "JSON root must be an object") from None
     if not isinstance(response.parsed_json, dict) or response.parsed_json != parsed:
         raise StructuredOutputError("RESPONSE_INCONSISTENT", "parsed_json differs from raw_output") from None
+    if (
+        allow_missing_schema_version
+        and issubclass(schema, VersionedModel)
+        and "schema_version" not in parsed
+    ):
+        # schema_version is a protocol constant, not a model-authored semantic
+        # value. The Dynamic resolver may repair only this omission; all other
+        # schema and safety checks remain strict.
+        parsed = {**parsed, "schema_version": SCHEMA_VERSION}
     if issubclass(schema, VersionedModel) and parsed.get("schema_version") != SCHEMA_VERSION:
         raise StructuredOutputError("SCHEMA_INVALID", "explicit schema_version 2.1 is required") from None
     try:

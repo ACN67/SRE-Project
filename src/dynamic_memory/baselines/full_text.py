@@ -86,16 +86,22 @@ class FullTextAnswerer:
 
     def __init__(self, runtime: LLMRuntime, provenance: FullTextProvenance,
                  *, on_diagnostic: Callable[[FullTextDiagnostics], None] | None = None,
+                 question_transform: Callable[[QueryRequest], str] | None = None,
+                 prompt_template=QA_PROMPT,
                  synthetic_test_mode: bool = False) -> None:
         if not isinstance(runtime, LLMRuntime) or not isinstance(provenance, FullTextProvenance):
             raise FullTextError("DEPENDENCY_INVALID")
         if on_diagnostic is not None and not callable(on_diagnostic):
+            raise FullTextError("DEPENDENCY_INVALID")
+        if question_transform is not None and not callable(question_transform):
             raise FullTextError("DEPENDENCY_INVALID")
         if not isinstance(synthetic_test_mode, bool):
             raise FullTextError("DEPENDENCY_INVALID")
         self._runtime = runtime
         self._provenance = provenance
         self._on_diagnostic = on_diagnostic
+        self._question_transform = question_transform
+        self._prompt_template = prompt_template
         self._synthetic_test_mode = synthetic_test_mode
 
     def _report(self, diagnostic: FullTextDiagnostics) -> None:
@@ -143,7 +149,15 @@ class FullTextAnswerer:
         conditions = f"query_intent={info.query_intent}; time_mode={info.time_mode}"
         if info.resolved_as_of is not None:
             conditions += f"; resolved_as_of={info.resolved_as_of.isoformat()}"
-        question = f"{query.question}\n\nShared query conditions: {conditions}"
+        rendered_question = query.question
+        if self._question_transform is not None:
+            try:
+                rendered_question = self._question_transform(query)
+            except Exception:
+                raise FullTextError("QUESTION_PROTOCOL_INVALID") from None
+            if not isinstance(rendered_question, str) or not rendered_question.strip():
+                raise FullTextError("QUESTION_PROTOCOL_INVALID")
+        question = f"{rendered_question}\n\nShared query conditions: {conditions}"
         estimator = self._runtime.guarded._estimator
         strict = self._runtime.guarded._strict_budget
         if estimator is None and strict:
@@ -158,7 +172,10 @@ class FullTextAnswerer:
         while retained:
             context = "\n\n".join(turn.line for turn in retained)
             try:
-                prepared = self._runtime.make_request(QA_PROMPT, {"context": context, "question": question})
+                prepared = self._runtime.make_request(
+                    self._prompt_template,
+                    {"context": context, "question": question},
+                )
             except Exception:
                 raise FullTextError("REQUEST_INVALID") from None
             if estimator is not None:

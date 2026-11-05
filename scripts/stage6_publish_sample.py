@@ -108,6 +108,7 @@ def _publish(
     index_root: Path | None,
     model_root: Path | None,
     model_revision: str | None,
+    allowed_splits: tuple[str, ...],
 ) -> dict:
     state = state_dir.resolve()
     review = review_dir.resolve()
@@ -141,16 +142,21 @@ def _publish(
         or _fp(manifest) != queue.run_fingerprint
     ):
         raise PublicationError("EXTRACTION_LINEAGE_INVALID")
-    repair_plan = _read_json(repair_plan_path)
-    if (
-        not isinstance(repair_plan, dict)
-        or repair_plan.get("status") != "STAGE6_REPAIR_PLAN_READY"
-        or repair_plan.get("sample_id") != sample_id
-    ):
-        raise PublicationError("REPAIR_PLAN_INVALID")
-    original_plan = _read_json(Path(repair_plan["original_plan_path"]))
+    if repair_plan_path.exists():
+        repair_plan = _read_json(repair_plan_path)
+        if (
+            not isinstance(repair_plan, dict)
+            or repair_plan.get("status") != "STAGE6_REPAIR_PLAN_READY"
+            or repair_plan.get("sample_id") != sample_id
+        ):
+            raise PublicationError("REPAIR_PLAN_INVALID")
+        original_plan_path = Path(repair_plan["original_plan_path"])
+    else:
+        original_plan_path = state / "plan.json"
+    original_plan = _read_json(original_plan_path)
     if (
         not isinstance(original_plan, dict)
+        or original_plan.get("status") != "STAGE6_EXTRACTION_PLAN_READY"
         or original_plan.get("sample_id") != sample_id
         or original_plan.get("run_fingerprint")
         != manifest["body"].get("run_fingerprint")
@@ -281,6 +287,7 @@ def _publish(
         bundle,
         settings,
         production=True,
+        allowed_splits=allowed_splits,
     )
     store = ports.store(sample_id)
     try:
@@ -401,6 +408,12 @@ def main() -> int:
     parser.add_argument("--index-root", type=Path)
     parser.add_argument("--model-root", type=Path)
     parser.add_argument("--model-revision")
+    parser.add_argument(
+        "--allowed-split",
+        action="append",
+        choices=("main_dev", "test"),
+        default=None,
+    )
     parser.add_argument("--summary-dir", required=True, type=Path)
     args = parser.parse_args()
     try:
@@ -413,6 +426,7 @@ def main() -> int:
             index_root=args.index_root,
             model_root=args.model_root,
             model_revision=args.model_revision,
+            allowed_splits=tuple(args.allowed_split or ("main_dev",)),
         )
         summary_dir.mkdir(parents=True, exist_ok=True)
         _write_json(summary_dir / "publication_summary.json", output)

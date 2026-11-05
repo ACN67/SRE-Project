@@ -1,10 +1,20 @@
 """Synthetic QA through the actual shared runtime, without network or paid API."""
 
 import json
+import hashlib
+from datetime import datetime, timezone
 
 import pytest
 
-from dynamic_memory.contracts.models import QueryResponse, SourceTurn
+from dynamic_memory.contracts import (
+    ConversationSample,
+    ConversationSession,
+    DatasetBundle,
+    QueryResponse,
+    SourceTurn,
+)
+from dynamic_memory.contracts.models import SourceRef
+from dynamic_memory.data.repository import SourceRepository
 from dynamic_memory.contracts.validation import validate_response_context
 from dynamic_memory.llm.protocol import LLMResponse
 from dynamic_memory.pipeline.runtime import create_runtime
@@ -26,6 +36,15 @@ class SyntheticQA:
                    "evidence_refs": memories[0]["source_refs"], "uncertainty": None}
         if self.change: payload.update(self.change)
         return LLMResponse(output_mode="text", raw_output=json.dumps(payload), finish_reason="stop")
+
+
+class SyntheticPlainQA:
+    def __init__(self):
+        self.calls = []
+
+    def generate(self, request):
+        self.calls.append(request)
+        return LLMResponse(output_mode="text", raw_output="Teacher", finish_reason="stop")
 
 
 def answer_setup(*, adapter=None, estimator=None, strict=False, synthetic=True, diagnostics=None):
@@ -69,6 +88,62 @@ def test_answer_public_context_contract_and_cache():
     request.question = "What job does Sam have?"
     answerer(request, analysis, memories)
     assert len(adapter.calls) == 2
+
+
+def test_plain_hybrid_answer_uses_source_turn_and_programmatic_refs():
+    _, index, request, analysis, retriever = setup()
+    candidates = retriever.retrieve(request, analysis, index)
+    memories = retriever.load_candidates(candidates, index)
+    turns = [
+        SourceTurn(
+            sample_id=index.sample_id,
+            session_id=ref.session_id,
+            dia_id=ref.dia_id,
+            speaker="Sam",
+            text="Sam teaches at the synthetic school.",
+            recorded_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+        for memory in memories
+        for ref in memory.source_refs
+    ]
+    sample = ConversationSample(
+        sample_id=index.sample_id,
+        source_order_1_based=1,
+        sessions=[ConversationSession(session_id="s1", turns=turns)],
+    )
+    repository = SourceRepository(DatasetBundle(
+        snapshot_sha256=hashlib.sha256(b"synthetic").hexdigest(),
+        samples=[sample],
+        split_by_sample_id={index.sample_id: "main_dev"},
+    ))
+    adapter = SyntheticPlainQA()
+    runtime = create_runtime(
+        synthetic_adapter=adapter,
+        token_estimator=lambda _messages: 10,
+        estimator_version="synthetic-estimator-v1",
+        strict_budget=True,
+    )
+    answerer = VectorAnswerer(
+        runtime,
+        VectorAnswerProvenance(
+            fingerprint("synthetic-data"),
+            QUERY_ANALYSIS_VERSION,
+            "0" * 40,
+            "development",
+        ),
+        index,
+        synthetic_test_mode=True,
+        source_repository=repository,
+        plain_text=True,
+    )
+    answer = answerer(request, analysis, memories)
+    assert answer.status == "answered"
+    assert answer.answer == "Teacher"
+    assert answer.evidence_refs == [
+        ref for memory in memories for ref in memory.source_refs
+    ]
+    assert "SOURCE TURNS:" in adapter.calls[0].messages[1].content
+    assert "Synthetic: Sam is a teacher" not in adapter.calls[0].messages[1].content
 
 
 def test_whole_memory_prefix_budget_and_no_outside_citations():

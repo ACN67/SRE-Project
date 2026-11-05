@@ -103,7 +103,11 @@ def test_complete_source_prompt_runtime_and_a12_integration():
     assert len(fake.requests) == 1
     call = fake.requests[0]
     assert call.task == "qa" and call.output_mode == "text"
-    assert call.settings.max_input_tokens == 32768 and call.settings.max_output_tokens == 256
+    assert (
+        call.settings.max_input_tokens
+        == runtime.settings.models.qa_max_input_tokens
+    )
+    assert call.settings.max_output_tokens == 256
     assert "Session=session_1 | dia_id=dia_1 | speaker=Person A | recorded_at=2024-01-02T00:00:00+00:00" in call.messages[1].content
     assert "Session=session_2 | dia_id=dia_2 | speaker=Person B" in call.messages[1].content
     assert "[image_caption: Synthetic scene]" in call.messages[1].content

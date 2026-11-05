@@ -1,6 +1,7 @@
 """Explicit synthetic annotations and hand-calculated state denominators."""
 
 from dataclasses import replace
+import json
 
 import pytest
 
@@ -10,6 +11,7 @@ from dynamic_memory.contracts import (AnswerResult, CandidateItem, CandidateSet,
 from dynamic_memory.data.repository import SourceRepository
 from evaluation.metrics.state_metrics import (DecisionGold, GoldItemMapping, MemoryCatalog,
     RelationGold, StateGold, score_state, validate_gold_memory_mapping)
+from evaluation.metrics.state_annotations import load_state_annotations
 from evaluation.question_manifest import EvaluationInputError
 
 
@@ -173,3 +175,77 @@ def test_empty_effective_and_gold_unavailable():
     assert unavailable.relation_label_metrics.status == "gold_unavailable"
     assert unavailable.decision_metrics.status == "gold_unavailable"
     assert unavailable.effective_set_metrics.status == "gold_unavailable"
+
+
+def test_reviewed_state_annotation_file_round_trips_strictly(tmp_path):
+    sample = "synthetic-state"
+    memory_fingerprint = "sha256:" + "b" * 64
+    data_fingerprint = "sha256:" + "a" * 64
+    common_item = {
+        "sample_id": sample,
+        "source_refs": [{"session_id": "s", "dia_id": "d1"}],
+        "entity": "Person",
+        "attribute": "role",
+        "match_basis": "manual source check",
+        "match_status": "matched",
+        "review_note": "Reviewed against the frozen source turn.",
+    }
+    document = {
+        "format_version": 1,
+        "annotation_source": "team_annotated",
+        "annotator": "ACN67",
+        "reviewer": "ACN67",
+        "created_at": "2026-11-05T00:00:00+00:00",
+        "protocol": "synthetic-state-test-v1",
+        "data_fingerprint": data_fingerprint,
+        "memory_fingerprints": {sample: memory_fingerprint},
+        "items": [
+            {
+                **common_item,
+                "gold_item_id": "g1",
+                "value": "role1",
+                "matched_memory_ids": ["mem_00000000000000000001"],
+            },
+            {
+                **common_item,
+                "gold_item_id": "g2",
+                "value": "role2",
+                "matched_memory_ids": ["mem_00000000000000000002"],
+            },
+        ],
+        "queries": [
+            {
+                "sample_id": sample,
+                "query_id": "q",
+                "relations": [
+                    {
+                        "old_item_id": "g1",
+                        "new_item_id": "g2",
+                        "scope_attribute": "role",
+                        "label": "UPDATE",
+                    }
+                ],
+                "decisions": [
+                    {"item_id": "g1", "label": "EXCLUDE"},
+                    {"item_id": "g2", "label": "RETAIN"},
+                ],
+                "effective_item_ids": ["g2"],
+                "relation_universe_closed": False,
+                "review_note": "Manual state review.",
+            }
+        ],
+    }
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    loaded = load_state_annotations(path)
+    assert loaded.annotation_source == "team_annotated"
+    assert loaded.annotator == loaded.reviewer == "ACN67"
+    assert loaded.mappings_by_sample[sample][0].memory_fingerprint == memory_fingerprint
+    gold = loaded.gold_by_query[(sample, "q")]
+    assert gold.relations[0].label == "UPDATE"
+    assert gold.effective_item_ids == ("g2",)
+
+    document["items"][0]["match_status"] = "ambiguous"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(EvaluationInputError, match="STATE_ANNOTATION_ITEM_INVALID"):
+        load_state_annotations(path)

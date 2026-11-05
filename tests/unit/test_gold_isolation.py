@@ -120,6 +120,63 @@ def test_missing_gold_is_separate_from_failed_prediction(tmp_path):
     assert len(gold.records) == len(manifest.records) - 1
 
 
+def test_category_five_null_answer_uses_official_refusal_gold(tmp_path):
+    source, split, samples = synthetic_files(tmp_path)
+    samples[0]["qa"][1]["answer"] = None
+    source.write_text(json.dumps(samples), encoding="utf-8")
+    from dynamic_memory.data.snapshot import freeze_split_config, inspect_snapshot
+    split.write_text(
+        "snapshot_sha256: null\nsample_ids: null\ngroups:\n"
+        "  main_dev: {source_order_1_based: [1, 2, 3, 4], sample_ids: null}\n"
+        "  extra_dev: {source_order_1_based: [5, 6, 7, 8], sample_ids: null}\n"
+        "  test: {source_order_1_based: [9, 10], sample_ids: null}\n",
+        encoding="utf-8",
+    )
+    freeze_split_config(inspect_snapshot(source), split, apply=True)
+    manifest = load_question_manifest(source, split, selected_splits=("main_dev",))
+    path = tmp_path / "category-five.predictions.json"
+    receipt = save_predictions(path, manifest, predictions(manifest), "full_text")
+    gold = load_gold_after_predictions(
+        source,
+        split,
+        path,
+        manifest,
+        receipt,
+        annotation_source="synthetic_fixture",
+    )
+    category_five = next(record for record in gold.records if record.category == 5)
+    assert category_five.answer == "Not mentioned in the conversation"
+    assert category_five.gold_record_key not in gold.missing_keys
+
+
+def test_numeric_gold_answer_is_canonicalized_without_opening_early(tmp_path):
+    source, split, samples = synthetic_files(tmp_path)
+    samples[0]["qa"][0]["answer"] = 2022
+    source.write_text(json.dumps(samples), encoding="utf-8")
+    from dynamic_memory.data.snapshot import freeze_split_config, inspect_snapshot
+    split.write_text(
+        "snapshot_sha256: null\nsample_ids: null\ngroups:\n"
+        "  main_dev: {source_order_1_based: [1, 2, 3, 4], sample_ids: null}\n"
+        "  extra_dev: {source_order_1_based: [5, 6, 7, 8], sample_ids: null}\n"
+        "  test: {source_order_1_based: [9, 10], sample_ids: null}\n",
+        encoding="utf-8",
+    )
+    freeze_split_config(inspect_snapshot(source), split, apply=True)
+    manifest = load_question_manifest(source, split, selected_splits=("main_dev",))
+    path = tmp_path / "numeric-gold.predictions.json"
+    receipt = save_predictions(path, manifest, predictions(manifest), "full_text")
+    gold = load_gold_after_predictions(
+        source,
+        split,
+        path,
+        manifest,
+        receipt,
+        annotation_source="synthetic_fixture",
+    )
+    numeric = next(record for record in gold.records if record.original_qa_index == 0)
+    assert numeric.answer == "2022"
+
+
 def test_gold_schema_category_and_manifest_mismatch(tmp_path):
     source, split, _ = synthetic_files(tmp_path)
     manifest = load_question_manifest(source, split, selected_splits=("main_dev",))

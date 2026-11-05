@@ -8,7 +8,13 @@ from dynamic_memory.contracts import MemoryDecision, ResolutionResult
 from dynamic_memory.llm.prompts import PromptTemplate
 from dynamic_memory.llm.structured_output import validate_structured_output
 
-from .common import DynamicComponent, DynamicReasoningError, checked_inputs, validate_resolution
+from .common import (
+    DynamicComponent,
+    DynamicReasoningError,
+    checked_inputs,
+    complete_missing_candidate_decisions,
+    validate_resolution,
+)
 
 
 DYNAMIC_RESOLUTION_PROMPT = PromptTemplate(
@@ -70,11 +76,8 @@ class StateResolver(DynamicComponent):
 
     def resolve(self, request, analysis, candidates):
         request, analysis, memories = checked_inputs(request, analysis, candidates)
-        time_uncertain = (
-            analysis.time_mode in {"conflict", "unknown"}
-            or analysis.time_issue is not None
-        )
-        if not memories or time_uncertain:
+        time_conflict = analysis.time_mode == "conflict"
+        if not memories or time_conflict:
             result = ResolutionResult(
                 query_id=request.query_id,
                 decisions=[
@@ -87,12 +90,12 @@ class StateResolver(DynamicComponent):
                 ],
                 uncertainty=(
                     "Shared query time conditions cannot be resolved."
-                    if time_uncertain else None
+                    if time_conflict else None
                 ),
             )
             self.report(
                 "resolve", request, analysis, memories, [],
-                "time_uncertain" if time_uncertain else "no_evidence",
+                "time_uncertain" if time_conflict else "no_evidence",
             )
             return result
         cutoff = None
@@ -129,8 +132,12 @@ class StateResolver(DynamicComponent):
 
         def decode(_request, response):
             result = validate_structured_output(
-                _request, response, ResolutionResult
+                _request,
+                response,
+                ResolutionResult,
+                allow_missing_schema_version=True,
             )
+            result = complete_missing_candidate_decisions(result, memories)
             return validate_resolution(result, request, memories)
 
         result, call = self.execute(

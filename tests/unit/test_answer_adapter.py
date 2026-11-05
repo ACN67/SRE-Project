@@ -8,8 +8,8 @@ from evaluation.metrics.answer_adapter import adapt_answer
 
 @pytest.mark.parametrize("status,expected", [
     ("no_evidence", "No information available"),
-    ("time_uncertain", "Unable to determine the time from available evidence"),
-    ("unresolved_conflict", "Conflicting information in the conversation"),
+    ("time_uncertain", "No information available"),
+    ("unresolved_conflict", "No information available"),
 ])
 def test_fixed_uncertainty_text(status, expected):
     answer = AnswerResult(status=status, uncertainty="Synthetic reason")

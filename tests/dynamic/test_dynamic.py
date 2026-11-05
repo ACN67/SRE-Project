@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from dynamic_memory.contracts import (
-    MemoryRecord, QueryAnalysis, QueryRequest, SourceRef, TimeSpan,
+    MemoryRecord, QueryAnalysis, QueryRequest, SourceRef, TimeIssue, TimeSpan,
 )
 from dynamic_memory.contracts.memory_id import compute_memory_id
 from dynamic_memory.llm.protocol import LLMResponse
@@ -241,21 +241,68 @@ def test_unrelated_conflict_does_not_block_answer():
     assert answer.used_memory_ids == [extra.memory_id]
 
 
-def test_empty_and_time_parse_early_stop_no_model():
+def test_omitted_candidate_decision_fails_closed_without_qa():
+    resolver, answerer, request, analysis, memories, adapter, _ = setup()
+    adapter.payload["decisions"].pop(0)
+    result = resolver(request, analysis, memories)
+    assert {decision.memory_id for decision in result.decisions} == {
+        memory.memory_id for memory in memories
+    }
+    assert result.decisions[-1].memory_id == memories[0].memory_id
+    assert result.decisions[-1].action == "UNRESOLVED"
+    assert result.effective_memory_ids == [memories[1].memory_id]
+    assert "omitted" in (result.uncertainty or "").casefold()
+    answer = answerer(request, analysis, result, memories)
+    assert answer.status == "time_uncertain"
+    assert answer.answer is None
+    assert len(adapter.calls) == 1
+
+
+def test_omitted_schema_version_constant_is_repaired_for_resolver_only():
+    resolver, _, request, analysis, memories, adapter, _ = setup()
+    adapter.payload.pop("schema_version")
+    result = resolver(request, analysis, memories)
+    assert result.schema_version == "2.1"
+    assert len(result.decisions) == len(memories)
+    assert len(adapter.calls) == 1
+
+
+def test_empty_and_time_conflict_early_stop_no_model():
     resolver, answerer, request, analysis, memories, adapter, _ = setup()
     result = resolver(request, analysis, [])
     assert answerer(request, analysis, result, []).status == "no_evidence"
-    analysis.time_mode = "unknown"
+    analysis.time_mode = "conflict"
+    analysis.time_issue = TimeIssue(
+        code="QUERY_TIME_CONFLICT",
+        explicit_as_of="2020-01-01",
+        question_time="Synthetic conflicting time",
+        message="Synthetic time conflict.",
+    )
     result = resolver(request, analysis, memories)
     assert all(decision.action == "UNRESOLVED" for decision in result.decisions)
     assert answerer(request, analysis, result, memories).status == "time_uncertain"
     assert adapter.calls == []
 
 
+def test_ambiguous_relative_time_reaches_evidence_resolver():
+    resolver, answerer, request, analysis, memories, adapter, _ = setup()
+    analysis.time_mode = "unknown"
+    analysis.time_issue = TimeIssue(
+        code="TIME_PARSE_UNCERTAIN",
+        explicit_as_of=None,
+        message="Synthetic ambiguous time.",
+        question_time=request.question,
+    )
+    result = resolver(request, analysis, memories)
+    assert result.effective_memory_ids == [memories[1].memory_id]
+    assert len(adapter.calls) == 1
+    assert answerer(request, analysis, result, memories).status == "answered"
+
+
 @pytest.mark.parametrize(
     "change",
     [
-        "missing_decision", "extra_decision", "duplicate_decision", "effective",
+        "extra_decision", "duplicate_decision", "effective",
         "foreign_edge", "foreign_ref", "one_endpoint_ref", "empty_reason",
         "empty_scope", "query", "retained_conflict", "conflict_without_edge",
         "duplicate_edge", "unresolved_no_reason", "schema",
@@ -265,9 +312,7 @@ def test_invalid_model_resolutions_rejected_and_not_cached(change):
     resolver, _, request, analysis, memories, adapter, _ = setup()
     valid = deepcopy(adapter.payload)
     payload = adapter.payload
-    if change == "missing_decision":
-        payload["decisions"].pop()
-    elif change == "extra_decision":
+    if change == "extra_decision":
         payload["decisions"].append(
             {"memory_id": "foreign", "action": "EXCLUDE", "reason": "bad"}
         )

@@ -21,12 +21,21 @@ _SAMPLE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,95}\Z")
 class ArtifactPorts:
     """One immutable source bundle and one B publication pointer per sample."""
 
-    def __init__(self, root: Path, bundle: DatasetBundle, settings: AppSettings, *, production: bool = False):
+    def __init__(
+        self,
+        root: Path,
+        bundle: DatasetBundle,
+        settings: AppSettings,
+        *,
+        production: bool = False,
+        allowed_splits: tuple[str, ...] = ("main_dev",),
+    ):
         self.root = Path(root).resolve()
         self.bundle = bundle
         self.settings = settings
         self._samples = {sample.sample_id for sample in bundle.samples}
         self.production = production is True
+        self.allowed_splits = allowed_splits
 
     def store(self, sample_id: str) -> MemoryArtifactStore:
         if sample_id not in self._samples or not _SAMPLE.fullmatch(sample_id):
@@ -34,7 +43,8 @@ class ArtifactPorts:
         store_class = ReviewedMemoryArtifactStore if self.production else MemoryArtifactStore
         return store_class(self.root / sample_id, self.bundle,
                            self.settings.extraction, self.settings.models,
-                           allow_mock_publication=not self.production)
+                           allow_mock_publication=not self.production,
+                           allowed_splits=self.allowed_splits)
 
     def load(self, sample_id: str) -> MemoryArtifact:
         artifact = self.store(sample_id).load()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -49,11 +50,20 @@ def load_gold_after_predictions(snapshot_path: str | Path, split_path: str | Pat
     missing = []
     for question in manifest.records:
         qa = positions[question.sample_id]["qa"][question.original_qa_index]
-        if "answer" not in qa or qa["answer"] is None:
+        category = qa.get("category")
+        if qa.get("answer") is None and category == 5:
+            # LoCoMo category 5 intentionally has no ordinary answer.  The
+            # official metric treats exact non-answer language as Gold.
+            answer = "Not mentioned in the conversation"
+        elif "answer" not in qa or qa["answer"] is None:
             missing.append(question.gold_record_key)
             continue
-        answer = qa["answer"]
-        category = qa.get("category")
+        elif type(qa["answer"]) is int:
+            answer = str(qa["answer"])
+        elif type(qa["answer"]) is float and math.isfinite(qa["answer"]):
+            answer = str(int(qa["answer"])) if qa["answer"].is_integer() else str(qa["answer"])
+        else:
+            answer = qa["answer"]
         if (not isinstance(answer, str) or not answer.strip() or
                 type(category) is not int or category not in (1, 2, 3, 4, 5) or
                 "evidence" not in qa):

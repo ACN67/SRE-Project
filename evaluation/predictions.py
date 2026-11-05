@@ -162,7 +162,12 @@ def verify_predictions(path: str | Path, manifest: QuestionManifest,
         for record, entry in zip(manifest.records, payload["predictions"]):
             if not isinstance(entry, dict) or set(entry) != {"gold_record_key", "response"} or entry["gold_record_key"] != record.gold_record_key:
                 raise EvaluationInputError("PREDICTION_ID_MISMATCH")
-            rows.append(QueryResponse.model_validate(entry["response"], strict=True))
+            # QueryResponse contains date and timezone fields. Prediction JSON
+            # stores ISO strings, so JSON validation is required here; strict
+            # python validation would reject otherwise valid persisted rows.
+            rows.append(QueryResponse.model_validate_json(
+                json.dumps(entry["response"], ensure_ascii=False)
+            ))
         checked = _check_rows(manifest, rows, receipt.method)
     except EvaluationInputError:
         raise

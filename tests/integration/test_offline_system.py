@@ -39,9 +39,9 @@ def prepared(tmp_path):
     return root, builds, indexes
 
 
-def _request(sample, number=1):
+def _request(sample, number=1, *, question="What does Ada keep?"):
     return QueryRequest(query_id=f"offline_{sample}_{number}", sample_id=sample,
-                        question="What does Ada keep?")
+                        question=question)
 
 
 def test_raw_source_builder_to_bcae_and_two_samples(monkeypatch, prepared):
@@ -172,7 +172,9 @@ def test_fake_d_only_checks_existing_public_ports(prepared):
             used_memory_ids=[m.memory_id for m in memories], context_source_refs=refs,
             evidence_refs=refs[:1])
     service = create_service(root, resolve=resolve, answer_dynamic=answer)
-    request = _request("synthetic-0")
+    request = _request(
+        "synthetic-0", question="Is Ada still keeping the blue notebook?"
+    )
     vector = service.run_query(request, "vector_rag")
     dynamic = service.run_query(request, "dynamic")
     assert dynamic.answer_result.status == "answered"
@@ -190,7 +192,10 @@ def test_fake_d_invalid_candidate_is_rejected(prepared):
             effective_memory_ids=["mem_" + "f" * 20])
     service = create_service(root, resolve=invalid,
         answer_dynamic=lambda *_: AnswerResult(status="answered", answer="Should not run."))
-    response = service.run_query(_request("synthetic-0"), "dynamic")
+    response = service.run_query(
+        _request("synthetic-0", question="Is Ada still keeping the blue notebook?"),
+        "dynamic",
+    )
     assert response.answer_result.status == "error"
     assert response.answer_result.error.code in ("RESOLUTION_INVALID", "QUERY_EXECUTION_FAILED")
 
@@ -373,7 +378,10 @@ def test_fake_d_excluded_memory_cannot_enter_answer(prepared):
             used_memory_ids=[memories[0].memory_id], context_source_refs=refs,
             evidence_refs=refs[:1])
     service = create_service(root, resolve=resolve, answer_dynamic=bad_answer)
-    response = service.run_query(_request("synthetic-0"), "dynamic")
+    response = service.run_query(
+        _request("synthetic-0", question="Is Ada still keeping the blue notebook?"),
+        "dynamic",
+    )
     assert response.answer_result.status == "error"
 
 

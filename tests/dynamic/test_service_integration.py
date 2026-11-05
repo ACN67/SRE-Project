@@ -110,9 +110,9 @@ def test_b_builder_c_index_a_orchestrator_d_ports_and_e_bindings(tmp_path):
         assert dynamic.answer_result.status == "answered"
         assert dynamic.answer_result.answer == "Synthetic: blue notebook."
         assert len(dynamic.resolution.decisions) == len(vector.retrieved.items) == 2
-        assert len(dynamic.answer_result.used_memory_ids) == 1
-        used = dynamic.answer_result.used_memory_ids[0]
-        assert "notebook" in service.get_memory(sample, used).content
+        assert len(dynamic.answer_result.used_memory_ids) == 2
+        assert any("notebook" in service.get_memory(sample, used).content
+                   for used in dynamic.answer_result.used_memory_ids)
         assert service.get_turn(
             sample, dynamic.answer_result.evidence_refs[0]
         ).text

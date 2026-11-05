@@ -10,12 +10,13 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from math import isfinite
+import re
 from typing import Any
 
 from pydantic import BaseModel
 
 from dynamic_memory.contracts import (
-    AnswerResult, CandidateItem, CandidateSet, ConversationSample, ErrorInfo, MemoryRecord,
+    AnswerResult, CandidateItem, CandidateSet, ConversationSample, ErrorInfo, MemoryDecision, MemoryRecord,
     QueryAnalysis, QueryRequest, QueryResponse, ResolutionResult, SourceRef,
     validate_resolution_against_candidates, validate_response_context,
 )
@@ -24,6 +25,15 @@ from dynamic_memory.contracts.memory_id import validate_memory_id
 from .query_conditions import PreparedQuery, QueryAnalyzer, QueryPreparationError, prepare_shared_query
 
 _METHODS = frozenset({"full_text", "vector_rag", "dynamic"})
+_STATE_QUESTION = re.compile(
+    r"\b(?:still|currently|current|latest|now|anymore|no longer|"
+    r"change[ds]?|changing|cancel(?:led|ed)?|cancell?ing|"
+    r"supersed(?:e|ed)|replace[ds]?|instead|update[ds]?|"
+    r"as of|at that time|previously|formerly)\b"
+    r"|现在|目前|当前|最新|仍然|还(?:在|会|计划)|取消|更改|改变|"
+    r"替代|更新|截至|当时|过去|之前|之后",
+    re.I,
+)
 _UPSTREAM_CODES = frozenset({
     "DATA_NOT_LOADED", "DATA_LOAD_FAILED", "DATA_FORMAT_INVALID", "SAMPLE_NOT_FOUND",
     "SAMPLE_MISMATCH", "SOURCE_NOT_FOUND", "DUPLICATE_SOURCE_REF",
@@ -164,6 +174,35 @@ def _checked_answer(value: object) -> AnswerResult:
     if answer.error is not None:
         raise _DispatchFailure("ANSWER_INVALID")
     return answer
+
+
+def requires_state_reasoning(request: QueryRequest, analysis: QueryAnalysis) -> bool:
+    """Select Dynamic's state branch only when the question needs state semantics.
+
+    Query analysis is intentionally rule based. The additional lexical guard
+    catches state changes that the coarse intent labels classify as general or
+    event facts, while ordinary list, count, date, and attribute questions stay
+    on the cheaper all-candidate path.
+    """
+    if analysis.time_mode in {"as_of", "conflict"}:
+        return True
+    if analysis.query_intent in {"current_state", "historical_state", "state_history"}:
+        return True
+    return bool(_STATE_QUESTION.search(request.question))
+
+
+def _all_retain_resolution(request: QueryRequest, memories: list[MemoryRecord]) -> ResolutionResult:
+    """Build the public Dynamic response shape without a paid D reasoning call."""
+    decisions = [
+        MemoryDecision(memory_id=memory.memory_id, action="RETAIN",
+                       reason="Question does not require state resolution.")
+        for memory in memories
+    ]
+    return ResolutionResult(
+        query_id=request.query_id,
+        decisions=decisions,
+        effective_memory_ids=[memory.memory_id for memory in memories],
+    )
 
 
 class QueryOrchestrator:
@@ -384,9 +423,12 @@ class QueryOrchestrator:
                           if memories else AnswerResult(status="no_evidence", uncertainty="No retrieval candidates are available."))
                 return self._response(query, analysis, method, answer, sample, candidates, memories)
 
-            resolution = _checked_resolution(
-                _invoke(self._resolve, deepcopy(query), deepcopy(analysis), deepcopy(memories)),
-                candidates, memories, sample)
+            if requires_state_reasoning(query, analysis):
+                resolution = _checked_resolution(
+                    _invoke(self._resolve, deepcopy(query), deepcopy(analysis), deepcopy(memories)),
+                    candidates, memories, sample)
+            else:
+                resolution = _all_retain_resolution(query, memories)
             answer = (_checked_answer(_invoke(self._answer_dynamic, deepcopy(query), deepcopy(analysis),
                                               deepcopy(resolution), deepcopy(memories)))
                       if memories else AnswerResult(status="no_evidence", uncertainty="No retrieval candidates are available."))

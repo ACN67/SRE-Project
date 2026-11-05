@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import json
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -10,6 +10,8 @@ from dynamic_memory.contracts.models import AnswerResult, MemoryRecord, QueryAna
 from dynamic_memory.llm.mock import MockLLMAdapter
 from dynamic_memory.llm.prompts import QA_PROMPT
 from dynamic_memory.pipeline.runtime import LLMRuntime
+from dynamic_memory.qa.benchmark_protocol import build_hybrid_context, context_refs
+from dynamic_memory.data.repository import SourceRepository
 from .index import RetrievalIndex, RetrievalIndexError, fingerprint
 from .vector_retrieval import _snapshot
 
@@ -81,6 +83,25 @@ def _decode(response, memories):
         raise VectorAnswerError("ANSWER_INVALID") from None
 
 
+def _decode_plain(response, memories, context) -> AnswerResult:
+    try:
+        if response.output_mode != "text" or response.finish_reason not in (None, "stop"):
+            raise ValueError("incomplete response")
+        answer = response.raw_output.strip()
+        if not answer:
+            raise ValueError("empty answer")
+        refs = context_refs(context)
+        return AnswerResult(
+            status="answered",
+            answer=answer,
+            used_memory_ids=[memory.memory_id for memory in memories],
+            context_source_refs=list(refs),
+            evidence_refs=list(refs),
+        )
+    except Exception:
+        raise VectorAnswerError("ANSWER_INVALID") from None
+
+
 class VectorAnswerer:
     """Bind verified index, runtime and run identity; inject the callable into A.
 
@@ -88,15 +109,42 @@ class VectorAnswerer:
     their content/provenance, but cannot prove which query selected them.
     """
 
-    def __init__(self, runtime: LLMRuntime, provenance: VectorAnswerProvenance,
-                 index: RetrievalIndex, *, on_diagnostic=None, synthetic_test_mode=False):
+    def __init__(
+        self,
+        runtime: LLMRuntime,
+        provenance: VectorAnswerProvenance,
+        index: RetrievalIndex,
+        *,
+        on_diagnostic=None,
+        synthetic_test_mode=False,
+        source_repository: SourceRepository | None = None,
+        source_metadata_lookup: Callable | None = None,
+        question_transform: Callable[[QueryRequest], str] | None = None,
+        prompt_template=QA_PROMPT,
+        plain_text: bool = False,
+        max_context_memories: int = 12,
+    ):
         if (not isinstance(runtime, LLMRuntime) or type(provenance) is not VectorAnswerProvenance or
                 type(index) is not RetrievalIndex or type(synthetic_test_mode) is not bool or
                 (on_diagnostic is not None and not callable(on_diagnostic))):
             raise VectorAnswerError("DEPENDENCY_INVALID")
+        if (source_repository is not None and type(source_repository) is not SourceRepository):
+            raise VectorAnswerError("DEPENDENCY_INVALID")
+        if source_metadata_lookup is not None and not callable(source_metadata_lookup):
+            raise VectorAnswerError("DEPENDENCY_INVALID")
+        if question_transform is not None and not callable(question_transform):
+            raise VectorAnswerError("DEPENDENCY_INVALID")
+        if type(plain_text) is not bool or type(max_context_memories) is not int or max_context_memories < 1:
+            raise VectorAnswerError("DEPENDENCY_INVALID")
         index.__post_init__()
         self._runtime, self._provenance, self._index = runtime, provenance, index
         self._on_diagnostic, self._synthetic = on_diagnostic, synthetic_test_mode
+        self._source_repository = source_repository
+        self._source_metadata_lookup = source_metadata_lookup
+        self._question_transform = question_transform
+        self._prompt_template = prompt_template
+        self._plain_text = plain_text
+        self._max_context_memories = max_context_memories
 
     def _report(self, request, analysis, included, dropped, estimate):
         # Use this call's validated snapshots, never mutable instance-level query state.
@@ -148,8 +196,12 @@ class VectorAnswerer:
             self._report(request, analysis, [], [], None)
             return AnswerResult(status="no_evidence", uncertainty="No candidate memories are available.")
 
-        # Shared template and generation settings remain unchanged. The requested
-        # text envelope supplies explicit citations without adding a second call.
+        if self._plain_text:
+            return self._answer_plain(request, analysis, memories)
+
+        # The legacy JSON envelope remains available for non-benchmark callers.
+        # Benchmark runs use plain text so token-F1 is not penalized by an
+        # unrelated answer/evidence envelope.
         question = json.dumps({"request": request.model_dump(mode="json"),
                                "analysis": analysis.model_dump(mode="json")}, ensure_ascii=False)
         question += ('\nReturn one JSON object as text with exactly status, answer, evidence_refs, uncertainty. '
@@ -198,3 +250,83 @@ class VectorAnswerer:
         except Exception:
             raise VectorAnswerError("MODEL_FAILED") from None
         return _decode(result.response, retained)
+
+    def _answer_plain(
+        self,
+        request: QueryRequest,
+        analysis: QueryAnalysis,
+        memories: list[MemoryRecord],
+    ) -> AnswerResult:
+        rendered_question = request.question
+        if self._question_transform is not None:
+            try:
+                rendered_question = self._question_transform(request)
+            except Exception:
+                raise VectorAnswerError("QUESTION_PROTOCOL_INVALID") from None
+            if not isinstance(rendered_question, str) or not rendered_question.strip():
+                raise VectorAnswerError("QUESTION_PROTOCOL_INVALID")
+
+        retained = memories[: self._max_context_memories]
+        dropped = memories[len(retained):]
+        estimator = self._runtime.guarded._estimator
+        strict = self._runtime.guarded._strict_budget
+        prepared = None
+        estimate = None
+        context = None
+        while retained:
+            context = build_hybrid_context(
+                retained,
+                self._source_repository,
+                max_memories=len(retained),
+                metadata_lookup=self._source_metadata_lookup,
+            )
+            prepared = self._runtime.make_request(
+                self._prompt_template,
+                {"context": context.text, "question": rendered_question},
+            )
+            try:
+                estimate = estimator(prepared.request.messages) if estimator else None
+                if estimate is not None and (type(estimate) is not int or estimate < 0):
+                    raise ValueError("invalid estimate")
+            except Exception:
+                raise VectorAnswerError("INVALID_ESTIMATE") from None
+            if estimate is None:
+                if strict:
+                    self._report(request, analysis, retained, dropped, None)
+                    raise VectorAnswerError("INPUT_BUDGET_UNKNOWN")
+                break
+            if estimate <= prepared.request.settings.max_input_tokens:
+                break
+            dropped.insert(0, retained.pop())
+        self._report(request, analysis, retained, dropped, estimate if retained else None)
+        if not retained or prepared is None or context is None:
+            raise VectorAnswerError("INPUT_BUDGET_EXCEEDED")
+        if self._runtime.backend == "mock" and (
+            not self._synthetic or isinstance(self._runtime.adapter, MockLLMAdapter)
+        ):
+            raise VectorAnswerError("SYNTHETIC_ANSWER_DISALLOWED")
+        try:
+            identity = self._runtime.make_identity(
+                prepared,
+                sample_id=request.sample_id,
+                scope_id=request.query_id,
+                run_kind=self._provenance.run_kind,
+                method="vector_rag",
+                data_fingerprint=self._provenance.data_fingerprint,
+                schema_id="c-benchmark-plain-text",
+                schema_version="1",
+                retriever_fingerprint=self._index.retriever_fingerprint,
+                query_analysis_version=self._provenance.query_analysis_version,
+                git_sha=self._provenance.git_sha,
+            )
+        except Exception:
+            raise VectorAnswerError("IDENTITY_INVALID") from None
+        try:
+            result = self._runtime.execute(
+                prepared,
+                identity,
+                validator=lambda _request, response: _decode_plain(response, retained, context),
+            )
+        except Exception:
+            raise VectorAnswerError("MODEL_FAILED") from None
+        return _decode_plain(result.response, retained, context)

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from dynamic_memory.contracts import (
-    MemoryRecord, QueryAnalysis, QueryRequest, ResolutionResult,
+    MemoryDecision, MemoryRecord, QueryAnalysis, QueryRequest, ResolutionResult,
 )
 from dynamic_memory.contracts.memory_id import validate_memory_id
 from dynamic_memory.llm.mock import MockLLMAdapter
@@ -156,6 +156,61 @@ def validate_resolution(
     except (KeyError, ValueError):
         raise DynamicReasoningError("RESOLUTION_INVALID") from None
     return result
+
+
+def complete_missing_candidate_decisions(
+    result: ResolutionResult, memories: list[MemoryRecord]
+) -> ResolutionResult:
+    """Fail closed when a model omits one or more required candidate decisions.
+
+    Existing decisions remain authoritative. An omitted candidate is never
+    silently treated as retained or excluded; it becomes UNRESOLVED so the
+    normal uncertainty path blocks an unsupported answer.
+    """
+    result = snapshot(result, ResolutionResult)
+    candidate_ids = {memory.memory_id for memory in memories}
+    decided_ids = {decision.memory_id for decision in result.decisions}
+    if not decided_ids <= candidate_ids:
+        raise DynamicReasoningError("RESOLUTION_INVALID")
+    missing_ids = candidate_ids - decided_ids
+    if not missing_ids:
+        return result
+    decisions = [
+        *result.decisions,
+        *(
+            MemoryDecision(
+                memory_id=memory.memory_id,
+                action="UNRESOLVED",
+                reason="State resolver omitted this candidate; fail closed.",
+            )
+            for memory in memories
+            if memory.memory_id in missing_ids
+        ),
+    ]
+    retained_ids = {
+        decision.memory_id
+        for decision in decisions
+        if decision.action == "RETAIN"
+    }
+    effective_memory_ids = [
+        memory_id
+        for memory_id in result.effective_memory_ids
+        if memory_id in retained_ids
+    ]
+    uncertainty = result.uncertainty
+    if not (uncertainty or "").strip():
+        uncertainty = (
+            "State resolver omitted candidate decisions; omitted candidates "
+            "remain unresolved."
+        )
+    return ResolutionResult(
+        query_id=result.query_id,
+        relations=result.relations,
+        decisions=decisions,
+        effective_memory_ids=effective_memory_ids,
+        unresolved_conflict_ids=result.unresolved_conflict_ids,
+        uncertainty=uncertainty,
+    )
 
 
 @dataclass(frozen=True)

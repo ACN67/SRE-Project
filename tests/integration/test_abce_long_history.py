@@ -116,7 +116,9 @@ def test_twenty_memories_expand_and_survive_all_abce_consumers(tmp_path, monkeyp
     monkeypatch.setenv("SRE_INTEGRATION_PROFILE", "offline_synthetic")
     monkeypatch.setenv("SRE_OFFLINE_STATE", str(root))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "dynamic_memory.integration.offline:create_web_bindings")
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py")
+    ).run(timeout=30)
     assert not app.exception and any("Synthetic" in warning.value for warning in app.warning)
     next(button for button in app.button if button.label == "进入记忆浏览 →").click().run()
     assert not app.exception

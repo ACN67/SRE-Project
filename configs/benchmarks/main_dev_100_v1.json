@@ -1,0 +1,644 @@
+{
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "format_version": 1,
+  "manifest_id": "main-dev-100-v1",
+  "questions": [
+    {
+      "category": 2,
+      "original_qa_index": 1,
+      "question": "When did Melanie paint a sunrise?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 8,
+      "question": "When did Caroline give a speech at a school?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 19,
+      "question": "What do Melanie's kids like?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 28,
+      "question": "When did Caroline go to the adoption meeting?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 35,
+      "question": "When did Melanie go camping in July?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 41,
+      "question": "When did Caroline join a new activist group?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 48,
+      "question": "What types of pottery have Melanie and her kids made?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 56,
+      "question": "What symbols are important to Caroline?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 61,
+      "question": "What musical artists/bands has Melanie seen?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 3,
+      "original_qa_index": 69,
+      "question": "What personality traits might Melanie say Caroline has?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 3,
+      "original_qa_index": 81,
+      "question": "Would Caroline want to move back to her home country soon?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 93,
+      "question": "What was grandma's gift to Caroline?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 94,
+      "question": "What is Melanie's hand-painted bowl a reminder of?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 111,
+      "question": "What creative project do Mel and her kids do together besides pottery?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 120,
+      "question": "Whose birthday did Melanie celebrate recently?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 132,
+      "question": "How long has Melanie been creating art?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 143,
+      "question": "What happened to Melanie's son on their road trip?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 145,
+      "question": "How did Melanie feel about her family after the accident?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 147,
+      "question": "How did Melanie feel after the accident?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 149,
+      "question": "What do Melanie's family give her?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 159,
+      "question": "What was grandma's gift to Melanie?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 160,
+      "question": "What was grandpa's gift to Caroline?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 171,
+      "question": "What did Melanie see at the council meeting for adoption?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 190,
+      "question": "What was the poetry reading that Melanie attended about?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 192,
+      "question": "How did Caroline's son handle the accident?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 195,
+      "question": "How did Caroline feel after the accident?",
+      "sample_id": "conv-26"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 0,
+      "question": "When Jon has lost his job as a banker?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 1,
+      "question": "When Gina has lost her job at Door Dash?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 17,
+      "question": "Why did Gina decide to start her own clothing store?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 19,
+      "question": "When did Gina interview for a design internship?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 21,
+      "question": "When did Jon start reading \"The Lean Startup\"?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 52,
+      "question": "What did Jon say about creating a special experience for customers?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 58,
+      "question": "Why did Jon shut down his bank account?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 67,
+      "question": "How does Jon use the clipboard with a notepad attached to it?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 68,
+      "question": "What does Jon tell Gina he won't do?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 73,
+      "question": "How does Gina describe the feeling that dance brings?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 77,
+      "question": "What did Gina make a limited edition line of?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 86,
+      "question": "What kind of flooring is Gina looking for in her dance studio?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 90,
+      "question": "What made Jon choose the furniture and decor for his store?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 103,
+      "question": "What temporary job did Gina take to cover expenses?",
+      "sample_id": "conv-30"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 0,
+      "question": "Who did Maria have dinner with on May 3, 2023?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 3,
+      "original_qa_index": 8,
+      "question": "What might John's financial status be?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 31,
+      "question": "When did John get his dog Max?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 32,
+      "question": "What outdoor activities has John done with his colleagues?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 38,
+      "question": "When did Maria get in a car accident?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 40,
+      "question": "What are the names of John's children?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 47,
+      "question": "What exercises has John done?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 62,
+      "question": "How many dogs has Maria adopted from the dog shelter she volunteers at?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 65,
+      "question": "What is John's main focus in local politics?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 66,
+      "question": "What sparked John's interest in improving education and infrastructure in the community?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 82,
+      "question": "What did John receive a certificate for?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 95,
+      "question": "What activity did Maria and her mom do together in May 2023?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 96,
+      "question": "What did Maria do to feel closer to a community and her faith?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 117,
+      "question": "What event did John participate in to show support for veterans' rights?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 118,
+      "question": "What inspired John to join the marching event for veterans' rights?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 119,
+      "question": "How often does John get to see sunsets like the one he shared with Maria?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 141,
+      "question": "Who did John work with to raise awareness and funds for victims of domestic abuse?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 145,
+      "question": "How does John describe the camping trip with Max?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 147,
+      "question": "What is the name of Maria's second puppy?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 150,
+      "question": "What activities does John's family enjoy doing together?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 152,
+      "question": "What is John's main focus in international politics?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 160,
+      "question": "Where did John get the idea for the castle shadow box in his home?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 178,
+      "question": "What event did Maria participate in to show support for veterans' rights?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 181,
+      "question": "What did John take away from visiting the orphanage?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 185,
+      "question": "What happened to Maria's job in August 2023?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 191,
+      "question": "What is the name of Maria's second kitten?",
+      "sample_id": "conv-41"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 7,
+      "question": "When did Joanna finish her first screenplay?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 19,
+      "question": "How many times has Joanna found new hiking trails?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 28,
+      "question": "When did Nate make vegan icecream and share it with a vegan diet group?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 30,
+      "question": "What kind of writings does Joanna do?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 34,
+      "question": "What book recommendations has Joanna given to Nate?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 40,
+      "question": "When did Joanna's laptop crash?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 44,
+      "question": "When did Nate win a lot of money in a video game tournament?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 47,
+      "question": "What places has Nate met new people?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 2,
+      "original_qa_index": 64,
+      "question": "When did Nate win a big Valorant tourney?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 1,
+      "original_qa_index": 74,
+      "question": "What recommendations has Nate received from Joanna?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 3,
+      "original_qa_index": 87,
+      "question": "What state did Nate visit?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 88,
+      "question": "What is one of Joanna's favorite movies?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 101,
+      "question": "What did Nate think of the coconut milk ice cream he made?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 106,
+      "question": "What inspired Joanna's new screenplay on 25 February, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 111,
+      "question": "What are the main ingredients of the ice cream recipe shared by Nate?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 112,
+      "question": "What is Joanna's project called in the writers group?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 118,
+      "question": "What kind of frosting did Joanna use on the cake she made recently in May 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 122,
+      "question": "What did Nate do for Joanna on 25 May, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 127,
+      "question": "What did Joanna write yesterday that appeared on the big screen?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 132,
+      "question": "What did Nate make and share with his vegan diet group?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 143,
+      "question": "How did Joanna feel when someone wrote her a letter after reading her blog post?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 157,
+      "question": "What dessert did Joanna share a photo of that has an almond flour crust, chocolate ganache, and fresh raspberries?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 175,
+      "question": "What does Joanna use to remember her dog from Michigan?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 181,
+      "question": "What ingredient did Nate use to make the ice cream lactose-free?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 194,
+      "question": "Why did Nate get a third turtle?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 4,
+      "original_qa_index": 196,
+      "question": "What did Nate take to the beach in Tampa?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 217,
+      "question": "Who did Joanna plan to invite to her gaming party in June 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 218,
+      "question": "What special items did Joanna get for everyone at her gaming party?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 224,
+      "question": "What did Joanna discover at the museum in Woodhaven?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 226,
+      "question": "How did Nate feel when someone wrote him a letter after reading his blog post?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 234,
+      "question": "What dessert did Nate share a photo of that has an almond flour crust, chocolate ganache, and fresh raspberries?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 250,
+      "question": "What did Nate receive from his brother that brought back childhood memories?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 252,
+      "question": "What project is Nate working on in his notebook on November 9, 2022?",
+      "sample_id": "conv-42"
+    },
+    {
+      "category": 5,
+      "original_qa_index": 256,
+      "question": "What did Nate take a picture of near Fort Wayne last summer?",
+      "sample_id": "conv-42"
+    }
+  ],
+  "selection_policy": {
+    "algorithm": "sample-proportional category quotas; SHA-256 order inside strata",
+    "excluded_fixed_indices": {
+      "conv-26": [
+        2,
+        25,
+        54,
+        80
+      ],
+      "conv-30": [
+        2,
+        25,
+        54,
+        80
+      ],
+      "conv-41": [
+        2,
+        25,
+        54,
+        80
+      ],
+      "conv-42": [
+        2,
+        25,
+        54,
+        80
+      ]
+    },
+    "sample_quotas": {
+      "conv-26": 26,
+      "conv-30": 14,
+      "conv-41": 26,
+      "conv-42": 34
+    },
+    "seed": "main-dev-100-v1"
+  },
+  "split": "main_dev"
+}

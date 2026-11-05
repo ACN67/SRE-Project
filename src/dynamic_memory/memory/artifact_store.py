@@ -109,7 +109,8 @@ class MemoryArtifactStore:
     def __init__(self, root: Path, bundle: DatasetBundle,
                  extraction_settings: ExtractionSettings, models_settings: ModelsSettings,
                  *, allow_mock_publication: bool = False,
-                 reserved_prompt_tokens: int = 1800) -> None:
+                 reserved_prompt_tokens: int = 1800,
+                 allowed_splits: tuple[str, ...] = ("main_dev",)) -> None:
         if not isinstance(root, (str, Path)) or not isinstance(bundle, DatasetBundle):
             _fail("ARTIFACT_CORRUPT")
         if not isinstance(extraction_settings, ExtractionSettings) or not isinstance(models_settings, ModelsSettings):
@@ -123,6 +124,14 @@ class MemoryArtifactStore:
             _fail("ARTIFACT_CORRUPT")
         self.root = Path(root)
         self.allow_mock_publication = allow_mock_publication is True
+        if (
+            type(allowed_splits) is not tuple
+            or not allowed_splits
+            or len(set(allowed_splits)) != len(allowed_splits)
+            or any(split not in {"main_dev", "test"} for split in allowed_splits)
+        ):
+            _fail("ARTIFACT_CORRUPT")
+        self.allowed_splits = frozenset(allowed_splits)
         if (isinstance(reserved_prompt_tokens, bool)
                 or not isinstance(reserved_prompt_tokens, int)
                 or not 0 < reserved_prompt_tokens < self.extraction_settings.window_max_input_tokens):
@@ -431,7 +440,8 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
                     _fail("REVIEW_MISMATCH")
             if receipt.run_kind == "real":
                 if (self.bundle.snapshot_sha256 != _OFFICIAL_LOCOMO_SHA or
-                    self.bundle.split_by_sample_id.get(report.sample_id) != "main_dev" or
+                    self.bundle.split_by_sample_id.get(report.sample_id)
+                    not in self.allowed_splits or
                     receipt.reviewer_id == "offline-test"):
                     _fail("REVIEW_MISMATCH")
                 if (type(verified_review) is not VerifiedReview or

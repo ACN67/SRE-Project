@@ -1,0 +1,20 @@
+# Explicit profile for frozen LoCoMo benchmark runs.
+default_backend: mock
+api_enabled_by_default: false
+provider_under_consideration: DeepSeek
+model_id: deepseek-flash
+thinking: enabled
+reasoning_effort: high
+temperature: 0
+extraction_max_input_tokens: 934464
+extraction_max_output_tokens: 65536
+extraction_omit_max_tokens: true
+reasoning_max_input_tokens: 934464
+reasoning_max_output_tokens: 65536
+reasoning_omit_max_tokens: true
+qa_max_input_tokens: 200000
+qa_max_output_tokens: 2048
+qa_omit_max_tokens: true
+request_timeout_seconds: 90
+max_retries: 0
+max_concurrent_api_requests: 1

@@ -1,5 +1,6 @@
 """Member E, increment 1: browse memories and inspect their original sources."""
 from html import escape
+import json
 import logging
 import os
 from pathlib import Path
@@ -44,6 +45,20 @@ def report_error(context, error):
     st.error(f"{context}失败，{message}诊断号：{incident}")
 
 
+def memories_json_bytes(memories) -> bytes:
+    """Serialize verified Memory DTOs as the unified export JSON array."""
+    payload = [memory.model_dump(mode="json") for memory in memories]
+    return (
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
 def memory_card(memory):
     when = (memory.event_time.raw or "时间未知") if memory.event_time else "时间未知"
     st.markdown('<div class="memory-card"><div class="memory-card-meta"><span class="chip">'
@@ -55,6 +70,14 @@ def memory_card(memory):
 
 
 def browse(bindings, sample, memories):
+    st.download_button(
+        "下载当前样本全部 Memory JSON",
+        data=memories_json_bytes(memories),
+        file_name=f"{sample}-memories.json",
+        mime="application/json",
+        key=f"download_memories_{sample}",
+        disabled=not memories,
+    )
     left, middle, right = st.columns([2, 1, 1])
     search = left.text_input("搜索记忆内容", key="search", on_change=reset_filter,
                              placeholder="按内容、属性或值筛选")

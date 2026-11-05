@@ -36,7 +36,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data/raw/locomo10.json"
 SPLIT = ROOT / "configs/data_split.yaml"
 PROFILE = ROOT / "configs/models_high_pilot.yaml"
-ALLOWED_SAMPLES = ("conv-26", "conv-41", "conv-42")
+MAIN_DEV_SAMPLES = ("conv-26", "conv-30", "conv-41", "conv-42")
+TEST_SAMPLES = ("conv-49", "conv-50")
+ALLOWED_SAMPLES = MAIN_DEV_SAMPLES + TEST_SAMPLES
 PEAK_INPUT_PER_MILLION = Decimal("0.30")
 PEAK_OUTPUT_PER_MILLION = Decimal("1.20")
 PROVIDER_OUTPUT_RESERVE = 65536
@@ -57,7 +59,9 @@ class ExtractionApproval(BaseModel):
     approved_at: datetime
     expires_at: datetime
     run_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    sample_id: Literal["conv-26", "conv-41", "conv-42"]
+    sample_id: Literal[
+        "conv-26", "conv-30", "conv-41", "conv-42", "conv-49", "conv-50"
+    ]
     model_id: Literal["deepseek-flash"]
     thinking: Literal["enabled"]
     reasoning_effort: Literal["high"]
@@ -196,7 +200,8 @@ def _plan(sample_id: str) -> dict:
         "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
     ):
         raise Stage6Error("DATA_SNAPSHOT_MISMATCH")
-    if bundle.split_by_sample_id.get(sample_id) != "main_dev":
+    split = "test" if sample_id in TEST_SAMPLES else "main_dev"
+    if bundle.split_by_sample_id.get(sample_id) != split:
         raise Stage6Error("SPLIT_MISMATCH")
     repository = SourceRepository(bundle)
     sample = repository.get_sample(sample_id)
@@ -223,7 +228,7 @@ def _plan(sample_id: str) -> dict:
             prepared,
             sample_id=sample_id,
             scope_id=window.extraction_window_id,
-            run_kind="development",
+            run_kind="evaluation" if split == "test" else "development",
             method=None,
             data_fingerprint="sha256:" + _sha_bytes(window.input_text.encode("utf-8")),
             schema_id="atomic_fact_draft",
@@ -247,6 +252,7 @@ def _plan(sample_id: str) -> dict:
     ) / Decimal(1_000_000)
     plan_body = {
         "sample_id": sample_id,
+        "split": split,
         "dataset_sha256": bundle.snapshot_sha256,
         "windows": window_rows,
         "runtime_config_fingerprint": runtime.config_fingerprint,
@@ -262,6 +268,7 @@ def _plan(sample_id: str) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "run_fingerprint": run_fingerprint,
         "sample_id": sample_id,
+        "split": split,
         "dataset_sha256": bundle.snapshot_sha256,
         "windows": window_rows,
         "window_count": len(windows),
@@ -338,10 +345,15 @@ def _execute(plan_path: Path, approval_path: Path, output_dir: Path) -> dict:
     ))
     if len(windows) != plan["window_count"]:
         raise Stage6Error("WINDOW_PLAN_DRIFT")
+    resumed = False
     if output_dir.exists() and any(output_dir.iterdir()):
-        raise Stage6Error("OUTPUT_DIRECTORY_IN_USE")
+        existing = _read_json(output_dir / "plan.json")
+        if existing != plan:
+            raise Stage6Error("OUTPUT_DIRECTORY_IN_USE")
+        resumed = True
     output_dir.mkdir(parents=True, exist_ok=True)
-    _write_json(output_dir / "plan.json", plan)
+    if not resumed:
+        _write_json(output_dir / "plan.json", plan)
     checkpoints = WindowCheckpointStore(
         output_dir / "checkpoints",
         run_fingerprint=plan["run_fingerprint"],
@@ -366,7 +378,7 @@ def _execute(plan_path: Path, approval_path: Path, output_dir: Path) -> dict:
             prepared,
             sample_id=sample.sample_id,
             scope_id=window.extraction_window_id,
-            run_kind="development",
+            run_kind="evaluation" if plan.get("split") == "test" else "development",
             method=None,
             data_fingerprint="sha256:" + _sha_bytes(window.input_text.encode("utf-8")),
             schema_id="atomic_fact_draft",
@@ -428,6 +440,7 @@ def _execute(plan_path: Path, approval_path: Path, output_dir: Path) -> dict:
     manifest_body = {
         "format_version": 1,
         "sample_id": sample.sample_id,
+        "split": plan.get("split", "main_dev"),
         "dataset_sha256": bundle.snapshot_sha256,
         "run_fingerprint": plan["run_fingerprint"],
         "window_count": len(windows),

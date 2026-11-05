@@ -13,6 +13,7 @@ from pathlib import Path
 from dynamic_memory.baselines.full_text import FullTextAnswerer, FullTextProvenance
 from dynamic_memory.data.loader import load_conversations
 from dynamic_memory.data.repository import SourceRepository
+from dynamic_memory.llm.token_estimate import ESTIMATOR_VERSION, estimate_messages_tokens
 from dynamic_memory.pipeline.query_runner import QueryOrchestrator
 from dynamic_memory.pipeline.runtime import LLMRuntime, create_runtime
 from dynamic_memory.pipeline.settings import AppSettings, load_settings
@@ -148,10 +149,8 @@ def create_system(
             api_enabled=api_key is not None,
             api_key=api_key,
             model_id="deepseek-flash",
-            token_estimator=lambda messages: sum(
-                len(message.content.encode("utf-8")) + 16 for message in messages
-            ),
-            estimator_version="utf8-bytes-plus16-v1",
+            token_estimator=estimate_messages_tokens,
+            estimator_version=ESTIMATOR_VERSION,
             strict_budget=True,
             cache_enabled=False,
         )
@@ -186,6 +185,8 @@ def create_system(
             git_sha,
             "development",
         ),
+        source_repository=repository,
+        plain_text=True,
         synthetic_test_mode=False,
     )
     def provenance_for_sample(requested_sample: str):
@@ -212,6 +213,9 @@ def create_system(
         runtime,
         provenance_factory=provenance_for_sample,
         conversation_cutoff=conversation_cutoff,
+        source_repository=repository,
+        plain_text=True,
+        conditional_state=True,
         synthetic_test_mode=False,
     )
     orchestrator = QueryOrchestrator(

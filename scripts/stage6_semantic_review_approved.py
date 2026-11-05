@@ -41,7 +41,9 @@ class SemanticApproval(BaseModel):
     expires_at: datetime
     run_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     queue_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    sample_id: Literal["conv-26"]
+    sample_id: Literal[
+        "conv-26", "conv-30", "conv-41", "conv-42", "conv-49", "conv-50"
+    ]
     model_id: Literal["deepseek-flash"]
     thinking: Literal["enabled"]
     reasoning_effort: Literal["high"]
@@ -59,11 +61,9 @@ def _plan(queue_path: Path) -> dict:
         queue = ReviewQueue.model_validate_json(queue_path.read_bytes())
     except Exception:
         raise SemanticReviewError("QUEUE_INVALID") from None
-    if (
-        queue.sample_id != "conv-26"
-        or len(queue.windows) != 83
-        or sum(len(window.facts) for window in queue.windows) != 887
-    ):
+    if queue.sample_id not in {
+        "conv-26", "conv-30", "conv-41", "conv-42", "conv-49", "conv-50"
+    }:
         raise SemanticReviewError("QUEUE_IDENTITY_MISMATCH")
     sizes = [
         len(_SYSTEM.encode("utf-8")) + len(_prompt(window).encode("utf-8")) + 32

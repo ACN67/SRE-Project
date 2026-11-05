@@ -38,7 +38,7 @@
 - `tests/dynamic`：59 passed。
 - `tests/dynamic tests/contract`：158 passed。
 - D 接入后的合同、调度、生产装配和 Web service binding 聚焦回归：217 passed。
-- 完整仓库回归：1329 passed。
+- 完整仓库回归：1332 passed。
 - `python -m compileall -q src tests scripts`：通过。
 - `python scripts/run_dynamic.py --smoke`：通过。
 - 真实 conv-30 Artifact + 索引的无网络 D 装配冒烟：通过。
@@ -49,7 +49,16 @@
   - Vector RAG 与 Dynamic 的 9 个有序候选一致。
   - Dynamic 生成 9 个决策和 9 个有效 ID。
   - 真实 HTTP 调用为 0。
-- 生产 Web 可通过 `SRE_PRODUCTION_SAMPLE_ID` 选择 `conv-30` 或 `conv-26`。
+- 真实 conv-41 Artifact + 索引的无网络 D 装配冒烟：通过。
+  - Vector RAG 与 Dynamic 的 12 个有序候选一致。
+  - Dynamic 生成 12 个决策和 12 个有效 ID。
+  - 真实 HTTP 调用为 0。
+- 真实 conv-42 Artifact + 索引的无网络 D 装配冒烟：通过。
+  - Vector RAG 与 Dynamic 的 11 个有序候选一致。
+  - Dynamic 生成 11 个决策和 11 个有效 ID。
+  - 真实 HTTP 调用为 0。
+- 生产 Web 可通过 `SRE_PRODUCTION_SAMPLE_ID` 选择四个已发布
+  `main_dev` 样本。
 
 ## 尚未验证
 

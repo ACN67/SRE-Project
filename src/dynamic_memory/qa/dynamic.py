@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from dynamic_memory.contracts import AnswerResult, SourceRef
+from dynamic_memory.data.repository import SourceRepository
 from dynamic_memory.llm.prompts import QA_PROMPT
+from dynamic_memory.qa.benchmark_protocol import build_hybrid_context, context_refs
 from dynamic_memory.reasoning.common import (
     DynamicComponent, DynamicReasoningError, checked_inputs, validate_resolution,
 )
@@ -78,6 +80,45 @@ def _decode(response, memories):
 
 
 class DynamicAnswerer(DynamicComponent):
+    def __init__(
+        self,
+        runtime,
+        provenance,
+        *,
+        source_repository: SourceRepository | None = None,
+        source_metadata_lookup: Callable | None = None,
+        question_transform: Callable | None = None,
+        prompt_template=QA_PROMPT,
+        plain_text: bool = False,
+        max_context_memories: int = 12,
+        synthetic_test_mode: bool = False,
+        on_diagnostic=None,
+    ):
+        super().__init__(
+            runtime,
+            provenance,
+            synthetic_test_mode=synthetic_test_mode,
+            on_diagnostic=on_diagnostic,
+        )
+        if source_repository is not None and type(source_repository) is not SourceRepository:
+            raise DynamicReasoningError("DEPENDENCY_INVALID")
+        if source_metadata_lookup is not None and not callable(source_metadata_lookup):
+            raise DynamicReasoningError("DEPENDENCY_INVALID")
+        if question_transform is not None and not callable(question_transform):
+            raise DynamicReasoningError("DEPENDENCY_INVALID")
+        if (
+            type(plain_text) is not bool
+            or type(max_context_memories) is not int
+            or max_context_memories < 1
+        ):
+            raise DynamicReasoningError("DEPENDENCY_INVALID")
+        self.source_repository = source_repository
+        self.source_metadata_lookup = source_metadata_lookup
+        self.question_transform = question_transform
+        self.prompt_template = prompt_template
+        self.plain_text = plain_text
+        self.max_context_memories = max_context_memories
+
     def __call__(self, request, analysis, resolution, candidates):
         return self.answer_dynamic(request, analysis, resolution, candidates)
 
@@ -88,12 +129,9 @@ class DynamicAnswerer(DynamicComponent):
         reason = resolution.uncertainty
         if not memories and analysis.time_mode != "conflict":
             status, reason = "no_evidence", "No candidate evidence is available."
-        elif (
-            analysis.time_mode in {"conflict", "unknown"}
-            or analysis.time_issue is not None
-        ):
+        elif analysis.time_mode == "conflict":
             status = "time_uncertain"
-            reason = "Shared query time conditions cannot be resolved."
+            reason = "The explicit time and the question time conflict."
         elif resolution.unresolved_conflict_ids:
             status = "unresolved_conflict"
             reason = reason or "Relevant contradictory evidence cannot be resolved."
@@ -118,6 +156,8 @@ class DynamicAnswerer(DynamicComponent):
             memory for memory in memories
             if memory.memory_id in set(resolution.effective_memory_ids)
         ]
+        if self.plain_text:
+            return self._answer_plain(request, analysis, memories, retained)
         question = json.dumps({
             "request": request.model_dump(mode="json"),
             "analysis": analysis.model_dump(mode="json"),
@@ -147,4 +187,37 @@ class DynamicAnswerer(DynamicComponent):
         self.report(
             "answer", request, analysis, memories, retained, answer.status, call
         )
+        return answer
+
+    def _answer_plain(self, request, analysis, candidates, retained):
+        rendered_question = request.question
+        if self.question_transform is not None:
+            try:
+                rendered_question = self.question_transform(request)
+            except Exception:
+                raise DynamicReasoningError("QUESTION_PROTOCOL_INVALID") from None
+            if not isinstance(rendered_question, str) or not rendered_question.strip():
+                raise DynamicReasoningError("QUESTION_PROTOCOL_INVALID")
+        retained = retained[: self.max_context_memories]
+        context = build_hybrid_context(
+            retained,
+            self.source_repository,
+            max_memories=len(retained),
+            metadata_lookup=self.source_metadata_lookup,
+        )
+        refs = list(context_refs(context))
+        answer, call = self.execute(
+            self.prompt_template,
+            {"context": context.text, "question": rendered_question},
+            request,
+            lambda _request, response: AnswerResult(
+                status="answered",
+                answer=response.raw_output.strip(),
+                used_memory_ids=[memory.memory_id for memory in retained],
+                context_source_refs=refs,
+                evidence_refs=refs,
+            ),
+            "d-benchmark-plain-text",
+        )
+        self.report("answer", request, analysis, candidates, retained, answer.status, call)
         return answer

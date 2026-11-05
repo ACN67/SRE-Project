@@ -58,7 +58,9 @@ def _build_plan(plan_path: Path, state_dir: Path) -> dict:
     if (
         not isinstance(plan, dict)
         or plan.get("status") != "STAGE6_EXTRACTION_PLAN_READY"
-        or plan.get("sample_id") != "conv-26"
+        or plan.get("sample_id") not in {
+            "conv-26", "conv-30", "conv-41", "conv-42", "conv-49", "conv-50"
+        }
         or not isinstance(failure, dict)
         or failure.get("status") != "STAGE6_EXTRACTION_STOPPED"
         or failure.get("error_code") != "SCHEMA_INVALID"
@@ -243,7 +245,11 @@ def _execute(plan: dict, approval_path: Path, output_dir: Path) -> dict:
             prepared,
             sample_id=sample.sample_id,
             scope_id=window.extraction_window_id,
-            run_kind="development",
+            run_kind=(
+                "evaluation"
+                if original_plan.get("split") == "test"
+                else "development"
+            ),
             method=None,
             data_fingerprint="sha256:" + hashlib.sha256(window.input_text.encode()).hexdigest(),
             schema_id="atomic_fact_draft",

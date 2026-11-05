@@ -6,6 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from dynamic_memory.contracts.models import render_visible_turn
+from dynamic_memory.web.app import memories_json_bytes
 from dynamic_memory.web.bindings import WebBindings
 from dynamic_memory.web.demo import DemoService
 from test_empty_and_failure import go, switch_sample
@@ -34,6 +35,29 @@ def test_initial_browse_is_visibly_synthetic(app):
     assert len([b for b in app.button if b.label == "查看详情"]) == 4
     assert any("时间未知" in m.value for m in app.markdown)
     assert not app.error
+
+
+def test_browse_exposes_unified_memory_json_download(app):
+    memories = app.session_state["bindings"].list_memories(
+        app.session_state["sample"]
+    )
+    downloaded = memories_json_bytes(memories)
+    import json
+    rows = json.loads(downloaded)
+    assert rows == [memory.model_dump(mode="json") for memory in memories]
+    assert downloaded.endswith(b"\n")
+    assert st_download_labels(app)
+
+
+def st_download_labels(app):
+    try:
+        elements = app.get("download_button")
+    except Exception:
+        return False
+    return any(
+        element.label == "下载当前样本全部 Memory JSON"
+        for element in elements
+    )
 
 
 def test_details_and_caption_use_shared_renderer(app):
