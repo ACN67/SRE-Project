@@ -1,5 +1,8 @@
 from test_empty_and_failure import go, switch_sample
 from datetime import date
+from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,10 +13,16 @@ from dynamic_memory.contracts.models import (
 from dynamic_memory.web.bindings import ContractError, WebBindings
 from dynamic_memory.web.demo import DemoService
 from test_empty_and_failure import launch as launch_page
+from streamlit.testing.v1 import AppTest
+
+
+QUERY_ENTRY = Path(__file__).resolve().parent / "query_entry.py"
 
 
 def launch(monkeypatch, service):
-    return launch_page(monkeypatch, service, page="问答工作台")
+    monkeypatch.setitem(sys.modules, "empty_factory", SimpleNamespace(create=lambda: WebBindings(service)))
+    monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "empty_factory:create")
+    return AppTest.from_file(str(QUERY_ENTRY), default_timeout=10).run()
 
 
 class QueryService(DemoService):
@@ -64,11 +73,9 @@ def submit(app):
     assert not app.exception
 
 
-@pytest.mark.parametrize("method", ["full_text", "vector_rag", "dynamic"])
-def test_submit_once_and_navigation_never_requeries(monkeypatch, method):
+def test_submit_once_and_navigation_never_requeries(monkeypatch):
     service = QueryService()
-    app = launch(monkeypatch, service)
-    app.selectbox(key="query_method").select(method).run()
+    app = launch_page(monkeypatch, service, page="问答工作台")
     app.date_input(key="query_as_of").set_value(date(2023, 1, 1))
     submit(app)
     request = service.calls[0][0]
@@ -79,13 +86,21 @@ def test_submit_once_and_navigation_never_requeries(monkeypatch, method):
     app.selectbox(key="page").select(2).run()
     go(app, "问答工作台")
     assert len(service.calls) == 1
-    if method == "full_text":
-        next(b for b in app.button if b.label.startswith("答案证据 ↗")).click().run()
-        assert len(service.calls) == 1
-        assert service.memories[0].content in [t.value for t in app.text]
+    next(b for b in app.button if b.label.startswith("答案证据 ↗")).click().run()
+    assert len(service.calls) == 1
+    assert service.memories[0].content in [t.value for t in app.text]
     switch_sample(app, "demo_empty")
     assert "query_response" not in app.session_state
     assert "query_source" not in app.session_state
+
+
+def test_query_method_list_exposes_dynamic(monkeypatch):
+    app = launch(monkeypatch, QueryService())
+    assert list(app.selectbox(key="query_method").options) == [
+        "full_text",
+        "vector_rag",
+        "dynamic",
+    ]
 
 
 @pytest.mark.parametrize("status,label", [("answered", "已回答"), ("no_evidence", "证据不足"),

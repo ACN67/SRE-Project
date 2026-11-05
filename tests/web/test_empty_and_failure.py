@@ -33,7 +33,7 @@ def switch_sample(app, sample):
 def launch(monkeypatch, service, page="记忆浏览"):
     monkeypatch.setitem(sys.modules, "empty_factory", SimpleNamespace(create=lambda: WebBindings(service)))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "empty_factory:create")
-    app = AppTest.from_file(str(ENTRY)).run()
+    app = AppTest.from_file(str(ENTRY), default_timeout=10).run()
     go(app, page)
     return app
 

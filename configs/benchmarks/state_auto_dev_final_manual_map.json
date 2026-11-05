@@ -1,0 +1,29 @@
+{
+  "drop": [],
+  "map": {
+    "gold_01d0525451a4fc1ec5b9": "mem_431d0c9b7e5e7d50c92c",
+    "gold_18dafbf0362c705992a5": "mem_8a054e349f0373c46e12",
+    "gold_2b036d4559b946c5832b": "mem_ab945045f355175ab363",
+    "gold_44cdd415f433acf295fb": "mem_1b55deae57f88e321f97",
+    "gold_561a4521e589226b5807": "mem_3eb795e3e9d06065b53b",
+    "gold_5792833cf9c6f54835df": "mem_0cb8287348f9a154de6c",
+    "gold_5815d06383b342ffdb33": "mem_f1863d2a3e2181be456f",
+    "gold_58c127c57e277e1c6071": "mem_8aebb8a29479a8b208a7",
+    "gold_61742247d21d3dfe1588": "mem_ba8d28bddc447338141e",
+    "gold_62acf9d5d240b36b17d9": "mem_7cbd6ddb0fcc3743e31b",
+    "gold_6a0e2024b20beb7160e3": "mem_dd576ce837ab89838ec1",
+    "gold_6d66c77283da980f25f0": "mem_956e7d0ac509685ac562",
+    "gold_7f739d06f808d228ad09": "mem_655b6c08c58ce4d9ee14",
+    "gold_88ab59154bb483c30f25": "mem_0b8e4acc4cbe1d0feebd",
+    "gold_910865a14697bca9d4f5": "mem_bff4b92a3d76d31cd2d1",
+    "gold_989d6bc5d3b965fbb3a5": "mem_35e51dbaf07267df35ca",
+    "gold_9a517d4ea64f7a737bca": "mem_475c38707f68832064f2",
+    "gold_a0fa74ed6089f7009eab": "mem_01741fc9699233a446bd",
+    "gold_a41873fe4ad414240f04": "mem_b204393603116824598b",
+    "gold_a85563052bf4fbaa273d": "mem_fa6032ca329c5f93d5e7",
+    "gold_b337ac4089563a508012": "mem_028f0fc656b061cb6192",
+    "gold_d2ea055972464d00a6e8": "mem_7852eca452bafa9fbc9a",
+    "gold_f3e6561f6dcb0b2524e8": "mem_b62793811e63ed6f9a4a",
+    "gold_fed0a153410cbefa329f": "mem_127a0f36ff298bea12d4"
+  }
+}

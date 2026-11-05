@@ -163,11 +163,21 @@ def _publish(
     ):
         raise PublicationError("EXTRACTION_PLAN_INVALID")
 
+    semantic_approval = review / "semantic_review_approval.json"
+    semantic_authority = review / "semantic_review_authority.json"
+    auto_approval = review / "auto_review_approval.json"
+    auto_authority = review / "auto_review_authority.json"
+    if semantic_approval.exists() and semantic_authority.exists():
+        approval_path, authority_path = semantic_approval, semantic_authority
+    elif auto_approval.exists() and auto_authority.exists():
+        approval_path, authority_path = auto_approval, auto_authority
+    else:
+        raise PublicationError("AUTO_OR_SEMANTIC_REVIEW_REQUIRED")
     try:
         verified = verify_review_files(
             queue,
-            review / "semantic_review_approval.json",
-            review / "semantic_review_authority.json",
+            approval_path,
+            authority_path,
             run_kind="real",
         )
     except Exception:
@@ -191,6 +201,12 @@ def _publish(
         or manifest["body"].get("dataset_sha256") != bundle.snapshot_sha256
     ):
         raise PublicationError("WINDOW_PLAN_DRIFT")
+    extractor_version = manifest["body"].get(
+        "extractor_version",
+        EXTRACTOR_VERSION,
+    )
+    if not isinstance(extractor_version, str) or not extractor_version.strip():
+        raise PublicationError("EXTRACTION_LINEAGE_INVALID")
 
     checkpoints = WindowCheckpointStore(
         state / "checkpoints",
@@ -214,7 +230,7 @@ def _publish(
             sample_id,
             [selected],
             repository,
-            extractor_version=EXTRACTOR_VERSION,
+            extractor_version=extractor_version,
             evidence_checker=verified.checker_for_window(
                 window.extraction_window_id
             ),
@@ -253,7 +269,7 @@ def _publish(
         len(planned),
         len(planned),
         tuple(diagnostics),
-        EXTRACTOR_VERSION,
+        extractor_version,
     )
     receipt = ReviewAttestation(
         run_kind="real",
@@ -332,6 +348,7 @@ def _publish(
             item.rejected_fact_count for item in diagnostics
         ),
         "windows": len(diagnostics),
+        "extractor_version": extractor_version,
         "queue_fingerprint": queue.fingerprint,
         "manifest_sha256": "sha256:" + _sha(manifest_path),
         "queue_sha256": "sha256:" + _sha(queue_path),

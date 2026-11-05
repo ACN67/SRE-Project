@@ -46,8 +46,8 @@ class ProductionProvenance(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     run_kind: Literal["offline_test", "real"]
-    thinking: Literal["enabled"]
-    reasoning_effort: Literal["high"]
+    thinking: Literal["enabled", "not_applicable"]
+    reasoning_effort: Literal["high", "not_applicable"]
     execution_policy_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     window_plan_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     review_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -71,7 +71,7 @@ class MemoryManifest(ContractModel):
     extraction_config_fingerprint: str
     extractor_version: str = Field(min_length=1)
     prompt_fingerprint: str
-    backend: Literal["mock", "deepseek"]
+    backend: Literal["mock", "deepseek", "deterministic"]
     resolved_model_id: str | None
     build_status: Literal["complete", "partial", "failed"]
     partial_build: bool
@@ -96,8 +96,8 @@ class MemoryManifest(ContractModel):
                 raise ValueError(f"{name} must be a sha256: fingerprint")
         if self.backend == "deepseek" and (not self.resolved_model_id or not self.resolved_model_id.strip()):
             raise ValueError("DeepSeek requires resolved_model_id")
-        if self.backend == "mock" and self.resolved_model_id is not None:
-            raise ValueError("Mock must not claim a real model ID")
+        if self.backend in {"mock", "deterministic"} and self.resolved_model_id is not None:
+            raise ValueError("Local backends must not claim a real model ID")
         if self.successful_windows + len(self.failed_windows) != self.total_windows:
             raise ValueError("window counts do not agree")
         ids = [w.extraction_window_id for w in self.failed_windows]

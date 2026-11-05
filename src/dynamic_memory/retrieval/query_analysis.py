@@ -10,7 +10,7 @@ from datetime import date
 
 from dynamic_memory.contracts.models import QueryAnalysis, QueryIntent, QueryRequest, TimeIssue
 
-QUERY_ANALYSIS_VERSION = "c-query-rules-v2"
+QUERY_ANALYSIS_VERSION = "c-query-rules-v4"
 
 _MONTHS = {
     name.casefold(): number
@@ -42,6 +42,12 @@ _AMBIGUOUS_NUMERIC_DATE = re.compile(r"\d{1,4}/\d{1,2}/\d{1,4}")
 _UNSUPPORTED_DATE = re.compile(r"\d{1,4}/\d{1,2}/\d{1,4}|\d{1,2}月|\b" + _MONTH + r"\b", re.I)
 _ATTRIBUTES = (
     ("employment", r"\b(?:work|works|worked|working|job|jobs|career|employer|employed|employment|resign|resigned|quit|hired)\b|工作|职业|入职|离职|就职"),
+    ("current_work", r"\b(?:working\s+on|opening|building|focused\s+on|project)\b|正在|筹备|筹备中"),
+    ("currently_reading", r"\b(?:currently|now)\b.*\bread(?:ing)?\b|\bwhat\s+book\b.*\bread(?:ing)?\b|正在读|当前读"),
+    ("gaming", r"\b(?:game|games|gaming|playing)\b|游戏"),
+    ("achievement", r"\b(?:won|win|winning|tournament|competition|contest|award)\b|获胜|获奖"),
+    ("event_preparation", r"\b(?:getting|prepare|preparing|ready)\b.*\b(?:for|event)\b|准备"),
+    ("creative_project", r"\b(?:creating|create|writing|write|recording|film|video)\b|创作|制作"),
     ("residence", r"\b(?:live|lives|lived|living|reside|residence|move|moved)\b|居住|住在|搬家|搬到"),
     ("preference", r"\b(?:favorite|favourite|prefer|prefers|like|likes|liked)\b|最喜欢|偏好|喜爱"),
     ("education", r"\b(?:study|studied|school|university|college|graduate|graduated|degree)\b|毕业|学校|大学|学位"),

@@ -114,6 +114,9 @@ class SentenceTransformerEmbedder:
     def embed_query(self, question: str) -> list[float]:
         return self._encode([question], self.config.query_prompt)[0]
 
+    def embed_queries(self, questions: list[str]) -> list[list[float]]:
+        return self._encode(questions, self.config.query_prompt)
+
     def embed_memories(self, memories: list[MemoryRecord]) -> list[list[float]]:
         """Encode content verbatim; vector i belongs to memories[i]."""
         return self.embed_documents([memory.content for memory in memories])

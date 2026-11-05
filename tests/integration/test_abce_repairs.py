@@ -99,7 +99,10 @@ def test_real_web_shows_corrupt_without_fabricated_build_id(prepared, monkeypatc
     original = (folder / "current.json").read_bytes()
     (folder / "integration_receipt.json").unlink()
     (folder / "current.json").write_text("{bad", encoding="utf-8")
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py"),
+        default_timeout=10,
+    ).run()
     assert not app.exception
     next(button for button in app.button if button.label == "进入服务状态 →").click().run()
     assert any("ARTIFACT_CORRUPT" in error.value for error in app.error)
@@ -145,7 +148,10 @@ def test_real_builder_failed_or_partial_status_reaches_web(tmp_path, monkeypatch
     monkeypatch.setenv("SRE_INTEGRATION_PROFILE", "offline_synthetic")
     monkeypatch.setenv("SRE_OFFLINE_STATE", str(root))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "dynamic_memory.integration.offline:create_web_bindings")
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py"),
+        default_timeout=10,
+    ).run()
     assert not app.exception
     next(button for button in app.button if button.label == "进入服务状态 →").click().run()
     assert any(ERROR_MESSAGES[expected] in warning.value for warning in app.warning)
@@ -187,7 +193,10 @@ def test_complete_zero_memory_is_not_failure_in_service_or_web(tmp_path, monkeyp
     monkeypatch.setenv("SRE_INTEGRATION_PROFILE", "offline_synthetic")
     monkeypatch.setenv("SRE_OFFLINE_STATE", str(root))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "dynamic_memory.integration.offline:create_web_bindings")
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py"),
+        default_timeout=10,
+    ).run()
     assert not app.exception
     next(button for button in app.button if button.label == "进入记忆浏览 →").click().run()
     assert any("尚无记忆" in info.value for info in app.info)

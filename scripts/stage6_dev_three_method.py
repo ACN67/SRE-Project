@@ -205,7 +205,7 @@ class ThreeMethodApproval(BaseModel):
     reasoning_effort: Literal["high"]
     request_max_tokens_omitted: Literal[True]
     max_new_http_attempts: int = Field(ge=1)
-    state_reasoning_calls: int = Field(ge=1)
+    state_reasoning_calls: int = Field(ge=0)
     qa_calls: int = Field(ge=1)
     retry_attempts: Literal[0]
     max_concurrency: Literal[1]
@@ -364,6 +364,7 @@ def _make_system(
     plain_text: bool = False,
     hybrid_context: bool = False,
     conditional_state: bool = False,
+    encoder=None,
 ) -> System:
     if integration_mode not in {"legacy", "v2"}:
         raise Stage6DevError("INTEGRATION_MODE_INVALID")
@@ -402,14 +403,15 @@ def _make_system(
         allowed_splits=(split,),
     )
     artifact = ports.load(sample_id)
-    encoder = LocalIndexEncoder(
-        EmbeddingConfig(
-            str(MODEL_ROOT),
-            MODEL_REVISION,
-            query_prompt="Represent this sentence for searching relevant passages: ",
-            document_prompt="",
+    if encoder is None:
+        encoder = LocalIndexEncoder(
+            EmbeddingConfig(
+                str(MODEL_ROOT),
+                MODEL_REVISION,
+                query_prompt="Represent this sentence for searching relevant passages: ",
+                document_prompt="",
+            )
         )
-    )
     retrieval = settings.retrieval.model_copy(
         update={"embedding_model": encoder.identity.model_name}
     )
@@ -634,7 +636,7 @@ def _budget(question_count: int) -> dict:
         * PEAK_OUTPUT_USD_PER_MILLION
     ) / Decimal(1_000_000)
     qa_calls = question_count * 3
-    reasoning_calls = question_count
+    reasoning_calls = 0
     total = qa_call * qa_calls + reasoning_call * reasoning_calls
     return {
         "max_new_http_attempts": qa_calls + reasoning_calls,

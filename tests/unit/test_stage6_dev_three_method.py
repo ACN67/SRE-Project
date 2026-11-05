@@ -19,22 +19,22 @@ def test_question_manifest_is_fixed_to_four_main_dev_questions():
         assert all(item["question"].strip() for item in questions)
 
 
-def test_budget_counts_dynamic_state_and_answer_calls_separately():
+def test_budget_excludes_deterministic_state_resolution_calls():
     budget = runner._budget(4)
     assert budget == {
-        "max_new_http_attempts": 16,
+        "max_new_http_attempts": 12,
         "qa_calls": 12,
-        "state_reasoning_calls": 4,
+        "state_reasoning_calls": 0,
         "qa_input_tokens_per_call": 32768,
         "state_reasoning_input_tokens_per_call": 934464,
         "provider_default_output_tokens_per_call": 65536,
         "worst_case_usd_per_qa_call": "0.0884736",
         "worst_case_usd_per_reasoning_call": "0.3589824",
-        "worst_case_usd_total": "2.4976128",
+        "worst_case_usd_total": "1.0616832",
         "retry_attempts": 0,
     }
 
     full = runner._budget(199)
-    assert full["max_new_http_attempts"] == 796
+    assert full["max_new_http_attempts"] == 597
     assert full["qa_calls"] == 597
-    assert full["state_reasoning_calls"] == 199
+    assert full["state_reasoning_calls"] == 0

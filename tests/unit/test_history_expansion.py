@@ -9,6 +9,7 @@ from dynamic_memory.contracts import MemoryArtifact, memory_set_fingerprint
 from dynamic_memory.contracts.memory_id import compute_memory_id
 from dynamic_memory.contracts.models import QueryRequest
 from dynamic_memory.retrieval import IndexManager, VectorRetriever, analyze_query, save_index
+from dynamic_memory.retrieval.index import memory_retrieval_text
 from test_retrieval_index import artifact, settings, FakeEncoder
 
 
@@ -52,7 +53,7 @@ class HistoryEncoder(FakeEncoder):
     def __init__(self, source):
         super().__init__()
         self.query_calls = 0
-        self.scores = {m.content: (0.99 if i == 0 else 0.90 if 3 <= i < 10 else 0.1)
+        self.scores = {memory_retrieval_text(m): (0.99 if i == 0 else 0.90 if 3 <= i < 10 else 0.1)
                        for i, m in enumerate(source.memories)}
 
     def embed_documents(self, texts):

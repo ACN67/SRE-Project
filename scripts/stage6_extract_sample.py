@@ -25,6 +25,11 @@ from dynamic_memory.memory.extraction import (
     MEMORY_DRAFT_PROMPT, WindowExtractionError, build_extraction_request,
     extract_window,
 )
+from dynamic_memory.memory.auto_extraction import (
+    AUTO_EXTRACTION_PROFILE,
+    AUTO_EXTRACTOR_VERSION,
+    create_auto_extraction_runtime,
+)
 from dynamic_memory.memory.review_workflow import (
     ReviewQueue, _fp, export_review_queue, make_review_queue,
 )
@@ -261,6 +266,92 @@ def _plan(sample_id: str) -> dict:
         "git_sha": git_sha,
         "code_fingerprint": code_fingerprint,
     }
+
+
+def _plan_auto(sample_id: str) -> dict:
+    if sample_id not in ALLOWED_SAMPLES:
+        raise Stage6Error("SAMPLE_NOT_ALLOWED")
+    settings = load_settings(models_profile=PROFILE)
+    bundle = load_conversations(str(DATA), str(SPLIT))
+    if bundle.snapshot_sha256 != (
+        "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+    ):
+        raise Stage6Error("DATA_SNAPSHOT_MISMATCH")
+    split = "test" if sample_id in TEST_SAMPLES else "main_dev"
+    if bundle.split_by_sample_id.get(sample_id) != split:
+        raise Stage6Error("SPLIT_MISMATCH")
+    repository = SourceRepository(bundle)
+    sample = repository.get_sample(sample_id)
+    windows = tuple(plan_extraction_windows(
+        sample, settings.extraction, reserved_prompt_tokens=1800
+    ))
+    runtime = create_auto_extraction_runtime(settings)
+    git_sha = _git_sha()
+    window_rows = []
+    for window in windows:
+        prepared = runtime.make_request(
+            MEMORY_DRAFT_PROMPT, {"conversation": window.input_text}
+        )
+        runtime.make_identity(
+            prepared,
+            sample_id=sample_id,
+            scope_id=window.extraction_window_id,
+            run_kind="evaluation" if split == "test" else "development",
+            method=None,
+            data_fingerprint="sha256:" + _sha_bytes(window.input_text.encode("utf-8")),
+            schema_id="atomic_fact_draft",
+            schema_version="1",
+            retriever_fingerprint=None,
+            query_analysis_version=None,
+            git_sha=git_sha,
+        )
+        window_rows.append({
+            "window_id": window.extraction_window_id,
+            "source_refs": [ref.model_dump(mode="json") for ref in window.source_refs],
+            "input_sha256": _sha_bytes(window.input_text.encode("utf-8")),
+            "request_input_bytes": sum(
+                len(message.content.encode("utf-8"))
+                for message in prepared.request.messages
+            ),
+            "max_input_tokens": prepared.request.settings.max_input_tokens,
+        })
+    body = {
+        "sample_id": sample_id,
+        "split": split,
+        "dataset_sha256": bundle.snapshot_sha256,
+        "windows": window_rows,
+        "runtime_config_fingerprint": runtime.config_fingerprint,
+        "execution_policy_fingerprint": runtime.execution_policy_fingerprint,
+        "prompt_fingerprint": MEMORY_DRAFT_PROMPT.template_fingerprint,
+        "extractor_version": AUTO_EXTRACTOR_VERSION,
+        "git_sha": git_sha,
+        "code_fingerprint": _code_fingerprint(),
+    }
+    return {
+        "format_version": 1,
+        "status": "STAGE6_EXTRACTION_PLAN_READY",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "run_fingerprint": _fp(body),
+        "sample_id": sample_id,
+        "split": split,
+        "dataset_sha256": bundle.snapshot_sha256,
+        "windows": window_rows,
+        "window_count": len(windows),
+        "runtime_config_fingerprint": runtime.config_fingerprint,
+        "execution_policy_fingerprint": runtime.execution_policy_fingerprint,
+        "prompt_fingerprint": MEMORY_DRAFT_PROMPT.template_fingerprint,
+        "extractor_version": AUTO_EXTRACTOR_VERSION,
+        "git_sha": git_sha,
+        "code_fingerprint": body["code_fingerprint"],
+        "provider": {"mode": AUTO_EXTRACTION_PROFILE, "network_calls": 0},
+        "budget": {
+            "input_bytes_upper": sum(row["request_input_bytes"] for row in window_rows),
+            "max_http_attempts": 0,
+            "worst_case_usd": "0",
+        },
+        "network_calls": 0,
+        "requires_user_approval": False,
+    }
     run_fingerprint = _fp(plan_body)
     return {
         "format_version": 1,
@@ -473,6 +564,124 @@ def _execute(plan_path: Path, approval_path: Path, output_dir: Path) -> dict:
     return result
 
 
+def _execute_auto(plan: dict, output_dir: Path) -> dict:
+    if plan.get("status") != "STAGE6_EXTRACTION_PLAN_READY":
+        raise Stage6Error("PLAN_INVALID")
+    if _plan_auto(plan["sample_id"])["run_fingerprint"] != plan["run_fingerprint"]:
+        raise Stage6Error("RUN_FINGERPRINT_CHANGED")
+    settings = load_settings(models_profile=PROFILE)
+    bundle = load_conversations(str(DATA), str(SPLIT))
+    repository = SourceRepository(bundle)
+    sample = repository.get_sample(plan["sample_id"])
+    windows = tuple(plan_extraction_windows(
+        sample, settings.extraction, reserved_prompt_tokens=1800
+    ))
+    if len(windows) != plan["window_count"]:
+        raise Stage6Error("WINDOW_PLAN_DRIFT")
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise Stage6Error("OUTPUT_DIRECTORY_IN_USE")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(output_dir / "plan.json", plan)
+    checkpoints = WindowCheckpointStore(
+        output_dir / "checkpoints",
+        run_fingerprint=plan["run_fingerprint"],
+        max_new_attempts=len(windows),
+    )
+    runtime = create_auto_extraction_runtime(settings)
+    results = {}
+    call_fingerprints = {}
+    progress = []
+    for window in windows:
+        prepared = runtime.make_request(
+            MEMORY_DRAFT_PROMPT, {"conversation": window.input_text}
+        )
+        identity = runtime.make_identity(
+            prepared,
+            sample_id=sample.sample_id,
+            scope_id=window.extraction_window_id,
+            run_kind="evaluation" if plan.get("split") == "test" else "development",
+            method=None,
+            data_fingerprint="sha256:" + _sha_bytes(window.input_text.encode("utf-8")),
+            schema_id="atomic_fact_draft",
+            schema_version="1",
+            retriever_fingerprint=None,
+            query_analysis_version=None,
+            git_sha=plan["git_sha"],
+        )
+        call_fp = call_identity_fingerprint(identity)
+        checkpoints.claim_new_attempt(window, call_fp)
+        try:
+            result = extract_window(
+                window,
+                runtime.recorder,
+                identity,
+                runtime.settings.models,
+                token_estimator=_estimate,
+            )
+        except WindowExtractionError as exc:
+            _write_json(output_dir / "failure.json", {
+                "status": "STAGE6_AUTO_EXTRACTION_STOPPED",
+                "sample_id": sample.sample_id,
+                "failed_window_id": window.extraction_window_id,
+                "error_code": exc.code,
+                "completed_windows": len(results),
+                "network_calls": 0,
+            })
+            raise Stage6Error(exc.code) from None
+        checkpoints.save(window, result, call_fp)
+        results[window.extraction_window_id] = result
+        call_fingerprints[window.extraction_window_id] = call_fp
+        progress.append({
+            "window_id": window.extraction_window_id,
+            "fact_count": len(result.facts),
+            "extractor": AUTO_EXTRACTOR_VERSION,
+        })
+        _write_json(output_dir / "progress.json", {
+            "sample_id": sample.sample_id,
+            "completed_windows": len(results),
+            "total_windows": len(windows),
+            "network_calls": 0,
+            "facts": sum(len(result.facts) for result in results.values()),
+            "windows": progress,
+        })
+    manifest_body = {
+        "format_version": 1,
+        "sample_id": sample.sample_id,
+        "split": plan.get("split", "main_dev"),
+        "dataset_sha256": bundle.snapshot_sha256,
+        "run_fingerprint": plan["run_fingerprint"],
+        "window_count": len(windows),
+        "windows": plan["windows"],
+        "extractor_version": AUTO_EXTRACTOR_VERSION,
+    }
+    manifest = {"body": manifest_body, "digest": _fp(manifest_body)}
+    _write_json(output_dir / "manifest.json", manifest)
+    queue = make_review_queue(
+        run_fingerprint=_fp(manifest),
+        sample_id=sample.sample_id,
+        windows=windows,
+        call_fingerprints=call_fingerprints,
+        results=results,
+        repository=repository,
+    )
+    queue_path = output_dir / "private_review" / "queue.json"
+    export_review_queue(queue, queue_path)
+    summary = {
+        "status": "STAGE6_AUTO_EXTRACTION_COMPLETE",
+        "sample_id": sample.sample_id,
+        "run_fingerprint": plan["run_fingerprint"],
+        "windows_completed": len(results),
+        "facts": sum(len(result.facts) for result in results.values()),
+        "network_calls": 0,
+        "extractor_version": AUTO_EXTRACTOR_VERSION,
+        "queue_path": str(queue_path),
+        "queue_fingerprint": queue.fingerprint,
+        "manifest_path": str(output_dir / "manifest.json"),
+    }
+    _write_json(output_dir / "extraction_summary.json", summary)
+    return summary
+
+
 def _safe_output(path: Path) -> Path:
     target = path.resolve()
     if not target.is_relative_to((ROOT / "results").resolve()):
@@ -485,7 +694,7 @@ def _safe_output(path: Path) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("plan", "live"), required=True)
+    parser.add_argument("--mode", choices=("plan", "live", "auto"), required=True)
     parser.add_argument("--sample", required=True, choices=ALLOWED_SAMPLES)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--plan", type=Path)
@@ -503,6 +712,12 @@ def main() -> int:
                 "plan": str(output_dir / "plan.json"),
                 **plan["budget"],
             }))
+            return 0
+        if args.mode == "auto":
+            output_dir = _safe_output(args.output_dir)
+            plan = _read_json(args.plan) if args.plan is not None else _plan_auto(args.sample)
+            result = _execute_auto(plan, output_dir)
+            print(json.dumps(result))
             return 0
         if args.plan is None or args.approval is None:
             raise Stage6Error("PLAN_AND_APPROVAL_REQUIRED")

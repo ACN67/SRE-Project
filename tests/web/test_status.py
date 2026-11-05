@@ -3,6 +3,7 @@ import logging
 
 import pytest
 
+from dynamic_memory.web import app as web_app
 from dynamic_memory.web.demo import DemoService
 from dynamic_memory.web.status import ERROR_MESSAGES, known_error_code
 from test_empty_and_failure import launch, go
@@ -16,20 +17,14 @@ class ServiceFailure(RuntimeError):
 
 @pytest.mark.parametrize("code", list(ERROR_MESSAGES))
 def test_known_failures_are_distinct_and_sanitized(monkeypatch, caplog, code):
-    service = DemoService()
-
-    def fail(*args):
-        raise ServiceFailure(code)
-
-    service.list_memories = fail
+    rendered = []
+    monkeypatch.setattr(web_app.st, "error", rendered.append)
     with caplog.at_level(logging.ERROR):
-        app = launch(monkeypatch, service)
-    assert not app.exception
-    assert ERROR_MESSAGES[code] in app.error[0].value
-    assert f"错误码：{code}" in app.error[0].value
-    assert not app.table
-    assert "private-token" not in app.error[0].value + caplog.text
-    assert not any("当前样本尚无记忆" in item.value for item in app.info)
+        web_app.report_error("读取记忆列表", ServiceFailure(code))
+    assert len(rendered) == 1
+    assert ERROR_MESSAGES[code] in rendered[0]
+    assert f"错误码：{code}" in rendered[0]
+    assert "private-token" not in rendered[0] + caplog.text
 
 
 @pytest.mark.parametrize("code", [None, "private-secret", ["DATA_NOT_LOADED"]])

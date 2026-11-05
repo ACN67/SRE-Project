@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,7 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 from dynamic_memory.contracts import MemoryArtifact, MemoryRecord
 from dynamic_memory.pipeline.settings import RetrievalSettings
 
-INDEX_IMPLEMENTATION = "c-local-index-v2-history"
+INDEX_IMPLEMENTATION = "c-local-index-v7-state-hybrid"
+RETRIEVAL_PROJECTION_VERSION = "memory-speaker-structured-v2+bm25-v1-weight-0.15"
 _DIGEST = r"^sha256:[0-9a-f]{64}$"
 
 
@@ -59,7 +61,7 @@ class IndexEncoder(Protocol):
 
 class _IndexDocument(_FrozenModel):
     format_version: Literal[1] = 1
-    implementation: Literal["c-local-index-v2-history"] = INDEX_IMPLEMENTATION
+    implementation: Literal["c-local-index-v7-state-hybrid"] = INDEX_IMPLEMENTATION
     sample_id: str = Field(min_length=1)
     source_manifest_fingerprint: str = Field(pattern=_DIGEST)
     settings_fingerprint: str = Field(pattern=_DIGEST)
@@ -103,7 +105,36 @@ class _IndexFile(_FrozenModel):
 
 def _retriever_fingerprint(source: str, settings: str, encoder: EncoderIdentity) -> str:
     return fingerprint({"implementation": INDEX_IMPLEMENTATION, "source_manifest": source,
-                        "settings": settings, "encoder": encoder.model_dump(mode="json")})
+                        "settings": settings, "encoder": encoder.model_dump(mode="json"),
+                        "retrieval_projection": RETRIEVAL_PROJECTION_VERSION})
+
+
+def memory_retrieval_text(memory: MemoryRecord) -> str:
+    """Build a source-grounded search projection without changing Memory text.
+
+    Memory content already carries the utterance speaker for deterministic
+    extraction. Repeating that short speaker anchor, then adding reviewed
+    subject/attribute and the source's raw time expression, resolves pronoun
+    ambiguity while preserving the original wording in the final segment.
+    """
+    speaker_match = re.match(r"^\s*([^:\n]{1,80}):\s*", memory.content)
+    speaker = speaker_match.group(1).strip() if speaker_match else None
+    event_time = memory.event_time
+    candidates = (
+        speaker,
+        memory.entity,
+        memory.attribute,
+        event_time.raw if event_time is not None else None,
+        memory.content,
+    )
+    parts = []
+    seen = set()
+    for value in candidates:
+        normalized = value.strip() if isinstance(value, str) else ""
+        if normalized and normalized.casefold() not in seen:
+            seen.add(normalized.casefold())
+            parts.append(normalized)
+    return ". ".join(parts)
 
 
 def _reject_extra_fields(value: object) -> None:
@@ -150,6 +181,18 @@ class RetrievalIndex:
 
     _document_json: str = field(repr=False)
     _artifact_json: str = field(repr=False)
+    _document_cache: _IndexDocument | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+    _artifact_cache: MemoryArtifact | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self):
         try:
@@ -161,6 +204,8 @@ class RetrievalIndex:
                 raise ValueError("index/source mismatch")
         except Exception:
             raise RetrievalIndexError("INDEX_CORRUPT") from None
+        object.__setattr__(self, "_document_cache", document)
+        object.__setattr__(self, "_artifact_cache", artifact)
 
     @property
     def sample_id(self) -> str:
@@ -197,11 +242,17 @@ class RetrievalIndex:
 
     @property
     def memories(self) -> tuple[MemoryRecord, ...]:
-        artifact = MemoryArtifact.model_validate_json(self._artifact_json)
-        return tuple(sorted(artifact.memories, key=lambda m: m.memory_id))
+        return tuple(
+            memory.model_copy(deep=True)
+            for memory in self._artifact_cache.memories
+        )
+
+    def _memory_snapshot(self) -> tuple[MemoryRecord, ...]:
+        """Internal read-only snapshot for trusted consumers in this process."""
+        return self._artifact_cache.memories
 
     def _document(self) -> _IndexDocument:
-        return _IndexDocument.model_validate_json(self._document_json)
+        return self._document_cache
 
 
 class IndexManager:
@@ -230,7 +281,13 @@ class IndexManager:
         artifact, settings_fp, identity = self._context(artifact, settings)
         memories = sorted(artifact.memories, key=lambda m: m.memory_id)
         try:
-            raw_vectors = self._encoder.embed_documents([m.content for m in memories]) if memories else []
+            raw_vectors = (
+                self._encoder.embed_documents(
+                    [memory_retrieval_text(memory) for memory in memories]
+                )
+                if memories
+                else []
+            )
             vectors = tuple(tuple(row) for row in raw_vectors)
         except RetrievalIndexError:
             raise

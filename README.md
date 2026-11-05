@@ -8,7 +8,7 @@
 - `offline_synthetic` 从合成原始对话经 B Builder、严格发布、C 索引到 A/E 的可重复入口；固定向量、Mock QA 和合成证据检查器有明确标记。
 - 预测先落盘并校验的非 D 诊断运行；D 的 `StateResolver`、`DynamicAnswerer`、`DynamicServicePorts` 与生产工厂已接通，Dynamic 和 Vector RAG 使用同一有序 CandidateSet。
 - 正式 YAML 中 `null` 仍表示尚未冻结，不会被离线 profile 覆盖成虚构的生产值。
-- 事实审核支持保守离线规则及模型主导的 DeepSeek v3 正式发布路径；审核来源、弃权规则、覆盖率和独立质量验收边界见 [自动事实审核](docs/AUTO_REVIEW.md)及[语义审核](docs/SEMANTIC_REVIEW.md)。
+- `main-2` 提供确定性事实抽取、自动审核及状态解析，抽取、审核和状态阶段不调用远端模型；最终自然语言答案仍使用 QA 模型。流程、命令和限制见 [自动抽取与状态解析](docs/AUTO_EXTRACTION.md)。DeepSeek 抽取/语义审核仍作为历史正式路径保留，见[自动事实审核](docs/AUTO_REVIEW.md)及[语义审核](docs/SEMANTIC_REVIEW.md)。
 
 `main_dev` 四段对话现均已完成真实 DeepSeek 抽取、v3 语义审核、严格 Memory
 发布、BGE 索引、A/B/C/D/E 生产装配、100 题分层验证和全部 757 题三路问答。
@@ -25,6 +25,12 @@ Dynamic 综合得分分别为 0.733758、0.601955、0.580745，配置身份和�
 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。正式
 [SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md)
 分别记录需求正文和实证边界。
+
+`main-2` 的确定性抽取、审核和状态解析路径已在四个开发样本上重建全部
+Memory 和索引，三个自动阶段的 HTTP 调用均为 0。与旧 Memory 构建同口径
+的结构评测在 752 个可评分问题上达到 Evidence Recall@5 `0.560606`、
+Recall@10 `0.647230`，高于冻结的 DeepSeek 抽取基线。端到端状态标注仍需
+按新候选集补充审核，不能把旧候选集上的状态分数直接迁移为正式结论。
 
 ## 分工
 
@@ -72,6 +78,10 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke
 ```
+
+测试默认使用 6 个 xdist 进程；本机冷启动全量回归实测为
+`1384 passed / 104.5s`。各测试文件中仍保留真实验证 Streamlit 状态机、
+进程锁和持久化边界的冒烟测试。
 
 离线集成测试均为 synthetic，Mock 答案始终标明合成性质，不代表正式准确率。`tests/integration/test_offline_system.py` 从合成原始对话真实调用 B 的 Builder 和 C 的 IndexManager；`test_abce_long_history.py` 验证 20 条合成 Memory 的 Top-8、历史扩展、12 条预算以及 A/评测/Web 消费。
 

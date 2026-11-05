@@ -11,7 +11,7 @@ from dynamic_memory.contracts import FailedWindow, MemoryArtifact, MemoryManifes
 from dynamic_memory.contracts.memory_id import compute_memory_id
 from dynamic_memory.pipeline.settings import load_settings
 from dynamic_memory.retrieval import EncoderIdentity, IndexManager, RetrievalIndexError, save_index
-from dynamic_memory.retrieval.index import fingerprint
+from dynamic_memory.retrieval.index import fingerprint, memory_retrieval_text
 
 
 class FakeEncoder:
@@ -65,7 +65,9 @@ def test_build_preserves_id_text_vector_alignment_and_order_independence():
     manager = IndexManager(encoder)
     index = manager.build_index(source, settings())
     assert index.memory_ids == tuple(sorted(m.memory_id for m in source.memories))
-    assert encoder.calls == [[m.content for m in index.memories]]
+    assert encoder.calls == [
+        [memory_retrieval_text(memory) for memory in index.memories]
+    ]
     assert index.sample_id == source.manifest.sample_id
     assert index.source_manifest_fingerprint == source.source_manifest_fingerprint
     assert index.dimension == 2
@@ -73,6 +75,20 @@ def test_build_preserves_id_text_vector_alignment_and_order_independence():
         assert vector == ((0.6, 0.8) if "teacher" in record.content else (1.0, 0.0))
     reordered = source.model_copy(update={"memories": tuple(reversed(source.memories))})
     assert manager.build_index(reordered, settings()) == index
+
+
+def test_retrieval_projection_keeps_content_and_adds_speaker_metadata():
+    source = artifact()
+    memory = source.memories[0].model_copy(
+        update={
+            "content": "Sam: I teach students.",
+            "entity": "Sam",
+            "attribute": "employment",
+        }
+    )
+    rendered = memory_retrieval_text(memory)
+    assert rendered.startswith("Sam. employment.")
+    assert rendered.endswith(". Sam: I teach students.")
 
 
 def test_save_reload_without_reencoding(tmp_path):

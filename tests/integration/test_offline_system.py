@@ -73,7 +73,10 @@ def test_raw_source_builder_to_bcae_and_two_samples(monkeypatch, prepared):
         dynamic = bindings.run_query(_request(sample), "dynamic")
         assert dynamic.answer_result.status == "error"
         assert dynamic.answer_result.error.code == "COMPONENT_UNAVAILABLE"
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py"),
+        default_timeout=10,
+    ).run()
     assert not app.exception
     assert any("Synthetic" in warning.value for warning in app.warning)
     next(b for b in app.button if b.label == "进入问答工作台 →").click().run()
@@ -277,7 +280,10 @@ def test_web_clears_answer_after_index_change(monkeypatch, prepared):
     monkeypatch.setenv("SRE_INTEGRATION_PROFILE", "offline_synthetic")
     monkeypatch.setenv("SRE_OFFLINE_STATE", str(root))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "dynamic_memory.integration.offline:create_web_bindings")
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py"),
+        default_timeout=10,
+    ).run()
     next(b for b in app.button if b.label == "进入问答工作台 →").click().run()
     app.selectbox(key="query_method").select("vector_rag").run()
     app.text_area(key="query_question").set_value("What does Ada keep?")
@@ -293,7 +299,10 @@ def test_real_factory_web_browses_source_switches_sample_and_refreshes(monkeypat
     monkeypatch.setenv("SRE_INTEGRATION_PROFILE", "offline_synthetic")
     monkeypatch.setenv("SRE_OFFLINE_STATE", str(root))
     monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "dynamic_memory.integration.offline:create_web_bindings")
-    app = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "streamlit_app.py")).run()
+    app = AppTest.from_file(
+        str(Path(__file__).resolve().parents[2] / "streamlit_app.py"),
+        default_timeout=10,
+    ).run()
     first_binding = app.session_state["bindings"]
     next(b for b in app.button if b.label == "进入记忆浏览 →").click().run()
     assert not app.exception

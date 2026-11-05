@@ -5,7 +5,7 @@ import math
 
 import pytest
 
-from dynamic_memory.contracts.models import QueryRequest, SourceRef
+from dynamic_memory.contracts.models import QueryAnalysis, QueryRequest, SourceRef
 from dynamic_memory.retrieval import VectorRetriever, analyze_query, IndexManager
 from dynamic_memory.retrieval.index import fingerprint
 from test_retrieval_index import FakeEncoder, artifact, settings, assert_code

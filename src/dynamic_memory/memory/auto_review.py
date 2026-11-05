@@ -19,9 +19,25 @@ from dynamic_memory.memory.normalization import EvidenceAssessment
 AUTO_REVIEWER_ID = "auto-extractive-v1"
 AUTO_AUTHORITY_VERSION = "auto-extractive-v1-" + hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 _WORDS = re.compile(r"[a-z]+|\d+", re.I)
-_SENTENCES = re.compile(r"(?<=[.!?])\s+|[,;]\s+|\s+\bso\b\s+", re.I)
-_FUTURE = re.compile(r"\b(?:will|would|could|might|may|gonna|going to|hope|hoping|plan|planning|want|wanna|should|need|needs|can't wait)\b", re.I)
-_NEGATION = re.compile(r"\b(?:not|never|no|cannot|can't|didn't|doesn't|isn't|wasn't|won't)\b", re.I)
+_SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
+_FUTURE = re.compile(
+    r"\b(?:will|would|gonna|going to|hope|hoping|plan|planning|intend|"
+    r"intending|want|wanna|should|need|needs|can't wait)\b",
+    re.I,
+)
+_HYPOTHETICAL = re.compile(
+    r"\b(?:if|imagine|suppose|hypothetical|might|could|would have)\b",
+    re.I,
+)
+_UNCERTAIN = re.compile(
+    r"\b(?:maybe|perhaps|probably|possibly|not sure|unsure|might|could)\b",
+    re.I,
+)
+_NEGATION = re.compile(
+    r"\b(?:not|never|no|none|nobody|nothing|cannot|can't|didn't|doesn't|"
+    r"isn't|wasn't|weren't|won't|wouldn't|no longer)\b",
+    re.I,
+)
 _VISUAL = re.compile(r"\b(?:image|photo|picture|pictured|depicts|attached)\b", re.I)
 _STOP = frozenset("a an the to at in on of and or is was are were be been being have has had do did does with for from by into out it this that these those his her their my your our me him them as so very really some all up down about now then he she they i we you".split())
 
@@ -45,6 +61,10 @@ def _terms(text: str) -> set[str]:
     return {_stem(w) for w in _WORDS.findall(text.casefold()) if w not in _STOP}
 
 
+def _normal_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
 def assess_auto_fact(fact) -> EvidenceAssessment:
     """Decide from the exact cited turn; never infer support from a SourceRef alone."""
     draft = fact.draft
@@ -52,10 +72,27 @@ def assess_auto_fact(fact) -> EvidenceAssessment:
     if len(sources) != 1:
         return EvidenceAssessment("unclear", "AUTO_MULTISOURCE_NEEDS_REVIEW")
     source = sources[0]
-    if source.image_caption and _VISUAL.search(draft.content):
-        return EvidenceAssessment("unclear", "AUTO_IMAGE_NEEDS_REVIEW")
+    if source.image_caption:
+        caption = _normal_text(source.image_caption)
+        content = _normal_text(draft.content)
+        if (
+            caption
+            and content
+            and (content == caption or _terms(content) <= _terms(caption))
+        ):
+            return EvidenceAssessment("supported", "AUTO_EXACT_IMAGE_CAPTION")
+        if _VISUAL.search(draft.content):
+            return EvidenceAssessment("unclear", "AUTO_IMAGE_NEEDS_REVIEW")
     if not source.text.strip() or not draft.content.strip():
         return EvidenceAssessment("unclear", "AUTO_EMPTY_TEXT")
+    if draft.recorded_at is not None:
+        source_time = (
+            source.recorded_at.isoformat()
+            if source.recorded_at is not None
+            else None
+        )
+        if source_time is None or draft.recorded_at != source_time:
+            return EvidenceAssessment("unclear", "AUTO_RECORDED_AT_MISMATCH")
     if draft.entity and draft.entity.casefold() not in source.text.casefold() and draft.entity.casefold() != source.speaker.casefold():
         return EvidenceAssessment("unclear", "AUTO_ENTITY_NOT_ANCHORED")
     if draft.event_time and draft.event_time.raw and draft.event_time.raw.casefold() not in source.text.casefold():
@@ -74,7 +111,15 @@ def assess_auto_fact(fact) -> EvidenceAssessment:
             continue
         if draft.assertion_type == "fact" and _FUTURE.search(sentence):
             continue
-        if draft.assertion_type in {"plan", "hypothetical", "uncertain"} and not _FUTURE.search(sentence):
+        if draft.assertion_type == "plan" and not _FUTURE.search(sentence):
+            continue
+        if draft.assertion_type == "hypothetical" and not (
+            _FUTURE.search(sentence) or _HYPOTHETICAL.search(sentence)
+        ):
+            continue
+        if draft.assertion_type == "uncertain" and not (
+            _FUTURE.search(sentence) or _UNCERTAIN.search(sentence)
+        ):
             continue
         if draft.event_time and draft.event_time.raw and draft.event_time.raw.casefold() not in sentence.casefold():
             continue

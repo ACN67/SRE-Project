@@ -16,6 +16,7 @@ from dynamic_memory.integration.artifacts import ArtifactPorts
 from dynamic_memory.memory.artifact_store import (
     ArtifactStoreError, ReviewedMemoryArtifactStore, ReviewAttestation, WindowReview,
 )
+from dynamic_memory.memory.auto_review import AUTO_REVIEWER_ID
 from dynamic_memory.memory.build import MemoryBuilder
 from dynamic_memory.memory.checkpoints import WindowCheckpointStore
 from dynamic_memory.memory.extraction import MEMORY_DRAFT_PROMPT
@@ -122,6 +123,26 @@ def test_63_fake_windows_publish_and_c_handoff(tmp_path):
     assert len(store.import_memories()) == 63
     assert len(list((store.root / "builds").iterdir())) == 1
     assert not (store.root / "current.json").read_text().find("private fake thought") >= 0
+
+
+def test_automatic_review_is_published_without_provider_provenance(tmp_path):
+    bundle, settings, report, receipt = fixture_63()
+    automatic = receipt.model_copy(update={"reviewer_id": AUTO_REVIEWER_ID})
+    ports = ArtifactPorts(
+        tmp_path / "automatic-artifacts",
+        bundle,
+        settings,
+        production=True,
+    )
+    store = ports.store("synthetic-0")
+
+    artifact = store.publish_reviewed(report, automatic)
+
+    assert artifact.manifest.backend == "deterministic"
+    assert artifact.manifest.resolved_model_id is None
+    assert artifact.manifest.production_provenance.thinking == "not_applicable"
+    assert artifact.manifest.production_provenance.reasoning_effort == "not_applicable"
+    assert ports.load("synthetic-0") == artifact
 
 
 def test_reviewed_store_requires_an_explicit_supported_split(tmp_path):

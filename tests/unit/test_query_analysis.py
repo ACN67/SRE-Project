@@ -113,6 +113,21 @@ def test_entity_and_attribute_hints():
     assert analyze_query(request("Where does he live?")).entity_hints == []
 
 
+@pytest.mark.parametrize(
+    "question,attribute",
+    [
+        ("What book is Jon currently reading?", "currently_reading"),
+        ("What is Jon working on opening?", "current_work"),
+        ("What game is Nate currently playing?", "gaming"),
+        ("How many tournaments has Nate won?", "achievement"),
+        ("What event is Maria getting ready for?", "event_preparation"),
+        ("What is Nate creating for YouTube?", "creative_project"),
+    ],
+)
+def test_state_question_attributes_are_exposed(question, attribute):
+    assert attribute in analyze_query(request(question)).attribute_hints
+
+
 def test_sample_local_entity_vocabulary_and_word_boundaries():
     first = QueryAnalyzer(["Sam", "小王", "Sam"])
     second = QueryAnalyzer(["Alex"])

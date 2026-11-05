@@ -297,17 +297,24 @@ class MemoryArtifactStore:
                     or manifest.extraction_config_fingerprint not in self._config_identities()
                     or manifest.prompt_fingerprint != MEMORY_DRAFT_PROMPT.template_fingerprint):
                 _fail("ARTIFACT_STALE")
-            if manifest.backend != self._expected_backend():
+            if manifest.backend not in self._expected_backends():
                 _fail("ARTIFACT_STALE")
             if manifest.backend == "mock" and (manifest.resolved_model_id is not None or
                                                manifest.production_provenance is not None):
+                _fail("ARTIFACT_STALE")
+            if manifest.backend == "deterministic" and (
+                manifest.resolved_model_id is not None
+                or manifest.production_provenance is None
+                or manifest.production_provenance.thinking != "not_applicable"
+                or manifest.production_provenance.reasoning_effort != "not_applicable"
+            ):
                 _fail("ARTIFACT_STALE")
             if manifest.backend == "deepseek" and (manifest.resolved_model_id != "deepseek-flash" or
                                                    manifest.production_provenance is None or
                                                    manifest.production_provenance.thinking != "enabled" or
                                                    manifest.production_provenance.reasoning_effort != "high"):
                 _fail("ARTIFACT_STALE")
-            if manifest.backend == "deepseek":
+            if manifest.backend in {"deepseek", "deterministic"}:
                 receipt_bytes = (directory / "review_receipt.json").read_bytes()
                 receipt = ReviewAttestation.model_validate_json(receipt_bytes)
                 provenance = manifest.production_provenance
@@ -398,15 +405,15 @@ class MemoryArtifactStore:
         artifact.require_complete_for_index()
         return list(artifact.memories)
 
-    def _expected_backend(self) -> str:
-        return "mock"
+    def _expected_backends(self) -> tuple[str, ...]:
+        return ("mock",)
 
 
 class ReviewedMemoryArtifactStore(MemoryArtifactStore):
     """Strict opt-in non-Mock writer/reader; legacy Mock path is unchanged."""
 
-    def _expected_backend(self) -> str:
-        return "deepseek"
+    def _expected_backends(self) -> tuple[str, ...]:
+        return ("deepseek", "deterministic")
 
     def publish_reviewed(self, report: MemoryBuildResult,
                          attestation: ReviewAttestation,
@@ -429,6 +436,8 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
                 _fail("ARTIFACT_INCOMPLETE")
             if receipt.reviewed_memory_set_fingerprint != memory_set_fingerprint(report.memories):
                 _fail("REVIEW_MISMATCH")
+            from dynamic_memory.memory.auto_review import AUTO_REVIEWER_ID
+            automatic = receipt.reviewer_id == AUTO_REVIEWER_ID
             if len(receipt.windows) != report.total_windows:
                 _fail("REVIEW_MISMATCH")
             for reviewed, diagnostic in zip(receipt.windows, report.window_diagnostics):
@@ -511,7 +520,9 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
             plan_fp = _fp([{"id": w.extraction_window_id,
                             "refs": [r.model_dump(mode="json") for r in w.source_refs]} for w in windows])
             provenance = ProductionProvenance(
-                run_kind=receipt.run_kind, thinking="enabled", reasoning_effort="high",
+                run_kind=receipt.run_kind,
+                thinking="not_applicable" if automatic else "enabled",
+                reasoning_effort="not_applicable" if automatic else "high",
                 execution_policy_fingerprint=receipt.execution_policy_fingerprint,
                 window_plan_fingerprint=plan_fp,
                 review_fingerprint=_fp(receipt.model_dump(mode="json")),
@@ -523,6 +534,10 @@ class ReviewedMemoryArtifactStore(MemoryArtifactStore):
             raise
         except (ValidationError, ValueError, TypeError, AttributeError, KeyError, WindowPlanningError):
             _fail("REVIEW_MISMATCH")
-        return self._publish_checked(report, backend="deepseek", provenance=provenance,
-                                     review_receipt=_json_bytes(receipt.model_dump(mode="json")),
-                                     lineage_receipt=lineage_receipt)
+        return self._publish_checked(
+            report,
+            backend="deterministic" if automatic else "deepseek",
+            provenance=provenance,
+            review_receipt=_json_bytes(receipt.model_dump(mode="json")),
+            lineage_receipt=lineage_receipt,
+        )

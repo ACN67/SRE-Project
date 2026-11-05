@@ -9,6 +9,7 @@ from dynamic_memory.data.repository import SourceRepository
 from dynamic_memory.llm.prompts import QA_PROMPT
 
 from .common import DynamicProvenance, DynamicReasoningError, checked_inputs
+from .auto_resolver import DeterministicStateResolver
 from .resolver import StateResolver
 
 
@@ -46,6 +47,7 @@ class DynamicServicePorts:
         plain_text=False,
         max_context_memories=12,
         conditional_state=False,
+        resolver_mode="deterministic",
     ):
         if not callable(provenance_factory):
             raise DynamicReasoningError("DEPENDENCY_INVALID")
@@ -62,6 +64,7 @@ class DynamicServicePorts:
         if (
             type(plain_text) is not bool
             or type(conditional_state) is not bool
+            or resolver_mode not in {"deterministic", "llm"}
             or type(max_context_memories) is not int
             or max_context_memories < 1
         ):
@@ -78,6 +81,7 @@ class DynamicServicePorts:
         self.plain_text = plain_text
         self.max_context_memories = max_context_memories
         self.conditional_state = conditional_state
+        self.resolver_mode = resolver_mode
 
     def _kwargs(self, request):
         try:
@@ -107,6 +111,11 @@ class DynamicServicePorts:
                 ],
                 effective_memory_ids=[memory.memory_id for memory in candidates],
             )
+        if self.resolver_mode == "deterministic":
+            return DeterministicStateResolver(
+                conversation_cutoff=self.cutoff,
+                on_diagnostic=self.on_diagnostic,
+            ).resolve(request, analysis, candidates)
         return StateResolver(
             self.runtime,
             conversation_cutoff=self.cutoff,

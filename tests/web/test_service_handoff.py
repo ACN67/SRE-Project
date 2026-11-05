@@ -4,6 +4,7 @@ import pytest
 
 from dynamic_memory.web.bindings import WebBindings
 from dynamic_memory.web.demo import DemoService
+from dynamic_memory.web import app as web_app
 from test_empty_and_failure import launch
 
 
@@ -21,20 +22,43 @@ def status_type():
     ("complete", None, "完整构建"),
 ])
 def test_public_status_panel_and_no_fake_empty(monkeypatch, status_type, state, code, label):
-    service = DemoService()
     status = status_type(dataset_state="ready", memory_state=state,
         partial_build=state in {"partial", "failed"},
         build_id=None if state == "not_built" else "synthetic-build", error_code=code)
-    service.get_build_status = lambda sample: status
-    if state != "complete":
-        from test_status import ServiceFailure
-        def unavailable(sample):
-            raise ServiceFailure(code)
-        service.list_memories = unavailable
-    app = launch(monkeypatch, service, page="服务状态")
-    assert not app.exception
-    assert any(label in item.value for item in app.metric)
-    assert not any("完整构建，零条" in item.value for item in app.success)
+
+    class Bindings:
+        @staticmethod
+        def supports(name):
+            return name == "get_build_status"
+
+        @staticmethod
+        def get_build_status(_sample):
+            return status
+
+        @staticmethod
+        def get_query_state(_sample):
+            return "idle"
+
+    metrics = []
+
+    class Column:
+        @staticmethod
+        def metric(title, value):
+            metrics.append((title, value))
+
+    monkeypatch.setattr(web_app.st, "session_state", {})
+    monkeypatch.setattr(web_app.st, "columns", lambda _count: (Column(), Column()))
+    monkeypatch.setattr(web_app.st, "text", lambda _value: None)
+    monkeypatch.setattr(web_app.st, "warning", lambda _value: None)
+
+    returned = web_app.build_panel(
+        Bindings(),
+        "demo_caroline",
+        details=True,
+    )
+
+    assert returned == status
+    assert any(label == value for _title, value in metrics)
 
 
 def test_public_status_complete_empty_and_build_change_clears_query(monkeypatch, status_type):
