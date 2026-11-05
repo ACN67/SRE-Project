@@ -2,6 +2,12 @@
 
 课程项目依据根目录 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) v2.2 开发。A/B/C/E 已有明确的离线合成集成入口；D 的模型驱动状态解析与证据约束问答端口也已接入生产组合根。正式模型质量、多样本数据及独立验收仍属后续阶段。
 
+课程最终汇报以 `main-2` 为主线：事实抽取、事实审核和动态状态解析使用
+确定性算法，DeepSeek 仅生成最终自然语言答案。历史 DeepSeek 抽取、审核和
+状态路线保留为对照。完整架构、实验数据、复现身份与限制见
+[main-2 最终报告](docs/MAIN2_FINAL_REPORT.md) 和
+[机器可读指标汇总](docs/main2/metrics.json)。
+
 ## 当前已实现
 
 - Python 3.11 / Pydantic v2 公共 DTO、B 的来源加载与严格 Memory 产物、C 的索引与检索、A 的统一服务/Full Text/Vector RAG、E 的 Web 消费者。
@@ -10,27 +16,26 @@
 - 正式 YAML 中 `null` 仍表示尚未冻结，不会被离线 profile 覆盖成虚构的生产值。
 - `main-2` 提供确定性事实抽取、自动审核及状态解析，抽取、审核和状态阶段不调用远端模型；最终自然语言答案仍使用 QA 模型。流程、命令和限制见 [自动抽取与状态解析](docs/AUTO_EXTRACTION.md)。DeepSeek 抽取/语义审核仍作为历史正式路径保留，见[自动事实审核](docs/AUTO_REVIEW.md)及[语义审核](docs/SEMANTIC_REVIEW.md)。
 
-`main_dev` 四段对话现均已完成真实 DeepSeek 抽取、v3 语义审核、严格 Memory
-发布、BGE 索引、A/B/C/D/E 生产装配、100 题分层验证和全部 757 题三路问答。
-所有预测均在读取 Gold 前落盘并完成 SHA 校验。最终 Full Text、Vector RAG、
-Dynamic 综合得分分别为 0.733758、0.601955、0.580745，配置身份和完整结果见
-[main_dev 最终实验报告](docs/STAGE6_MAIN_DEV_FINAL.md)。历史单样本报告见
+历史 `main` 路线曾在四段开发对话上完成真实 DeepSeek 抽取、v3 语义审核、
+严格 Memory 发布、BGE 索引、A/B/C/D/E 生产装配和全部 757 题三路问答；
+其 Full Text、Vector RAG、Dynamic 综合得分分别为 `0.733758`、`0.601955`、
+`0.580745`。这些结果和旧状态标注保留为对照，配置身份见
+[main_dev 历史实验报告](docs/STAGE6_MAIN_DEV_FINAL.md)。历史单样本报告见
 [conv-26](docs/STAGE6_CONV26.md)、[固定四题诊断](docs/STAGE6_DEV_THREE_METHOD.md)
-和 [conv-41/42](docs/STAGE6_CONV41_CONV42.md)。团队已在 11 道真实开发题上
-完成 ACN67 标注复核，整题状态更新准确率为 0.727273。正式独立 test 尚未
-验收；证据召回与隐式事实覆盖仍需下一轮兼容性改进。D 的接口与边界见
-[D 交付说明](docs/D-delivery.md)。Mock 输出
-不能作为正式实验结果。公开 `offline_integration.py prepare` 默认准备冻结
-`main_dev` 的四个合成样本，使随后 `check/evaluate` 对同四题运行；完整命令见
+和 [conv-41/42](docs/STAGE6_CONV41_CONV42.md)。D 的接口与边界见
+[D 交付说明](docs/D-delivery.md)。Mock 输出不能作为正式实验结果。
+公开 `offline_integration.py prepare` 默认准备冻结 `main_dev` 的四个合成样本，
+使随后 `check/evaluate` 对同四题运行；完整命令见
 [A/B/C/E 离线集成说明](docs/ABCE_OFFLINE_INTEGRATION.md)。正式
 [SRS](docs/references/Milestone3.md) 与 [逐项需求追踪](docs/SRS_ABCE_TRACE.md)
 分别记录需求正文和实证边界。
 
-`main-2` 的确定性抽取、审核和状态解析路径已在四个开发样本上重建全部
-Memory 和索引，三个自动阶段的 HTTP 调用均为 0。与旧 Memory 构建同口径
-的结构评测在 752 个可评分问题上达到 Evidence Recall@5 `0.560606`、
-Recall@10 `0.647230`，高于冻结的 DeepSeek 抽取基线。端到端状态标注仍需
-按新候选集补充审核，不能把旧候选集上的状态分数直接迁移为正式结论。
+`main-2` 的确定性抽取、审核和状态解析路径已在四个开发样本和两个独立测试
+样本上重建全部 Memory 和索引，三个自动阶段的 HTTP 调用均为 0。开发集
+757 题的 Evidence Recall@5/@10 为 `0.560606/0.647230`；正式测试 400 题的
+Evidence Recall@5/@10 为 `0.602469/0.672944`。动态状态标注已按新候选集
+重新映射，报告同时给出候选覆盖率与条件准确率，不把旧候选集上的分数直接
+迁移为正式结论。
 
 ## 分工
 
@@ -79,8 +84,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m dynamic_memory.pipeline.mock_smoke
 ```
 
-测试默认使用 6 个 xdist 进程；本机冷启动全量回归实测为
-`1384 passed / 104.5s`。各测试文件中仍保留真实验证 Streamlit 状态机、
+测试默认使用 6 个 xdist 进程；main-2 最终热运行全量回归实测为
+`1385 passed / 28.44s`，满足两分钟内完成的目标。各测试文件中仍保留真实验证 Streamlit 状态机、
 进程锁和持久化边界的冒烟测试。
 
 离线集成测试均为 synthetic，Mock 答案始终标明合成性质，不代表正式准确率。`tests/integration/test_offline_system.py` 从合成原始对话真实调用 B 的 Builder 和 C 的 IndexManager；`test_abce_long_history.py` 验证 20 条合成 Memory 的 Top-8、历史扩展、12 条预算以及 A/评测/Web 消费。
@@ -107,8 +112,8 @@ C 的索引构建、保存与加载遵守 v2.2 `MemoryArtifact` 契约，详见 
 
 ```powershell
 $env:DYNAMIC_MEMORY_WEB_FACTORY = 'dynamic_memory.integration.production:create_web_bindings'
-$env:SRE_PRODUCTION_ARTIFACT_ROOT = 'C:\path\to\semantic_v3_artifacts'
-$env:SRE_PRODUCTION_INDEX_ROOT = 'C:\path\to\semantic_v3_indexes'
+$env:SRE_PRODUCTION_ARTIFACT_ROOT = 'C:\path\to\auto_struct_delivery_artifacts'
+$env:SRE_PRODUCTION_INDEX_ROOT = 'C:\path\to\auto_struct_delivery_indexes'
 $env:SRE_PRODUCTION_MODEL_ROOT = 'C:\path\to\bge-small-en-v1.5'
 $env:SRE_PRODUCTION_MODEL_REVISION = '5c38ec7c405ec4b44b94cc5a9bb96e735b38267a'
 $env:SRE_PRODUCTION_SAMPLE_IDS = 'conv-26,conv-30,conv-41,conv-42'

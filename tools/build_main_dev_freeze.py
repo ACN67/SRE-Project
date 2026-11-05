@@ -15,10 +15,12 @@ from scripts.stage4_non_d_fixed import _code_fingerprint
 
 
 ARTIFACT_ROOT = Path(
-    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets\semantic_v3_artifacts"
+    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets"
+    r"\auto_struct_delivery_artifacts"
 )
 INDEX_ROOT = Path(
-    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets\semantic_v3_indexes"
+    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets"
+    r"\auto_struct_delivery_indexes"
 )
 
 

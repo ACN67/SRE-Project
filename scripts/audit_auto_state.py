@@ -779,6 +779,8 @@ def main() -> int:
     output = {
         "format_version": 1,
         "status": "AUTO_STATE_AUDIT_COMPLETE",
+        "annotation_source": "team_annotated",
+        "state_update_accuracy_scope": "legacy_annotation_candidate_universe",
         "network_calls": 0,
         "query_count": len(reports),
         **primary,

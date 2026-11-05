@@ -90,9 +90,27 @@ python scripts/auto_build_sample.py `
 candidate-conditioned 决策准确率；不得把旧候选集上的整题状态准确率直接
 当作新自动链路的成绩。
 
+## 开发集最终 QA
+
+`scripts/stage6_dev_three_method.py` 和 `tools/build_main_dev_freeze.py` 已把
+默认产物根切换到 `auto_struct_delivery_artifacts` 与
+`auto_struct_delivery_indexes`。正式运行前先对四个开发集分别执行
+`--mode plan` 与 `--mode dry-run`，确认运行指纹、零网络调用、三种方法的完整
+预测文件以及逐题一致的 Vector/Dynamic CandidateSet。
+
+自动抽取、审核和状态阶段不会出现在 HTTP 预算中。当前正式三方法比较仍需
+为 Full Text、Vector RAG 与 Dynamic 的最终自然语言答案生成调用 QA 模型；
+只有取得与各样本运行指纹精确匹配的新授权后才能执行 `--mode live`。
+
+main-2 的 757 道开发题和 400 道正式测试题均已完成上述运行。开发集
+Vector RAG / Dynamic 综合分为 `0.627715 / 0.614078`，正式测试为
+`0.639702 / 0.601676`；Evidence Recall@10 分别为 `0.647230 / 0.672944`。
+最终冻结、自动阶段零调用审计、逐样本指标、费用和已知限制见
+[main-2 最终报告](MAIN2_FINAL_REPORT.md)。
+
 ## 边界
 
 规则抽取和局部审核不是通用的自然语言语义证明。它们降低延迟和费用，但
-可能漏掉需要跨句指代或领域知识的事实。报告必须同时给出自动审核覆盖率、
-结构召回和状态指标，并保留 `INTEGRATION_PENDING` 直到最终 QA 已按新产物
-重跑。自动路径不需要供应商凭证，权重和其余运行产物继续放在仓库之外。
+可能漏掉需要跨句指代或领域知识的事实。正式报告同时给出自动审核覆盖率、
+结构召回、三路 QA 和状态指标；main-2 的最终 QA 已按新产物重跑完成。
+自动路径不需要供应商凭证，权重和其余运行产物继续放在仓库之外。

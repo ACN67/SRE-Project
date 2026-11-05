@@ -70,10 +70,12 @@ DATA = ROOT / "data/raw/locomo10.json"
 SPLIT = ROOT / "configs/data_split.yaml"
 PROFILE = ROOT / "configs/models_benchmark.yaml"
 DEFAULT_ARTIFACT_ROOT = Path(
-    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets\semantic_v3_artifacts"
+    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets"
+    r"\auto_struct_delivery_artifacts"
 )
 DEFAULT_INDEX_ROOT = Path(
-    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets\semantic_v3_indexes"
+    r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets"
+    r"\auto_struct_delivery_indexes"
 )
 MODEL_ROOT = Path(
     r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets\models"

@@ -1,6 +1,19 @@
 """Contract checks for the fixed development three-method runner."""
 
+from pathlib import Path
+
 from scripts import stage6_dev_three_method as runner
+
+
+def test_runner_defaults_bind_automated_delivery_roots():
+    assert runner.DEFAULT_ARTIFACT_ROOT == Path(
+        r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets"
+        r"\auto_struct_delivery_artifacts"
+    )
+    assert runner.DEFAULT_INDEX_ROOT == Path(
+        r"C:\Users\Keshu\Documents\SRE-Project-RuntimeAssets"
+        r"\auto_struct_delivery_indexes"
+    )
 
 
 def test_question_manifest_is_fixed_to_four_main_dev_questions():

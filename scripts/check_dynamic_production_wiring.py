@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from dynamic_memory.contracts import QueryRequest
-from dynamic_memory.integration.production import create_system
+from dynamic_memory.integration.production import create_multi_sample_system
 from dynamic_memory.pipeline.runtime import create_runtime
 from dynamic_memory.pipeline.settings import load_settings
 from dynamic_memory.web.bindings import WebBindings
@@ -53,17 +53,7 @@ class FakeDClient:
             })
             mode = "json"
         else:
-            memories = json.loads(
-                user.split("Context data:\n", 1)[1].split(
-                    "\n\nQuestion data:", 1
-                )[0]
-            )
-            content = json.dumps({
-                "status": "answered",
-                "answer": "No-network D wiring smoke answer.",
-                "evidence_refs": memories[0]["source_refs"],
-                "uncertainty": None,
-            })
+            content = "No-network D wiring smoke answer."
             mode = "text"
         return SimpleNamespace(
             model="deepseek-flash",
@@ -93,6 +83,11 @@ def main() -> int:
     parser.add_argument("--model-root", required=True, type=Path)
     parser.add_argument("--model-revision", required=True)
     parser.add_argument("--sample-id", default="conv-30")
+    parser.add_argument(
+        "--split",
+        choices=("main_dev", "extra_dev", "test"),
+        default="main_dev",
+    )
     parser.add_argument(
         "--question",
         default="How is Gina's store doing?",
@@ -124,12 +119,13 @@ def main() -> int:
         strict_budget=True,
         cache_enabled=False,
     )
-    service = create_system(
+    service = create_multi_sample_system(
         artifact_root=args.artifact_root,
-        index_path=args.index_path,
+        index_paths={args.sample_id: args.index_path},
         model_root=args.model_root,
         model_revision=args.model_revision,
-        sample_id=args.sample_id,
+        sample_ids=(args.sample_id,),
+        allowed_splits=(args.split,),
         settings=settings,
         runtime=runtime,
     )
@@ -169,6 +165,7 @@ def main() -> int:
         "network_calls": 0,
         "fake_provider_invocations": client.calls,
         "sample_id": args.sample_id,
+        "split": args.split,
         "candidate_count": candidate_count,
         "vector_status": vector.answer_result.status,
         "dynamic_status": dynamic.answer_result.status,

@@ -1,4 +1,4 @@
-"""Aggregate independently scored Stage 6 development samples."""
+"""Aggregate independently scored Stage 6 development or test samples."""
 
 from __future__ import annotations
 
@@ -158,6 +158,11 @@ def main() -> int:
     parser.add_argument("--scored-root", required=True, type=Path)
     parser.add_argument("--samples", required=True)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--expected-split",
+        choices=("main_dev", "test"),
+        default="main_dev",
+    )
     args = parser.parse_args()
     try:
         samples = tuple(item.strip() for item in args.samples.split(",") if item.strip())
@@ -191,9 +196,12 @@ def main() -> int:
         question_count = sum(
             int(plan["identity"]["question_count"]) for plan in plans
         )
+        expected_count = 757 if args.expected_split == "main_dev" else 400
+        if question_count != expected_count:
+            raise AggregateError("QUESTION_COUNT_MISMATCH")
         if any(
             plan.get("status") != "STAGE6_DEV_THREE_METHOD_PLAN_READY"
-            or plan.get("identity", {}).get("split") != "main_dev"
+            or plan.get("identity", {}).get("split") != args.expected_split
             for plan in plans
         ):
             raise AggregateError("PLAN_INVALID")
@@ -310,8 +318,13 @@ def main() -> int:
 
         output = {
             "format_version": 1,
-            "status": "STAGE6_DEV_AGGREGATE_COMPLETE",
+            "status": (
+                "STAGE6_DEV_AGGREGATE_COMPLETE"
+                if args.expected_split == "main_dev"
+                else "STAGE6_TEST_AGGREGATE_COMPLETE"
+            ),
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "split": args.expected_split,
             "question_count": question_count,
             "questions_file_sha256": next(iter(question_hashes)),
             "question_mode": next(iter(question_modes)),
