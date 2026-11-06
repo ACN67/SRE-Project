@@ -76,11 +76,22 @@ def submit(app):
 def test_submit_once_and_navigation_never_requeries(monkeypatch):
     service = QueryService()
     app = launch_page(monkeypatch, service, page="问答工作台")
+    app.selectbox(key="query_method").select("vector_rag").run()
     app.date_input(key="query_as_of").set_value(date(2023, 1, 1))
     submit(app)
     request = service.calls[0][0]
     assert request.query_id.startswith("interactive_")
     assert request.as_of == date(2023, 1, 1)
+    assert service.memories[0].content in [text.value for text in app.text]
+    assert any(
+        "实际用于生成答案的记忆" in item.value for item in app.markdown
+    )
+    candidate_table = next(
+        table.value
+        for table in app.table
+        if "used_in_answer" in table.value.columns
+    )
+    assert bool(candidate_table.iloc[0]["used_in_answer"]) is True
     app.run()
     go(app, "记忆浏览")
     app.selectbox(key="page").select(2).run()
@@ -153,6 +164,9 @@ def test_full_text_can_submit_when_memory_unavailable(monkeypatch):
     app = launch(monkeypatch, service)
     submit(app)
     assert any("已回答" in x.value for x in app.success)
+    assert any(
+        "Full Text 直接使用原始对话" in item.value for item in app.caption
+    )
 
 
 @pytest.mark.parametrize("method", ["vector_rag", "dynamic"])

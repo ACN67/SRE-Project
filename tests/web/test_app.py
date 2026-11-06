@@ -6,7 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from dynamic_memory.contracts.models import render_visible_turn
-from dynamic_memory.web.app import memories_json_bytes
+from dynamic_memory.web.app import load_sample_memories, memories_json_bytes
 from dynamic_memory.web.bindings import WebBindings
 from dynamic_memory.web.demo import DemoService
 from test_empty_and_failure import go, switch_sample
@@ -47,6 +47,26 @@ def test_browse_exposes_unified_memory_json_download(app):
     assert rows == [memory.model_dump(mode="json") for memory in memories]
     assert downloaded.endswith(b"\n")
     assert st_download_labels(app)
+
+
+def test_memory_snapshot_is_reused_within_one_build_identity(app):
+    bindings = app.session_state["bindings"]
+    sample = app.session_state["sample"]
+    service = bindings.service
+    calls = []
+    original = service.list_memories
+
+    def counted(sample_id):
+        calls.append(sample_id)
+        return original(sample_id)
+
+    service.list_memories = counted
+    app.session_state["memory_snapshot_cache"] = {}
+    first = load_sample_memories(bindings, sample)
+    second = load_sample_memories(bindings, sample)
+
+    assert first == second
+    assert calls == [sample]
 
 
 def st_download_labels(app):
