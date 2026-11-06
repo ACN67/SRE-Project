@@ -11,6 +11,7 @@ def clear_query():
     st.session_state.pop("query_response", None)
     st.session_state.pop("query_source", None)
     st.session_state.pop("query_elapsed_seconds", None)
+    st.session_state.pop("query_context_choice", None)
 
 
 def used_memory_panel(bindings, sample, used_memory_ids):
@@ -18,6 +19,7 @@ def used_memory_panel(bindings, sample, used_memory_ids):
     if not used_memory_ids:
         st.caption("本次回答没有使用结构化 Memory；Full Text 直接使用原始对话。")
         return
+    st.caption("以下是提交给答案模型的记忆上下文；并非答案逐句引用的判定。")
     for position, memory_id in enumerate(dict.fromkeys(used_memory_ids), 1):
         try:
             memory = bindings.get_memory(sample, memory_id)
@@ -36,6 +38,31 @@ def used_memory_panel(bindings, sample, used_memory_ids):
                 f"断言：{memory.assertion_type} · 极性：{memory.polarity} · "
                 f"记录时间：{memory.recorded_at or '未知'}"
             )
+
+
+def source_reference_panel(answer):
+    """Keep long Full Text contexts inspectable without rendering every turn."""
+    refs = answer.context_source_refs
+    evidence = {(ref.session_id, ref.dia_id) for ref in answer.evidence_refs}
+    if len(refs) > 20:
+        st.caption(f"本次使用 {len(refs)} 条原始上下文，其中 {len(evidence)} 条标记为答案证据。")
+        with st.expander("按需回查原始上下文"):
+            choice = st.selectbox(
+                "选择来源轮次",
+                range(len(refs)),
+                format_func=lambda index: (
+                    f"{'答案证据' if (refs[index].session_id, refs[index].dia_id) in evidence else '实际上下文'}"
+                    f" · {refs[index].session_id} / {refs[index].dia_id}"
+                ),
+                key="query_context_choice",
+            )
+            if st.button("查看选中原文", key="query_context_open"):
+                st.session_state["query_source"] = refs[choice]
+        return
+    for index, ref in enumerate(refs):
+        label = "答案证据" if (ref.session_id, ref.dia_id) in evidence else "实际上下文"
+        if st.button(f"{label} ↗ {ref.session_id} / {ref.dia_id}", key=f"query_ref_{index}"):
+            st.session_state["query_source"] = ref
 
 
 def query_panel(bindings, sample, report_error):
@@ -122,11 +149,7 @@ def query_panel(bindings, sample, report_error):
             st.json(response.resolution.model_dump(mode="json"))
     used_memory_panel(bindings, sample, answer.used_memory_ids)
     # Only context sources can be selected; evidence is a validated subset.
-    evidence = {(r.session_id, r.dia_id) for r in answer.evidence_refs}
-    for index, ref in enumerate(answer.context_source_refs):
-        label = "答案证据" if (ref.session_id, ref.dia_id) in evidence else "实际上下文"
-        if st.button(f"{label} ↗ {ref.session_id} / {ref.dia_id}", key=f"query_ref_{index}"):
-            st.session_state["query_source"] = ref
+    source_reference_panel(answer)
     ref = st.session_state.get("query_source")
     if ref is not None:
         try:

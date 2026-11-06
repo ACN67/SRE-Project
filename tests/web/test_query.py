@@ -160,6 +160,32 @@ def test_full_text_can_submit_when_memory_unavailable(monkeypatch):
     )
 
 
+def test_long_full_text_context_uses_one_lookup_control(monkeypatch):
+    service = QueryService()
+    original = service.run_query
+
+    def long_context(request, method="dynamic"):
+        response = original(request, method)
+        if method == "full_text":
+            response.answer_result.context_source_refs = [
+                SourceRef(session_id="session_1", dia_id="D1:1")
+                for _ in range(41)
+            ]
+        return response
+
+    service.run_query = long_context
+    app = launch(monkeypatch, service)
+    submit(app)
+
+    assert any("41 条原始上下文" in item.value for item in app.caption)
+    assert any("按需回查原始上下文" in item.label for item in app.expander)
+    assert not any(button.label.startswith("实际上下文 ↗") for button in app.button)
+    assert len(service.calls) == 1
+    next(button for button in app.button if button.label == "查看选中原文").click().run()
+    assert service.memories[0].content in [text.value for text in app.text]
+    assert len(service.calls) == 1
+
+
 @pytest.mark.parametrize("method", ["vector_rag", "dynamic"])
 def test_empty_candidates_are_not_null(monkeypatch, method):
     app = launch(monkeypatch, QueryService("no_evidence"))
