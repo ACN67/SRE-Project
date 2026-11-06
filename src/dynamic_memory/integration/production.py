@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 from dynamic_memory.baselines.full_text import FullTextAnswerer, FullTextProvenance
+from dynamic_memory.contracts import BuildStatus, MemoryRecord, SourceTurn
 from dynamic_memory.data.loader import load_conversations
 from dynamic_memory.data.repository import SourceRepository
 from dynamic_memory.llm.token_estimate import ESTIMATOR_VERSION, estimate_messages_tokens
@@ -39,7 +40,13 @@ class ProductionConfigurationError(ValueError):
 
 
 class ProductionWebService:
-    """Expose only the ordered samples configured for this production session."""
+    """Expose configured samples with session-scoped immutable read caches.
+
+    The Web binding is created per browser session. Caching here avoids
+    re-reading and re-validating multi-megabyte artifacts on every Streamlit
+    rerun. "Refresh service" creates a new binding and therefore discards all
+    cached snapshots.
+    """
 
     def __init__(
         self,
@@ -55,6 +62,11 @@ class ProductionWebService:
         ):
             raise ProductionConfigurationError("SAMPLE_CONFIGURATION_INVALID")
         self._sample_ids = values
+        self._status_cache: dict[str, BuildStatus] = {}
+        self._query_state_cache: dict[str, str] = {}
+        self._memory_cache: dict[str, tuple[MemoryRecord, ...]] = {}
+        self._memory_index: dict[str, dict[str, MemoryRecord]] = {}
+        self._turn_cache: dict[tuple[str, str, str], SourceTurn] = {}
 
     def _require_sample(self, sample_id: str) -> None:
         if sample_id not in self._sample_ids:
@@ -65,23 +77,48 @@ class ProductionWebService:
 
     def list_memories(self, sample_id: str):
         self._require_sample(sample_id)
-        return self._service.list_memories(sample_id)
+        records = self._memory_cache.get(sample_id)
+        if records is None:
+            records = tuple(self._service.list_memories(sample_id))
+            self._memory_cache[sample_id] = records
+            self._memory_index[sample_id] = {
+                record.memory_id: record for record in records
+            }
+        return [record.model_copy(deep=True) for record in records]
 
     def get_memory(self, sample_id: str, memory_id: str):
         self._require_sample(sample_id)
-        return self._service.get_memory(sample_id, memory_id)
+        self.list_memories(sample_id)
+        record = self._memory_index[sample_id].get(memory_id)
+        if record is None:
+            # Preserve the service's stable MEMORY_NOT_FOUND error semantics.
+            return self._service.get_memory(sample_id, memory_id)
+        return record.model_copy(deep=True)
 
     def get_turn(self, sample_id: str, ref):
         self._require_sample(sample_id)
-        return self._service.get_turn(sample_id, ref)
+        key = (sample_id, ref.session_id, ref.dia_id)
+        turn = self._turn_cache.get(key)
+        if turn is None:
+            turn = self._service.get_turn(sample_id, ref)
+            self._turn_cache[key] = turn
+        return turn.model_copy(deep=True)
 
     def get_build_status(self, sample_id: str):
         self._require_sample(sample_id)
-        return self._service.get_build_status(sample_id)
+        status = self._status_cache.get(sample_id)
+        if status is None:
+            status = self._service.get_build_status(sample_id)
+            self._status_cache[sample_id] = status
+        return status.model_copy(deep=True)
 
     def get_query_state(self, sample_id: str) -> str:
         self._require_sample(sample_id)
-        return self._service.get_query_state(sample_id)
+        state = self._query_state_cache.get(sample_id)
+        if state is None:
+            state = self._service.get_query_state(sample_id)
+            self._query_state_cache[sample_id] = state
+        return state
 
     def run_query(self, request, method: str = "dynamic"):
         self._require_sample(request.sample_id)
@@ -213,6 +250,7 @@ def create_multi_sample_system(
     allowed_splits: Sequence[str] = ("main_dev",),
     settings: AppSettings | None = None,
     runtime: LLMRuntime | None = None,
+    preload_artifacts: bool = True,
 ) -> DynamicMemoryService:
     """Compose verified artifacts, per-sample indexes and the shared A/D ports."""
     configured = tuple(sample_ids or tuple(index_paths))
@@ -253,8 +291,9 @@ def create_multi_sample_system(
         production=True,
         allowed_splits=split_values,
     )
-    for sample_id in configured:
-        artifacts.load(sample_id)
+    if preload_artifacts:
+        for sample_id in configured:
+            artifacts.load(sample_id)
 
     encoder = LocalIndexEncoder(EmbeddingConfig(
         str(model_root),
@@ -378,6 +417,7 @@ def create_web_bindings() -> WebBindings:
         model_revision=revision,
         sample_ids=sample_ids,
         allowed_splits=_configured_splits(),
+        preload_artifacts=False,
     )
     sample_label = (
         sample_ids[0]

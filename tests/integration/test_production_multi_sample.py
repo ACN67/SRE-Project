@@ -29,6 +29,69 @@ def test_production_web_service_exposes_ordered_multi_sample_configuration():
     assert exc.value.code == "SAMPLE_NOT_EXPOSED"
 
 
+def test_production_web_service_caches_immutable_session_reads():
+    base = service()
+    calls = {
+        "status": 0,
+        "query_state": 0,
+        "memories": 0,
+        "memory": 0,
+        "turn": 0,
+    }
+    original_status = base.get_build_status
+    original_query_state = base.get_query_state
+    original_memories = base.list_memories
+    original_memory = base.get_memory
+    original_turn = base.get_turn
+
+    def status(sample):
+        calls["status"] += 1
+        return original_status(sample)
+
+    def query_state(sample):
+        calls["query_state"] += 1
+        return original_query_state(sample)
+
+    def memories(sample):
+        calls["memories"] += 1
+        return original_memories(sample)
+
+    def get_one_memory(sample, memory_id):
+        calls["memory"] += 1
+        return original_memory(sample, memory_id)
+
+    def turn(sample, ref):
+        calls["turn"] += 1
+        return original_turn(sample, ref)
+
+    base.get_build_status = status
+    base.get_query_state = query_state
+    base.list_memories = memories
+    base.get_memory = get_one_memory
+    base.get_turn = turn
+    wrapped = ProductionWebService(base, (SAMPLE,))
+
+    assert wrapped.get_build_status(SAMPLE) == wrapped.get_build_status(SAMPLE)
+    assert wrapped.get_query_state(SAMPLE) == wrapped.get_query_state(SAMPLE)
+    first = wrapped.list_memories(SAMPLE)
+    second = wrapped.list_memories(SAMPLE)
+    assert first == second
+    first[0].content = "mutated cached list"
+    assert wrapped.list_memories(SAMPLE)[0].content != "mutated cached list"
+    memory_id = memory().memory_id
+    assert wrapped.get_memory(SAMPLE, memory_id) == wrapped.get_memory(
+        SAMPLE, memory_id
+    )
+    assert wrapped.get_turn(SAMPLE, REF) == wrapped.get_turn(SAMPLE, REF)
+    assert calls == {
+        "status": 1,
+        "query_state": 1,
+        "memories": 1,
+        "memory": 0,
+        "turn": 1,
+    }
+
+
 def test_production_web_service_rejects_empty_or_duplicate_samples():
     for value in ((), ("",), ("conv-26", "conv-26")):
         with pytest.raises(ProductionConfigurationError) as exc:

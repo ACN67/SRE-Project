@@ -59,6 +59,29 @@ def memories_json_bytes(memories) -> bytes:
     ).encode("utf-8")
 
 
+def cached_memories_json_bytes(bindings, sample, memories) -> bytes:
+    cache = st.session_state.setdefault("memory_json_cache", {})
+    key = (id(bindings), sample, st.session_state.get("build_identity"))
+    value = cache.get(key)
+    if value is None:
+        value = memories_json_bytes(memories)
+        cache.clear()
+        cache[key] = value
+    return value
+
+
+def load_sample_memories(bindings, sample):
+    """Load one verified Memory snapshot once per session and build identity."""
+    cache = st.session_state.setdefault("memory_snapshot_cache", {})
+    key = (id(bindings), sample, st.session_state.get("build_identity"))
+    records = cache.get(key)
+    if records is None:
+        records = tuple(bindings.list_memories(sample))
+        cache.clear()
+        cache[key] = records
+    return records
+
+
 def memory_card(memory):
     when = (memory.event_time.raw or "时间未知") if memory.event_time else "时间未知"
     st.markdown('<div class="memory-card"><div class="memory-card-meta"><span class="chip">'
@@ -72,7 +95,7 @@ def memory_card(memory):
 def browse(bindings, sample, memories):
     st.download_button(
         "下载当前样本全部 Memory JSON",
-        data=memories_json_bytes(memories),
+        data=cached_memories_json_bytes(bindings, sample, memories),
         file_name=f"{sample}-memories.json",
         mime="application/json",
         key=f"download_memories_{sample}",
@@ -277,7 +300,14 @@ def choose_sample():
 
 def refresh_service():
     reset_sample()
-    for key in ("bindings", "sample", "sample_choice", "build_identity"):
+    for key in (
+        "bindings",
+        "sample",
+        "sample_choice",
+        "build_identity",
+        "memory_snapshot_cache",
+        "memory_json_cache",
+    ):
         st.session_state.pop(key, None)
 
 
@@ -397,7 +427,7 @@ def main():
         memory_detail(bindings, sample)
         return
     try:
-        memories = bindings.list_memories(sample)
+        memories = load_sample_memories(bindings, sample)
     except Exception as error:
         clear_selection()
         report_error("读取记忆列表", error)

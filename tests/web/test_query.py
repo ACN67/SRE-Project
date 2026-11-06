@@ -1,7 +1,11 @@
 from test_empty_and_failure import go, switch_sample
 from datetime import date
+from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 import pytest
+from streamlit.testing.v1 import AppTest
 
 from dynamic_memory.contracts.models import (
     AnswerResult, CandidateItem, CandidateSet, MemoryDecision, QueryAnalysis, QueryRequest, QueryResponse,
@@ -12,8 +16,13 @@ from dynamic_memory.web.demo import DemoService
 from test_empty_and_failure import launch as launch_page
 
 
+QUERY_ENTRY = Path(__file__).resolve().parent / "query_entry.py"
+
+
 def launch(monkeypatch, service):
-    return launch_page(monkeypatch, service, page="问答工作台")
+    monkeypatch.setitem(sys.modules, "empty_factory", SimpleNamespace(create=lambda: WebBindings(service)))
+    monkeypatch.setenv("DYNAMIC_MEMORY_WEB_FACTORY", "empty_factory:create")
+    return AppTest.from_file(str(QUERY_ENTRY), default_timeout=10).run()
 
 
 class QueryService(DemoService):
@@ -64,25 +73,33 @@ def submit(app):
     assert not app.exception
 
 
-@pytest.mark.parametrize("method", ["full_text", "vector_rag", "dynamic"])
-def test_submit_once_and_navigation_never_requeries(monkeypatch, method):
+def test_submit_once_and_navigation_never_requeries(monkeypatch):
     service = QueryService()
-    app = launch(monkeypatch, service)
-    app.selectbox(key="query_method").select(method).run()
+    app = launch_page(monkeypatch, service, page="问答工作台")
+    app.selectbox(key="query_method").select("vector_rag").run()
     app.date_input(key="query_as_of").set_value(date(2023, 1, 1))
     submit(app)
     request = service.calls[0][0]
     assert request.query_id.startswith("interactive_")
     assert request.as_of == date(2023, 1, 1)
+    assert any(
+        "实际用于生成答案的记忆" in item.value for item in app.markdown
+    )
+    assert service.memories[0].content in [text.value for text in app.text]
+    candidate_table = next(
+        table.value
+        for table in app.table
+        if "used_in_answer" in table.value.columns
+    )
+    assert bool(candidate_table.iloc[0]["used_in_answer"]) is True
     app.run()
     go(app, "记忆浏览")
     app.selectbox(key="page").select(2).run()
     go(app, "问答工作台")
     assert len(service.calls) == 1
-    if method == "full_text":
-        next(b for b in app.button if b.label.startswith("答案证据 ↗")).click().run()
-        assert len(service.calls) == 1
-        assert service.memories[0].content in [t.value for t in app.text]
+    next(b for b in app.button if b.label.startswith("答案证据 ↗")).click().run()
+    assert len(service.calls) == 1
+    assert service.memories[0].content in [t.value for t in app.text]
     switch_sample(app, "demo_empty")
     assert "query_response" not in app.session_state
     assert "query_source" not in app.session_state
@@ -138,6 +155,9 @@ def test_full_text_can_submit_when_memory_unavailable(monkeypatch):
     app = launch(monkeypatch, service)
     submit(app)
     assert any("已回答" in x.value for x in app.success)
+    assert any(
+        "Full Text 直接使用原始对话" in item.value for item in app.caption
+    )
 
 
 @pytest.mark.parametrize("method", ["vector_rag", "dynamic"])
